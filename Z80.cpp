@@ -178,10 +178,7 @@ void __fastcall WriteAccessNeeded(CGameBoy *pGameBoy, DWORD Addr)
 		SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hDisAsm, 0);
 	}
 	MessageBox(hWnd, "Access violation.", "Game Lad", MB_ICONWARNING | MB_OK);
-	if (pGameBoy->hThread)
-	{
-		PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
-	}
+	pGameBoy->Stop();
 	pGameBoy->Flags |= GB_ERROR | GB_EXITLOOPDIRECTLY;
 }
 
@@ -276,10 +273,7 @@ void __fastcall ReadAccessNeeded(CGameBoy *pGameBoy, DWORD Addr)
 		SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hDisAsm, 0);
 	}
 	MessageBox(hWnd, "Access violation.", "Game Lad", MB_ICONWARNING | MB_OK);
-	if (pGameBoy->hThread)
-	{
-		PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
-	}
+	pGameBoy->Stop();
 	pGameBoy->Flags |= GB_ERROR | GB_EXITLOOPDIRECTLY;
 }
 
@@ -497,6 +491,115 @@ TAC_1:
 
 NR14:
 		//NR14
+		/*push	eax
+		push	ebx
+		xor		ebx, ebx
+		test	al, 0x80
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x26]
+		jz		NotNR14On
+		test	bl, 0x80
+		jz		NotNR14On
+
+		and		al, ~0x80
+		or		bl, 1
+		mov		byte ptr [ecx + Offset_Sound1Enabled], 1
+		mov		byte ptr [ecx + FF00_ASM + 0x14], al
+		mov		byte ptr [ecx + FF00_ASM + 0x26], bl
+
+		xor		bl, bl
+
+		test	al, 0x40
+		jz		Sound1_NoTimeOut
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x11]
+		and		bl, 0x3F
+		neg		ebx
+		add		ebx, 64
+		shl		ebx, 13
+Sound1_NoTimeOut:
+
+		mov		dword ptr [ecx + Offset_Sound1TimeOut], ebx
+
+		and		eax, 7
+		mov		ah, al
+		mov		al, byte ptr [ecx + FF00_ASM + 0x13]
+		mov		dword ptr [ecx + Offset_Sound1Frequency], eax
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x12]
+		mov		al, ah
+		shr		ah, 4
+		mov		byte ptr [ecx + Offset_Sound1Volume], ah
+		and		eax, 7
+		shl		eax, 14
+		mov		dword ptr [ecx + Offset_Sound1Envelope], eax
+
+		xor		eax, eax
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x10]
+		test	al, 0x07
+		jz		Sound1_NoSweep
+		and		al, 0x70
+		jz		Sound1_NoSweep
+
+		shl		eax, 9
+Sound1_NoSweep:
+		mov		dword ptr [ecx + Offset_Sound1Sweep], eax
+
+		pop		ebx
+		pop		eax
+
+		ret
+
+NotNR14On:
+		and		bl, ~1
+		mov		byte ptr [ecx + Offset_Sound1Enabled], 0
+		mov		byte ptr [ecx + FF00_ASM + 0x26], bl
+
+		pop		ebx
+		pop		eax
+		ret
+
+
+Sound1Port:
+		push	edx
+		and		edx, 0xFF
+		mov		byte ptr [ecx + FF00_ASM + edx], al
+		pop		edx
+
+		push	eax
+		mov		al, byte ptr [ecx + FF00_ASM + 0x26]
+		test	al, 0x80
+		jz		Sound1_Off
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x14]
+
+		and		eax, 7
+		mov		ah, al
+		mov		al, byte ptr [ecx + FF00_ASM + 0x13]
+		mov		dword ptr [ecx + Offset_Sound1Frequency], eax
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x12]
+		mov		al, ah
+		shr		ah, 4
+		mov		byte ptr [ecx + Offset_Sound1Volume], ah
+		and		eax, 7
+		shl		eax, 14
+		mov		dword ptr [ecx + Offset_Sound1Envelope], eax
+
+		xor		eax, eax
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x10]
+		test	al, 0x07
+		jz		Sound1_2_NoSweep
+		and		al, 0x70
+		jz		Sound1_2_NoSweep
+
+		shl		eax, 9
+Sound1_2_NoSweep:
+		mov		dword ptr [ecx + Offset_Sound1Sweep], eax
+
+Sound1_Off:
+		pop		eax
+
+		ret*/
 		test	al, 0x80
 		jz		NotNR14On
 
@@ -524,6 +627,24 @@ Sound1Port:
 #endif //_DEBUG
 
 		ret
+
+
+
+/*#ifdef _DEBUG
+		push	eax
+		push	ebx
+		push	ecx
+		push	edx
+#endif //_DEBUG*/
+		//call	Sound1
+/*#ifdef _DEBUG
+		pop		edx
+		pop		ecx
+		pop		ebx
+		pop		eax
+#endif //_DEBUG*/
+
+		//ret
 
 NR24:
 		//NR24
@@ -1736,9 +1857,11 @@ EnableRam:
 		mov		al, byte ptr [ecx + Offset_ActiveRamBank]
 		shl		eax, 13
 		add		eax, dword ptr [ecx + Offset_MemStatus_RAM]
+		jz		NoRAM
 		mov		dword ptr [ecx + Offset_MemStatus + 0xA * 4], eax
 		add		eax, 0x1000
 		mov		dword ptr [ecx + Offset_MemStatus + 0xB * 4], eax
+NoRAM:
 		pop		eax
 		ret
 
@@ -3849,7 +3972,7 @@ void __declspec(naked) __fastcall OpCode_ADD_HL_BC(CGameBoy *GB, DWORD PC)
 NoHalfCarry:
 		pop		edx
 		pop		ebx
-		add		ebx, edx
+		add		bx, dx
 		jnc		NoCarry
 		or		al, Flag_C
 NoCarry:
@@ -3883,7 +4006,7 @@ void __declspec(naked) __fastcall OpCode_ADD_HL_DE(CGameBoy *GB, DWORD PC)
 NoHalfCarry:
 		pop		edx
 		pop		ebx
-		add		ebx, edx
+		add		bx, dx
 		jnc		NoCarry
 		or		al, Flag_C
 NoCarry:
@@ -3912,7 +4035,7 @@ void __declspec(naked) __fastcall OpCode_ADD_HL_HL(CGameBoy *GB, DWORD PC)
 		jnc		NoHalfCarry
 		or		al, Flag_H
 NoHalfCarry:
-		add		edx, edx
+		add		dx, dx
 		jnc		NoCarry
 		or		al, Flag_C
 NoCarry:
@@ -3946,7 +4069,7 @@ void __declspec(naked) __fastcall OpCode_ADD_HL_SP(CGameBoy *GB, DWORD PC)
 NoHalfCarry:
 		pop		edx
 		pop		ebx
-		add		ebx, edx
+		add		bx, dx
 		jnc		NoCarry
 		or		al, Flag_C
 NoCarry:
@@ -4397,10 +4520,7 @@ void __fastcall HaltError(CGameBoy *pGameBoy)
 		SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hDisAsm, 0);
 	}
 	MessageBox(hWnd, "Halt quirk", "Game Lad", MB_ICONWARNING | MB_OK);
-	if (pGameBoy->hThread)
-	{
-		PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
-	}
+	pGameBoy->Stop();
 	pGameBoy->Flags |= GB_ERROR | GB_EXITLOOPDIRECTLY;
 }
 
@@ -14274,7 +14394,7 @@ void __declspec(naked) __fastcall OpCode_RES_7_L(CGameBoy *GB, DWORD PC)
 {
 	__asm
 	{
-		and		byte ptr [ecx + Offset_Reg_B], 0x7F
+		and		byte ptr [ecx + Offset_Reg_L], 0x7F
 
 		mov		eax, 2
 		ret

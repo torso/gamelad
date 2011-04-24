@@ -1,12 +1,21 @@
+#define		_WIN32_WINNT	0x0500
+
 #include	<windows.h>
 #include	"resource.h"
 
 #define		DEBUGGER_CPP
 #include	"CDebugInfo.h"
 #include	"Game Lad.h"
+#include	"CGameBoys.h"
 #include	"Debugger.h"
 #include	"Emulation.h"
 #include	"Z80.h"
+
+
+
+#define		WM_APP_SELECTTILE		WM_APP
+#define		WM_APP_HOVERTILE		(WM_APP + 1)
+#define		WM_APP_SETTILE			(WM_APP + 2)
 
 
 
@@ -68,6 +77,7 @@ struct _OpCodeNames
 #define		OCF_ADDRESS_C	0x80000000
 #define		OCF_ADDRESS		0x00000080
 #define		OCF_ADDRESS_16	0x10000000
+#define		OCF_REG_HL		0x01000000
 #define		OCF_COND_NZ		0x00000100
 #define		OCF_COND_Z		0x00000200
 #define		OCF_COND_NC		0x00000400
@@ -308,7 +318,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"Undefined", "", 0,
 							"sbc  a, ", "", OCF_DATA8,
 							"rst  18", "", OCF_CALL | OCF_RST18,
-							"ld   [FF", "], a", OCF_DATA8 | OCF_ADDRESS,	//0xE0
+							"ld   [", "], a", OCF_DATA8 | OCF_ADDRESS,	//0xE0
 							"pop  hl", "", OCF_ADDRESS_SP,
 							"ld   [FF00 + c], a", "", OCF_ADDRESS_C,
 							"Undefined", "", 0,
@@ -317,14 +327,14 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"and  ", "", OCF_DATA8,
 							"rst  20", "", OCF_CALL | OCF_RST20,
 							"add  sp, ", "", OCF_DATA8,		//0xE8
-							"jp   hl", "", 0,
+							"jp   hl", "", OCF_REG_HL | OCF_JUMP,
 							"ld   [", "], a", OCF_DATA16 | OCF_ADDRESS,
 							"Undefined", "", 0,
 							"Undefined", "", 0,
 							"Undefined", "", 0,
 							"xor  ", "", OCF_DATA8,
 							"rst  28", "", OCF_CALL | OCF_RST28,
-							"ld   a, [FF", "]", OCF_DATA8 | OCF_ADDRESS,	//0xF0
+							"ld   a, [", "]", OCF_DATA8 | OCF_ADDRESS,	//0xF0
 							"pop  af", "", OCF_ADDRESS_SP,
 							"ld   a, [FF00 + c]", "", OCF_ADDRESS_C,
 							"di", "", 0,
@@ -400,12 +410,12 @@ char *ToHex(unsigned int n, BOOL Word)
 {
 	if (Word)
 	{
-		NumBuffer[0] = (n >> 12) + 48;
+		NumBuffer[0] = ((n & 0xFFFF) >> 12) + 48;
 		if (NumBuffer[0] > 57)
 		{
 			NumBuffer[0] += 7;
 		}
-		NumBuffer[1] = ((n >> 8) & 0xF) + 48;
+		NumBuffer[1] = (((n & 0xFFFF) >> 8) & 0xF) + 48;
 		if (NumBuffer[1] > 57)
 		{
 			NumBuffer[1] += 7;
@@ -427,26 +437,215 @@ char *ToHex(unsigned int n, BOOL Word)
 
 
 
-LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK TileZoomWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	CGameBoy		*pGameBoy;
+	PAINTSTRUCT		Paint;
+	DWORD			TileNo, PaletteNo;
+	RECT			rct;
+	HBRUSH			hBrush[4];
+
+
+	switch (uMsg)
+	{
+	case WM_PAINT:
+		if (GetUpdateRect(hWin, NULL, true))
+		{
+			BeginPaint(hWin, &Paint);
+
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				TileNo = GetWindowLong(hWin, GWL_USERDATA);
+				if (TileNo & 0x80000000)
+				{
+					pGameBoy = NULL;
+				}
+				else
+				{
+					PaletteNo = (TileNo >> 16) & 0x1F;
+					TileNo &= 0x3FFF;
+				}
+			}
+
+
+			if (pGameBoy)
+			{
+				if (pGameBoy->Flags & GB_ROM_COLOR && PaletteNo <= 15)
+				{
+					if (PaletteNo <= 7)
+					{
+						hBrush[0] = CreateSolidBrush((((*(WORD *)&pGameBoy->BGP[PaletteNo * 8] >> 10) & 0x1F) << 19) | (((*(WORD *)&pGameBoy->BGP[PaletteNo * 8] >> 5) & 0x1F) << 11) | ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8] & 0x1F) << 3));
+						hBrush[1] = CreateSolidBrush((((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 2] >> 10) & 0x1F) << 19) | (((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 2] >> 5) & 0x1F) << 11) | ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 2] & 0x1F) << 3));
+						hBrush[2] = CreateSolidBrush((((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 4] >> 10) & 0x1F) << 19) | (((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 4] >> 5) & 0x1F) << 11) | ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 4] & 0x1F) << 3));
+						hBrush[3] = CreateSolidBrush((((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 6] >> 10) & 0x1F) << 19) | (((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 6] >> 5) & 0x1F) << 11) | ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 6] & 0x1F) << 3));
+					}
+					else
+					{
+						hBrush[0] = (HBRUSH)GetStockObject(NULL_BRUSH);
+						hBrush[1] = CreateSolidBrush((((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 2] >> 10) & 0x1F) << 19) | (((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 2] >> 5) & 0x1F) << 11) | ((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 2] & 0x1F) << 3));
+						hBrush[2] = CreateSolidBrush((((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 4] >> 10) & 0x1F) << 19) | (((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 4] >> 5) & 0x1F) << 11) | ((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 4] & 0x1F) << 3));
+						hBrush[3] = CreateSolidBrush((((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 6] >> 10) & 0x1F) << 19) | (((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 6] >> 5) & 0x1F) << 11) | ((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 6] & 0x1F) << 3));
+					}
+				}
+				else
+				{
+					switch (PaletteNo & 3)
+					{
+					case 1:
+						hBrush[0] = (HBRUSH)GetStockObject(NULL_BRUSH);
+						hBrush[1] = CreateSolidBrush(GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 2) & 3]);
+						hBrush[2] = CreateSolidBrush(GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 4) & 3]);
+						hBrush[3] = CreateSolidBrush(GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 6) & 3]);
+						break;
+
+					case 2:
+						hBrush[0] = (HBRUSH)GetStockObject(NULL_BRUSH);
+						hBrush[1] = CreateSolidBrush(GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 2) & 3]);
+						hBrush[2] = CreateSolidBrush(GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 4) & 3]);
+						hBrush[3] = CreateSolidBrush(GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 6) & 3]);
+						break;
+
+					default:
+						hBrush[0] = CreateSolidBrush(GreyScales[pGameBoy->MEM_CPU[0x8F47] & 3]);
+						hBrush[1] = CreateSolidBrush(GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 2) & 3]);
+						hBrush[2] = CreateSolidBrush(GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 4) & 3]);
+						hBrush[3] = CreateSolidBrush(GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 6) & 3]);
+						break;
+					}
+				}
+			}
+			else
+			{
+				hBrush[0] = CreateSolidBrush(0xFFFFFF);
+			}
+
+			for (rct.top = 0; rct.top < 8 * 9; rct.top += 9)
+			{
+				rct.bottom = rct.top + 8;
+
+				if (pGameBoy)
+				{
+					rct.left = 0;
+					rct.right = 8;
+
+					FillRect(Paint.hdc, &rct, hBrush[((pGameBoy->MEM_VRAM[TileNo] >> 7) & 1) | ((pGameBoy->MEM_VRAM[TileNo + 1] >> 6) & 2)]);
+					rct.left += 9;
+					rct.right += 9;
+					FillRect(Paint.hdc, &rct, hBrush[((pGameBoy->MEM_VRAM[TileNo] >> 6) & 1) | ((pGameBoy->MEM_VRAM[TileNo + 1] >> 5) & 2)]);
+					rct.left += 9;
+					rct.right += 9;
+					FillRect(Paint.hdc, &rct, hBrush[((pGameBoy->MEM_VRAM[TileNo] >> 5) & 1) | ((pGameBoy->MEM_VRAM[TileNo + 1] >> 4) & 2)]);
+					rct.left += 9;
+					rct.right += 9;
+					FillRect(Paint.hdc, &rct, hBrush[((pGameBoy->MEM_VRAM[TileNo] >> 4) & 1) | ((pGameBoy->MEM_VRAM[TileNo + 1] >> 3) & 2)]);
+					rct.left += 9;
+					rct.right += 9;
+					FillRect(Paint.hdc, &rct, hBrush[((pGameBoy->MEM_VRAM[TileNo] >> 3) & 1) | ((pGameBoy->MEM_VRAM[TileNo + 1] >> 2) & 2)]);
+					rct.left += 9;
+					rct.right += 9;
+					FillRect(Paint.hdc, &rct, hBrush[((pGameBoy->MEM_VRAM[TileNo] >> 2) & 1) | ((pGameBoy->MEM_VRAM[TileNo + 1] >> 1) & 2)]);
+					rct.left += 9;
+					rct.right += 9;
+					FillRect(Paint.hdc, &rct, hBrush[((pGameBoy->MEM_VRAM[TileNo] >> 1) & 1) | (pGameBoy->MEM_VRAM[TileNo + 1] & 2)]);
+					rct.left += 9;
+					rct.right += 9;
+					FillRect(Paint.hdc, &rct, hBrush[(pGameBoy->MEM_VRAM[TileNo] & 1) | ((pGameBoy->MEM_VRAM[TileNo + 1] << 1) & 2)]);
+				}
+				else
+				{
+					for (rct.left = 0; rct.left < 8 * 9; rct.left += 9)
+					{
+						rct.right = rct.left + 8;
+
+						FillRect(Paint.hdc, &rct, hBrush[0]);
+					}
+				}
+
+				TileNo += 2;
+			}
+
+			DeleteObject(hBrush[0]);
+			if (pGameBoy)
+			{
+				DeleteObject(hBrush[1]);
+				DeleteObject(hBrush[2]);
+				DeleteObject(hBrush[3]);
+			}
+
+
+			EndPaint(hWin, &Paint);
+		}
+		return 0;
+	}
+
+	return DefWindowProc(hWin, uMsg, wParam, lParam);
+}
+
+
+
+LRESULT CALLBACK TileMapChildWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CGameBoy		*pGameBoy;
 	PAINTSTRUCT		Paint;
 	BYTE			TileY;
 	WORD			pMapTile, pTile;
 	DWORD			Color1, Color2;
-	WORD			Color;
 	BITMAPINFO		bmi;
-	HBITMAP			hBitmap, hOldBitmap;
-	DWORD			*pBitmap[8];
-	HDC				hdc;
+	HBITMAP			hBitmap[8], hOldBitmap[8];
+	HPEN			hPen, hOldPen;
+	DWORD			pBitmap[8];
+	HDC				hdc[8];
 	RGBQUAD			Palette[4];
-	RECT			rct, Rect2;
+	DWORD			PaletteNo;
+	RECT			rct;
 	SCROLLINFO		si;
-	DWORD			x, y;
+	long			x, y, x2, y2, x3;
+	DWORD			TileNo;
+	TRACKMOUSEEVENT	tme;
+	long			SCX, SCXr, SCXr2, SCY, SCYb, SCYb2, WX, WY;
 
 
 	switch (uMsg)
 	{
+	case WM_MOUSELEAVE:
+		SendMessage(hTileMap, WM_APP_HOVERTILE, 0, 0x80000000);
+		return 0;
+
+	case WM_LBUTTONDOWN:
+	case WM_MOUSEMOVE:
+		tme.cbSize = sizeof(tme);
+		tme.dwFlags = TME_LEAVE;
+		tme.hwndTrack = hWin;
+		TrackMouseEvent(&tme);
+
+		si.cbSize = sizeof(si);
+		si.fMask = SIF_POS;
+		GetScrollInfo(hWin, SB_HORZ, &si);
+		x = si.nPos + LOWORD(lParam);
+		GetScrollInfo(hWin, SB_VERT, &si);
+		y = si.nPos + HIWORD(lParam);
+
+		if (x < 5 || (unsigned)x > 80 + TileMap.Zoom * 512 || ((unsigned)x > 36 + TileMap.Zoom * 256 && (unsigned)x < 49 + TileMap.Zoom * 256) || y < 5 || (unsigned)y > 36 + TileMap.Zoom * 256)
+		{
+			SendMessage(hTileMap, WM_APP_HOVERTILE, 0, 0x80000000);
+			return 0;
+		}
+
+		if ((unsigned)x > TileMap.Zoom * 256 + 44)
+		{
+			TileNo = 0x400;
+			x -= TileMap.Zoom * 256 + 44;
+		}
+		else
+		{
+			TileNo = 0;
+		}
+
+		TileNo = 0x1800 + TileNo + (x - 5) / (TileMap.Zoom * 8 + 1) + 32 * ((y - 5) / (TileMap.Zoom * 8 + 1));
+		SendMessage(hTileMap, uMsg == WM_MOUSEMOVE ? WM_APP_HOVERTILE : WM_APP_SELECTTILE, 0, TileNo);
+
+		return 0;
+
 	case WM_PAINT:
 		if (GetUpdateRect(hWin, NULL, true))
 		{
@@ -459,99 +658,321 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 			BeginPaint(hWin, &Paint);
 
-			pGameBoy = GameBoyList.GetActive();
-
-			ZeroMemory(&bmi, sizeof(bmi));
-			bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-			bmi.bmiHeader.biWidth = 8;
-			bmi.bmiHeader.biHeight = -8;
-			bmi.bmiHeader.biPlanes = 1;
-			bmi.bmiHeader.biBitCount = 4;
-			bmi.bmiHeader.biCompression = BI_RGB;
-			hBitmap = CreateDIBSection(Paint.hdc, &bmi, DIB_PAL_COLORS, (void **)&pBitmap, NULL, 0);
-
-			hdc = CreateCompatibleDC(Paint.hdc);
-			hOldBitmap = (HBITMAP)SelectObject(hdc, hBitmap);
-			if (pGameBoy)
+			if (pGameBoy = GameBoys.GetActive())
 			{
-				if (!(pGameBoy->Flags & GB_ROM_COLOR))
+				ZeroMemory(&bmi, sizeof(bmi));
+				bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+				bmi.bmiHeader.biWidth = 8;
+				bmi.bmiHeader.biHeight = -8;
+				bmi.bmiHeader.biPlanes = 1;
+				bmi.bmiHeader.biBitCount = 4;
+				bmi.bmiHeader.biCompression = BI_RGB;
+
+				if (pGameBoy->Flags & GB_ROM_COLOR)
 				{
-					*(DWORD *)&Palette[0] = GreyScales[pGameBoy->MEM_CPU[0x8F47] & 3];
-					*(DWORD *)&Palette[2] = GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 2) & 3];
-					*(DWORD *)&Palette[1] = GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 4) & 3];
-					*(DWORD *)&Palette[3] = GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 6) & 3];
-					SetDIBColorTable(hdc, 0, 4, Palette);
-				}
-			}
-			else
-			{
-				SetDIBColorTable(hdc, 0, 4, (RGBQUAD *)&GreyScales);
-			}
-
-			if (!pGameBoy)
-			{
-				ZeroMemory(*pBitmap, sizeof(pBitmap));
-			}
-
-			pMapTile = 0x1800;
-			while (pMapTile < 0x2000)
-			{
-				if (pGameBoy)
-				{
-					if (pGameBoy->MEM_CPU[0x8F40] & 0x10)
+					for (PaletteNo = 0; PaletteNo < 8; PaletteNo++)
 					{
-						pTile = pGameBoy->MEM_VRAM[pMapTile] << 4;
+						hBitmap[PaletteNo] = CreateDIBSection(Paint.hdc, &bmi, DIB_PAL_COLORS, (void **)&pBitmap[PaletteNo], NULL, 0);
+						hdc[PaletteNo] = CreateCompatibleDC(Paint.hdc);
+						hOldBitmap[PaletteNo] = (HBITMAP)SelectObject(hdc[PaletteNo], hBitmap[PaletteNo]);
+
+						Palette[0].rgbBlue = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8] >> 10) & 0x1F) << 3;
+						Palette[0].rgbGreen = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8] >> 5) & 0x1F) << 3;
+						Palette[0].rgbRed = (*(WORD *)&pGameBoy->BGP[PaletteNo * 8] & 0x1F) << 3;
+						Palette[1].rgbBlue = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 4] >> 10) & 0x1F) << 3;
+						Palette[1].rgbGreen = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 4] >> 5) & 0x1F) << 3;
+						Palette[1].rgbRed = (*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 4] & 0x1F) << 3;
+						Palette[2].rgbBlue = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 2] >> 10) & 0x1F) << 3;
+						Palette[2].rgbGreen = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 2] >> 5) & 0x1F) << 3;
+						Palette[2].rgbRed = (*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 2] & 0x1F) << 3;
+						Palette[3].rgbBlue = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 6] >> 10) & 0x1F) << 3;
+						Palette[3].rgbGreen = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 6] >> 5) & 0x1F) << 3;
+						Palette[3].rgbRed = (*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 6] & 0x1F) << 3;
+
+						SetDIBColorTable(hdc[PaletteNo], 0, 4, Palette);
 					}
-					else
-					{
-						pTile = 0x1000 + 16 * (signed char)pGameBoy->MEM_VRAM[pMapTile];
-					}
-
-					TileY = 0;
-					while (TileY < 8)
-					{
-						if (pGameBoy->Flags & GB_ROM_COLOR)
-						{
-							Color = *(WORD *)&pGameBoy->BGP[((pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 7) << 3)];
-							*(DWORD *)&Palette[0] = (((Color >> 10) & 0x1F) << 3) | (((Color >> 5) & 0x1F) << 11) | ((Color & 0x1F) << 19);
-							Color = *(WORD *)&pGameBoy->BGP[((pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 7) << 3) + 2];
-							*(DWORD *)&Palette[2] = (((Color >> 10) & 0x1F) << 3) | (((Color >> 5) & 0x1F) << 11) | ((Color & 0x1F) << 19);
-							Color = *(WORD *)&pGameBoy->BGP[((pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 7) << 3) + 4];
-							*(DWORD *)&Palette[1] = (((Color >> 10) & 0x1F) << 3) | (((Color >> 5) & 0x1F) << 11) | ((Color & 0x1F) << 19);
-							Color = *(WORD *)&pGameBoy->BGP[((pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 7) << 3) + 6];
-							*(DWORD *)&Palette[3] = (((Color >> 10) & 0x1F) << 3) | (((Color >> 5) & 0x1F) << 11) | ((Color & 0x1F) << 19);
-							SetDIBColorTable(hdc, 0, 4, Palette);
-
-							Color1 = pGameBoy->MEM_VRAM[((pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 8) ? 0x2000 : 0) + pTile + (TileY << 1)];
-							Color2 = pGameBoy->MEM_VRAM[((pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 8) ? 0x2000 : 0) + pTile + (TileY << 1) + 1];
-							(*pBitmap)[(pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 0x40) ? 7 - TileY : TileY] = (pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 0x20) ? TileToBmpFlipX(Color1, Color2) : TileToBmp(Color1, Color2);
-						}
-						else
-						{
-							Color1 = pGameBoy->MEM_VRAM[pTile + (TileY << 1)];
-							Color2 = pGameBoy->MEM_VRAM[pTile + (TileY << 1) + 1];
-							(*pBitmap)[TileY] = TileToBmp(Color1, Color2);
-						}
-
-						TileY++;
-					}
-				}
-
-				if (TileMap.Zoom == 1)
-				{
-					BitBlt(Paint.hdc, 5 + 9 * ((pMapTile - 0x1800) & 0x1F) + (pMapTile >= 0x1C00 ? 300 : 0) - x, 5 + 9 * (((pMapTile - 0x1800) & ~0x1F) >> 5) - (pMapTile >= 0x1C00 ? 288 : 0) - y, 8, 8, hdc, 0, 0, SRCCOPY);
 				}
 				else
 				{
-					StretchBlt(Paint.hdc, 5 + TileMap.Zoom * 8 * ((pMapTile - 0x1800) & 0x1F) + ((pMapTile - 0x1800) & 0x1F) + (pMapTile >= 0x1C00 ? 42 + TileMap.Zoom * 256 : 0) - x, 5 + TileMap.Zoom * 8 * (((pMapTile - 0x1800) & ~0x1F) >> 5) + (((pMapTile - 0x1800) & ~0x1F) >> 5) - (pMapTile >= 0x1C00 ? 32 + TileMap.Zoom * 256 : 0) - y, TileMap.Zoom * 8, TileMap.Zoom * 8, hdc, 0, 0, 8, 8, SRCCOPY);
-				}
+					hBitmap[0] = CreateDIBSection(Paint.hdc, &bmi, DIB_PAL_COLORS, (void **)&pBitmap[0], NULL, 0);
+					hdc[0] = CreateCompatibleDC(Paint.hdc);
+					hOldBitmap[0] = (HBITMAP)SelectObject(hdc[0], hBitmap[0]);
 
-				pMapTile++;
+					Palette[0].rgbBlue = (BYTE)GreyScales[pGameBoy->MEM_CPU[0x8F47] & 3];
+					Palette[0].rgbGreen = (BYTE)GreyScales[pGameBoy->MEM_CPU[0x8F47] & 3];
+					Palette[0].rgbRed = (BYTE)GreyScales[pGameBoy->MEM_CPU[0x8F47] & 3];
+					Palette[1].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 4) & 3];
+					Palette[1].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 4) & 3];
+					Palette[1].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 4) & 3];
+					Palette[2].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 2) & 3];
+					Palette[2].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 2) & 3];
+					Palette[2].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 2) & 3];
+					Palette[3].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 6) & 3];
+					Palette[3].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 6) & 3];
+					Palette[3].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 6) & 3];
+
+					SetDIBColorTable(hdc[0], 0, 4, Palette);
+				}
 			}
 
-			SelectObject(hdc, hOldBitmap);
-			DeleteDC(hdc);
-			DeleteObject(hBitmap);
+			if (pGameBoy)
+			{
+				if (pGameBoy->MEM_CPU[0x8F40] & 0x20)
+				{
+					WX = pGameBoy->MEM_CPU[0x8F4B] >= 167 ? 160 : pGameBoy->MEM_CPU[0x8F4B] <= 7 ? 0 : 168 - pGameBoy->MEM_CPU[0x8F4B];
+					WY = pGameBoy->MEM_CPU[0x8F4A] >= 144 ? 144 : pGameBoy->MEM_CPU[0x8F4A];
+				}
+				else
+				{
+					WX = 160;
+					WY = 144;
+				}
+				if (pGameBoy->MEM_CPU[0x8F40] & 1 && !(WX == 0 && WY == 0))
+				{
+					if (pGameBoy->MEM_CPU[0x8F40] & 0x08)
+					{
+						x2 = 44 + 256 * TileMap.Zoom;
+					}
+					else
+					{
+						x2 = 0;
+					}
+
+					hPen = CreatePen(PS_SOLID, 0, RGB(0xFF, 0x00, 0x00));
+					hOldPen = (HPEN)SelectObject(Paint.hdc, hPen);
+
+					SCX = 4 + pGameBoy->MEM_CPU[0x8F43] * TileMap.Zoom + pGameBoy->MEM_CPU[0x8F43] / 8 - x;
+					SCXr = SCX + 160 * TileMap.Zoom + 20;
+					if (SCXr > (signed)(5 + 31 + 32 * 8 * TileMap.Zoom - x - x))
+					{
+						SCXr -= 32 + 32 * 8 * TileMap.Zoom;
+					}
+					SCXr2 = SCX + WX * TileMap.Zoom + WX / 8;
+					if (SCXr2 > (signed)(5 + 31 + 32 * 8 * TileMap.Zoom - x - x))
+					{
+						SCXr2 -= 32 + 32 * 8 * TileMap.Zoom;
+					}
+					SCY = 4 + pGameBoy->MEM_CPU[0x8F42] * TileMap.Zoom + pGameBoy->MEM_CPU[0x8F42] / 8 - y;
+					SCYb = SCY + 144 * TileMap.Zoom + 18;
+					if (SCYb > (signed)(5 + 31 + 32 * 8 * TileMap.Zoom))
+					{
+						SCYb -= 31 + 32 * 8 * TileMap.Zoom;
+					}
+					SCYb2 = SCY + WY * TileMap.Zoom + WY / 8;
+					if (SCYb2 > (signed)(5 + 31 + 32 * 8 * TileMap.Zoom))
+					{
+						SCYb2 -= 31 + 32 * 8 * TileMap.Zoom;
+					}
+					if (WX == 0)
+					{
+						SCYb = SCYb2;
+					}
+
+					SCX += x2;
+					SCXr += x2;
+					SCXr2 += x2;
+
+					MoveToEx(Paint.hdc, SCX, SCY, NULL);
+					if (SCXr < SCX)
+					{
+						LineTo(Paint.hdc, x2 + (37 + 256 * TileMap.Zoom) - x, SCY);
+						MoveToEx(Paint.hdc, x2 + 4 - x, SCY, NULL);
+					}
+					LineTo(Paint.hdc, SCXr, SCY);
+					if (SCYb2 < SCY)
+					{
+						LineTo(Paint.hdc, SCXr, (37 + 256 * TileMap.Zoom) - y);
+						MoveToEx(Paint.hdc, SCXr, 4 - y, NULL);
+					}
+					LineTo(Paint.hdc, SCXr, SCYb2);
+					if (SCXr != SCXr2)
+					{
+						if (SCXr2 > SCXr)
+						{
+							LineTo(Paint.hdc, x2 + 3 - x, SCYb2);
+							MoveToEx(Paint.hdc, x2 + (37 + 256 * TileMap.Zoom) - x, SCYb2, NULL);
+						}
+						LineTo(Paint.hdc, SCXr2, SCYb2);
+					}
+					if (SCYb < SCYb2)
+					{
+						LineTo(Paint.hdc, SCXr2, (37 + 256 * TileMap.Zoom) - y);
+						MoveToEx(Paint.hdc, SCXr2, 4 - y, NULL);
+					}
+					LineTo(Paint.hdc, SCXr2, SCYb);
+					if (SCX > SCXr2)
+					{
+						LineTo(Paint.hdc, x2 + 3 - x, SCYb);
+						MoveToEx(Paint.hdc, x2 + (36 + 256 * TileMap.Zoom) - x, SCYb, NULL);
+					}
+					LineTo(Paint.hdc, SCX, SCYb);
+					if (SCY > SCYb)
+					{
+						LineTo(Paint.hdc, SCX, 3 - y);
+						MoveToEx(Paint.hdc, SCX, (36 + 256 * TileMap.Zoom) - y, NULL);
+					}
+					LineTo(Paint.hdc, SCX, SCY);
+
+					SelectObject(Paint.hdc, hOldPen);
+					DeleteObject(hPen);
+				}
+
+				if (pGameBoy->MEM_CPU[0x8F40] & 0x20)
+				{
+					if (pGameBoy->MEM_CPU[0x8F40] & 0x40)
+					{
+						x2 = 44 + 256 * TileMap.Zoom;
+					}
+					else
+					{
+						x2 = 0;
+					}
+					if (pGameBoy->MEM_CPU[0x8F4B] <= 7)
+					{
+						x2 += (7 - pGameBoy->MEM_CPU[0x8F4B]) * TileMap.Zoom + 4 - x;
+					}
+					else
+					{
+						x2 += 4 - x;
+					}
+					if (pGameBoy->MEM_CPU[0x8F4A] >= 144)
+					{
+						y2 = 144 * TileMap.Zoom + 20 + 4 - y;
+					}
+					else
+					{
+						y2 = (144 - pGameBoy->MEM_CPU[0x8F4A]) * TileMap.Zoom + (144 - pGameBoy->MEM_CPU[0x8F4A]) / 8 + 4 - y;
+					}
+
+					hPen = CreatePen(PS_SOLID, 0, RGB(0x00, 0xFF, 0x00));
+					hOldPen = (HPEN)SelectObject(Paint.hdc, hPen);
+
+					MoveToEx(Paint.hdc, x2, 4 - y, NULL);
+					LineTo(Paint.hdc, x2 + 160 * TileMap.Zoom + 20, 4 - y);
+					LineTo(Paint.hdc, x2 + 160 * TileMap.Zoom + 20, y2);
+					LineTo(Paint.hdc, x2, y2);
+					LineTo(Paint.hdc, x2, 4 - y);
+
+					SelectObject(Paint.hdc, hOldPen);
+					DeleteObject(hPen);
+				}
+			}
+
+			PaletteNo = 0;
+			pMapTile = 0x1800;
+			while (pMapTile < 0x2000)
+			{
+				for (y2 = 5 - y; y2 < (signed)((8 * TileMap.Zoom + 1) * 32); y2 += 8 * TileMap.Zoom + 1)
+				{
+					if (Paint.rcPaint.top < (signed)(y2 + 8 * TileMap.Zoom) && Paint.rcPaint.bottom > y2)
+					{
+						for (x2 = (signed)(5 - x + (pMapTile >= 0x1C00 ? 44 + TileMap.Zoom * 256 : 0)), x3 = x2 + 31 + 256 * TileMap.Zoom; x2 < x3; x2 += 8 * TileMap.Zoom + 1)
+						{
+							if (Paint.rcPaint.left < (signed)(x2 + 8 * TileMap.Zoom) && Paint.rcPaint.right > x2)
+							{
+								if (pGameBoy)
+								{
+									if (pGameBoy->MEM_CPU[0x8F40] & 0x10)
+									{
+										pTile = pGameBoy->MEM_VRAM[pMapTile] << 4;
+									}
+									else
+									{
+										pTile = 0x1000 + 16 * (signed char)pGameBoy->MEM_VRAM[pMapTile];
+									}
+
+									TileY = 0;
+									while (TileY < 8)
+									{
+										if (pGameBoy->Flags & GB_ROM_COLOR)
+										{
+											PaletteNo = pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 7;
+											Color1 = pGameBoy->MEM_VRAM[((pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 8) ? 0x2000 : 0) + pTile + (TileY << 1)];
+											Color2 = pGameBoy->MEM_VRAM[((pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 8) ? 0x2000 : 0) + pTile + (TileY << 1) + 1];
+											((DWORD *)(pBitmap[PaletteNo]))[(pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 0x40) ? 7 - TileY : TileY] = (pGameBoy->MEM_VRAM[pMapTile + 0x2000] & 0x20) ? TileToBmpFlipX(Color1, Color2) : TileToBmp(Color1, Color2);
+										}
+										else
+										{
+											Color1 = pGameBoy->MEM_VRAM[pTile + (TileY << 1)];
+											Color2 = pGameBoy->MEM_VRAM[pTile + (TileY << 1) + 1];
+											((DWORD *)(pBitmap[0]))[TileY] = TileToBmp(Color1, Color2);
+										}
+
+										TileY++;
+									}
+
+									if (TileMap.Zoom == 1)
+									{
+										BitBlt(Paint.hdc, x2, y2, 8, 8, hdc[PaletteNo], 0, 0, SRCCOPY);
+									}
+									else
+									{
+										StretchBlt(Paint.hdc, x2, y2, TileMap.Zoom * 8, TileMap.Zoom * 8, hdc[PaletteNo], 0, 0, 8, 8, SRCCOPY);
+									}
+								}
+								else
+								{
+									rct.left = x2;
+									rct.right = x2 + TileMap.Zoom * 8;
+									rct.top = y2;
+									rct.bottom = y2 + TileMap.Zoom * 8;
+									FillRect(Paint.hdc, &rct, (HBRUSH)GetStockObject(WHITE_BRUSH));
+								}
+							}
+
+							pMapTile++;
+						}
+					}
+					else
+					{
+						pMapTile += 32;
+					}
+				}
+			}
+
+			if (pGameBoy)
+			{
+				if (pGameBoy->Flags & GB_ROM_COLOR)
+				{
+					for (PaletteNo = 0; PaletteNo < 8; PaletteNo++)
+					{
+						SelectObject(hdc[PaletteNo], hOldBitmap[PaletteNo]);
+						DeleteObject(hBitmap[PaletteNo]);
+						DeleteDC(hdc[PaletteNo]);
+					}
+				}
+				else
+				{
+					SelectObject(hdc[0], hOldBitmap[0]);
+					DeleteObject(hBitmap[0]);
+					DeleteDC(hdc[0]);
+				}
+			}
+
+			if (!(SelectedTile & 0x80000000))
+			{
+				if (SelectedTile & 0x0400)
+				{
+					x2 = (TileMap.Zoom * 8 + 1) * (SelectedTile & 0x1F) + 48 + 256 * TileMap.Zoom - x;
+				}
+				else
+				{
+					x2 = (TileMap.Zoom * 8 + 1) * (SelectedTile & 0x1F) + 4 - x;
+				}
+				y2 = (TileMap.Zoom * 8 + 1) * ((SelectedTile >> 5) & 0x1F) + 4 - y;
+
+				hPen = CreatePen(PS_SOLID, 0, RGB(0x00, 0x00, 0xFF));
+				hOldPen = (HPEN)SelectObject(Paint.hdc, hPen);
+
+				MoveToEx(Paint.hdc, x2, y2, NULL);
+				LineTo(Paint.hdc, x2 + 8 * TileMap.Zoom + 1, y2);
+				LineTo(Paint.hdc, x2 + 8 * TileMap.Zoom + 1, y2 + 8 * TileMap.Zoom + 1);
+				LineTo(Paint.hdc, x2, y2 + 8 * TileMap.Zoom + 1);
+				LineTo(Paint.hdc, x2, y2);
+
+				SelectObject(Paint.hdc, hOldPen);
+				DeleteObject(hPen);
+			}
 
 			EndPaint(hWin, &Paint);
 		}
@@ -567,14 +988,14 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		x = si.nMax;
 		GetWindowRect(hWin, &rct);
 		si.nPage = rct.right - rct.left - 2 * GetSystemMetrics(SM_CXSIZEFRAME) - 2 * GetSystemMetrics(SM_CXEDGE) /*- GetSystemMetrics(SM_CXVSCROLL)*/;
-		if ((unsigned)rct.bottom - rct.top - 2 * GetSystemMetrics(SM_CYSIZEFRAME) - 2 * GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYSMCAPTION) < y + 1)
+		if (rct.bottom - rct.top - 2 * GetSystemMetrics(SM_CYSIZEFRAME) - 2 * GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYSMCAPTION) < y + 1)
 		{
 			si.nPage -= GetSystemMetrics(SM_CXVSCROLL);
 			x += GetSystemMetrics(SM_CXVSCROLL);
 		}
 		else
 		{
-			if ((unsigned)rct.right - rct.left - 2 * GetSystemMetrics(SM_CXSIZEFRAME) - 2 * GetSystemMetrics(SM_CXEDGE) < x + 1 && (unsigned)rct.bottom - rct.top - 2 * GetSystemMetrics(SM_CYSIZEFRAME) - 2 * GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYSMCAPTION) - GetSystemMetrics(SM_CYVSCROLL) < y + 1)
+			if (rct.right - rct.left - 2 * GetSystemMetrics(SM_CXSIZEFRAME) - 2 * GetSystemMetrics(SM_CXEDGE) < x + 1 && rct.bottom - rct.top - 2 * GetSystemMetrics(SM_CYSIZEFRAME) - 2 * GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYSMCAPTION) - GetSystemMetrics(SM_CYVSCROLL) < y + 1)
 			{
 				si.nPage -= GetSystemMetrics(SM_CXVSCROLL);
 				x += GetSystemMetrics(SM_CXVSCROLL);
@@ -589,7 +1010,7 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		si.fMask = SIF_PAGE | SIF_POS;
 		GetScrollInfo(hWin, SB_VERT, &si);
 		si.nPage = rct.bottom - rct.top - 2 * GetSystemMetrics(SM_CYSIZEFRAME) - 2 * GetSystemMetrics(SM_CYEDGE) /*- GetSystemMetrics(SM_CYHSCROLL)*/ - GetSystemMetrics(SM_CYSMCAPTION);
-		if ((unsigned)rct.right - rct.left - 2 * GetSystemMetrics(SM_CXSIZEFRAME) - 2 * GetSystemMetrics(SM_CXEDGE) < x + 1)
+		if (rct.right - rct.left - 2 * GetSystemMetrics(SM_CXSIZEFRAME) - 2 * GetSystemMetrics(SM_CXEDGE) < x + 1)
 		{
 			si.nPage -= GetSystemMetrics(SM_CYHSCROLL);
 		}
@@ -676,94 +1097,674 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		UpdateWindow(hWin);
 		return 0;
 
+	case WM_CREATE:
+		si.cbSize = sizeof(si);
+		si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
+		si.nPos = 0;
+		si.nMin = 0;
+		si.nMax = 77 + TileMap.Zoom * 512;
+		si.nPage = si.nMax + 1;
+		SetScrollInfo(hWin, SB_HORZ, &si, true);
+		si.nMax = 20 + TileMap.Zoom * 256;
+		si.nPage = si.nMax + 1;
+		SetScrollInfo(hWin, SB_VERT, &si, true);
+		return 0;
+	}
+
+	return DefWindowProc(hWin, uMsg, wParam, lParam);
+}
+
+
+
+HWND		hTileMapChild, hTileZoom, hFlipX, hFlipY, hPriority, hTileNo, hPaletteNo, hTileAddress;
+HWND		hTileData, hBGEnabled, hBGAddress, hWNDEnabled, hWNDAddress;
+
+BOOL		LockTileMapInfo = false;
+
+
+
+void TileMapUpdateInfo()
+{
+	CGameBoy		*pGameBoy;
+	DWORD			TileMapNo, TileNo;
+	char			szTileAddress[8];
+
+
+	if (pGameBoy = GameBoys.GetActive())
+	{
+		if (HoverTile & 0x80000000)
+		{
+			TileMapNo = SelectedTile;
+		}
+		else
+		{
+			TileMapNo = HoverTile;
+		}
+		if (!(TileMapNo & 0x80000000))
+		{
+			LockTileMapInfo = true;
+
+			if (pGameBoy->MEM_CPU[0x8F40] & 0x10)
+			{
+				if (pGameBoy->Flags & GB_ROM_COLOR)
+				{
+					TileNo = ((pGameBoy->MEM_VRAM[0x2000 + TileMapNo] & 7) << 16) | ((pGameBoy->MEM_VRAM[0x2000 + TileMapNo] & 8) << 11) | (16 * pGameBoy->MEM_VRAM[TileMapNo]);
+				}
+				else
+				{
+					TileNo = 16 * pGameBoy->MEM_VRAM[TileMapNo];
+				}
+			}
+			else
+			{
+				if (pGameBoy->Flags & GB_ROM_COLOR)
+				{
+					TileNo = ((pGameBoy->MEM_VRAM[0x2000 + TileMapNo] & 7) << 16) | ((pGameBoy->MEM_VRAM[0x2000 + TileMapNo] & 8) << 11) | (0x1000 + 16 * (signed char)pGameBoy->MEM_VRAM[TileMapNo]);
+				}
+				else
+				{
+					TileNo = 0x1000 + 16 * (signed char)pGameBoy->MEM_VRAM[TileMapNo];
+				}
+			}
+			if (pGameBoy->Flags & GB_ROM_COLOR)
+			{
+				szTileAddress[0] = pGameBoy->MEM_VRAM[0x2000 + TileMapNo] & 8 ? '1' : '0';
+			}
+			else
+			{
+				szTileAddress[0] = '0';
+			}
+			szTileAddress[1] = ':';
+			*(DWORD *)&szTileAddress[2] = *(DWORD *)ToHex(0x8000 + (TileNo & 0x1FF0), true);
+			szTileAddress[6] = '\0';
+			SetWindowText(hTileAddress, szTileAddress);
+			*(WORD *)&szTileAddress[2] = *(WORD *)ToHex(pGameBoy->MEM_VRAM[TileMapNo], false);
+			szTileAddress[4] = '\0';
+			SetWindowText(hTileNo, szTileAddress);
+			SetWindowLong(hTileZoom, GWL_USERDATA, TileNo);
+			InvalidateRect(hTileZoom, NULL, true);
+
+			if (pGameBoy->Flags & GB_ROM_COLOR)
+			{
+				SendMessage(hPaletteNo, CB_SETCURSEL, pGameBoy->MEM_VRAM[0x2000 + TileMapNo] & 7, 0);
+
+				if (pGameBoy->MEM_VRAM[0x2000 + TileMapNo] & 0x20)
+				{
+					SendMessage(hFlipX, BM_SETCHECK, BST_CHECKED, 0);
+				}
+				else
+				{
+					SendMessage(hFlipX, BM_SETCHECK, BST_UNCHECKED, 0);
+				}
+
+				if (pGameBoy->MEM_VRAM[0x2000 + TileMapNo] & 0x40)
+				{
+					SendMessage(hFlipY, BM_SETCHECK, BST_CHECKED, 0);
+				}
+				else
+				{
+					SendMessage(hFlipY, BM_SETCHECK, BST_UNCHECKED, 0);
+				}
+
+				if (pGameBoy->MEM_VRAM[0x2000 + TileMapNo] & 0x80)
+				{
+					SendMessage(hPriority, BM_SETCHECK, BST_CHECKED, 0);
+				}
+				else
+				{
+					SendMessage(hPriority, BM_SETCHECK, BST_UNCHECKED, 0);
+				}
+			}
+
+			LockTileMapInfo = false;
+
+			EnableWindow(hTileAddress, true);
+			EnableWindow(hTileNo, true);
+			if (pGameBoy->Flags & GB_ROM_COLOR)
+			{
+				EnableWindow(hPaletteNo, true);
+				EnableWindow(hFlipX, true);
+				EnableWindow(hFlipY, true);
+				EnableWindow(hPriority, true);
+			}
+			else
+			{
+				EnableWindow(hPaletteNo, false);
+				EnableWindow(hFlipX, false);
+				EnableWindow(hFlipY, false);
+				EnableWindow(hPriority, false);
+			}
+		}
+		else
+		{
+			SelectedTile = HoverTile = 0x80000000;
+			SetWindowLong(hTileZoom, GWL_USERDATA, 0x80000000);
+			InvalidateRect(hTileZoom, NULL, true);
+			SetWindowText(hTileAddress, NULL);
+			SetWindowText(hTileNo, NULL);
+			SendMessage(hPaletteNo, CB_SETCURSEL, -1, 0);
+
+			EnableWindow(hTileAddress, false);
+			EnableWindow(hTileNo, false);
+			EnableWindow(hPaletteNo, false);
+			EnableWindow(hFlipX, false);
+			EnableWindow(hFlipY, false);
+			EnableWindow(hPriority, false);
+		}
+
+		EnableWindow(hTileData, true);
+		EnableWindow(hBGEnabled, true);
+		EnableWindow(hBGAddress, true);
+		EnableWindow(hWNDEnabled, true);
+		EnableWindow(hWNDAddress, true);
+
+		SendMessage(hTileData, CB_SETCURSEL, pGameBoy->MEM_CPU[0x8F40] & 0x10 ? 0 : 1, 0);
+		SendMessage(hBGEnabled, BM_SETCHECK, pGameBoy->MEM_CPU[0x8F40] & 0x01 ? BST_CHECKED : BST_UNCHECKED, 0);
+		SendMessage(hBGAddress, CB_SETCURSEL, pGameBoy->MEM_CPU[0x8F40] & 0x08 ? 1 : 0, 0);
+		SendMessage(hWNDEnabled, BM_SETCHECK, pGameBoy->MEM_CPU[0x8F40] & 0x20 ? BST_CHECKED : BST_UNCHECKED, 0);
+		SendMessage(hWNDAddress, CB_SETCURSEL, pGameBoy->MEM_CPU[0x8F40] & 0x40 ? 1 : 0, 0);
+	}
+	else
+	{
+		SelectedTile = HoverTile = 0x80000000;
+		SetWindowLong(hTileZoom, GWL_USERDATA, 0x80000000);
+		InvalidateRect(hTileZoom, NULL, true);
+		SetWindowText(hTileAddress, NULL);
+		SetWindowText(hTileNo, NULL);
+		SendMessage(hPaletteNo, CB_SETCURSEL, -1, 0);
+		SendMessage(hFlipX, BM_SETCHECK, BST_UNCHECKED, 0);
+		SendMessage(hFlipY, BM_SETCHECK, BST_UNCHECKED, 0);
+		SendMessage(hPriority, BM_SETCHECK, BST_UNCHECKED, 0);
+
+		EnableWindow(hTileAddress, false);
+		EnableWindow(hTileNo, false);
+		EnableWindow(hPaletteNo, false);
+		EnableWindow(hFlipX, false);
+		EnableWindow(hFlipY, false);
+		EnableWindow(hPriority, false);
+
+		SendMessage(hTileData, CB_SETCURSEL, -1, 0);
+		SendMessage(hBGEnabled, BM_SETCHECK, BST_UNCHECKED, 0);
+		SendMessage(hBGAddress, CB_SETCURSEL, -1, 0);
+		SendMessage(hWNDEnabled, BM_SETCHECK, BST_UNCHECKED, 0);
+		SendMessage(hWNDAddress, CB_SETCURSEL, -1, 0);
+
+		EnableWindow(hTileData, false);
+		EnableWindow(hBGEnabled, false);
+		EnableWindow(hBGAddress, false);
+		EnableWindow(hWNDEnabled, false);
+		EnableWindow(hWNDAddress, false);
+	}
+}
+
+
+
+LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	CGameBoy	*pGameBoy;
+	RECT		rct, Rect2;
+	DWORD		TileMapNo;
+	char		szTileAddress[8];
+	SCROLLINFO	si;
+	POINT		Pt;
+	long		x, y;
+
+
+	switch (uMsg)
+	{
+	case WM_APP_SELECTTILE:
+		si.cbSize = sizeof(si);
+		si.fMask = SIF_POS;
+		GetScrollInfo(hTileMapChild, SB_HORZ, &si);
+		x = si.nPos;
+		GetScrollInfo(hTileMapChild, SB_VERT, &si);
+		y = si.nPos;
+
+		//Erase last selection
+		if (!(SelectedTile & 0x80000000))
+		{
+			if (SelectedTile & 0x0400)
+			{
+				rct.left = (TileMap.Zoom * 8 + 1) * (SelectedTile & 0x1F) + 48 + 256 * TileMap.Zoom - x;
+			}
+			else
+			{
+				rct.left = (TileMap.Zoom * 8 + 1) * (SelectedTile & 0x1F) + 4 - x;
+			}
+			rct.top = (TileMap.Zoom * 8 + 1) * ((SelectedTile >> 5) & 0x1F) + 4 - y;
+			rct.right = rct.left + TileMap.Zoom * 8 + 2;
+			rct.bottom = rct.top + TileMap.Zoom * 8 + 2;
+			SelectedTile = 0x80000000;
+			InvalidateRect(hTileMapChild, &rct, true);
+			UpdateWindow(hTileMapChild);
+		}
+
+		SelectedTile = lParam;
+		TileMapUpdateInfo();
+
+		if (!(SelectedTile & 0x80000000))
+		{
+			if (SelectedTile & 0x0400)
+			{
+				rct.left = (TileMap.Zoom * 8 + 1) * (SelectedTile & 0x1F) + 48 + 256 * TileMap.Zoom - x;
+			}
+			else
+			{
+				rct.left = (TileMap.Zoom * 8 + 1) * (SelectedTile & 0x1F) + 4 - x;
+			}
+			rct.top = (TileMap.Zoom * 8 + 1) * ((SelectedTile >> 5) & 0x1F) + 4 - y;
+			rct.right = rct.left + TileMap.Zoom * 8 + 2;
+			rct.bottom = rct.top + TileMap.Zoom * 8 + 2;
+			InvalidateRect(hTileMapChild, &rct, true);
+		}
+		return 0;
+
+	case WM_APP_HOVERTILE:
+		HoverTile = lParam;
+		TileMapUpdateInfo();
+		return 0;
+
+	case WM_PAINT:
+		TileMapUpdateInfo();
+		break;
+
+	case WM_APP_SETTILE:
+		if (SelectedTile & 0x80000000)
+		{
+			return 0;
+		}
+		szTileAddress[0] = lParam & 0x0200 ? '1' : '0';
+		szTileAddress[1] = ':';
+		*(WORD *)&szTileAddress[2] = *(WORD *)ToHex(lParam, false);
+		szTileAddress[4] = '\0';
+		SendMessage(hTileNo, WM_SETTEXT, 0, (LPARAM)&szTileAddress);
+		return 0;
+
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
-		case ID_VIEW_ZOOM_100:
-			if (TileMap.Zoom != 1)
+		case ID_TILEMAP_PALETTENO:
+			if (LockTileMapInfo)
 			{
-				TileMap.Zoom = 1;
-				GetWindowRect(hWnd, &Rect2);
-				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMap.Zoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
-				si.cbSize = sizeof(si);
-				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
-				si.nPos = 0;
-				si.nMin = 0;
-				si.nMax = 82 + TileMap.Zoom * 512;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 39 + TileMap.Zoom * 256;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_VERT, &si, true);
-				InvalidateRect(hWin, NULL, true);
+				return 0;
 			}
+			switch (HIWORD(wParam))
+			{
+			case CBN_SELCHANGE:
+				if (!(pGameBoy = GameBoys.GetActive()))
+				{
+					return 0;
+				}
+				if (!(pGameBoy->Flags & GB_ROM_COLOR) || pGameBoy->IsEmulating())
+				{
+					return 0;
+				}
+				if (HoverTile & 0x80000000)
+				{
+					TileMapNo = SelectedTile;
+				}
+				else
+				{
+					TileMapNo = HoverTile;
+				}
+				if (TileMapNo & 0x80000000)
+				{
+					return 0;
+				}
+				pGameBoy->MEM_VRAM[0x2000 + TileMapNo] &= ~7;
+				pGameBoy->MEM_VRAM[0x2000 + TileMapNo] |= SendMessage(hPaletteNo, CB_GETCURSEL, 0, 0);
+				InvalidateRect(hTileMapChild, NULL, true);
+				return 0;
+			}
+			break;
+
+		case ID_TILEMAP_FLIPX:
+			if (LockTileMapInfo)
+			{
+				return 0;
+			}
+			if (!(pGameBoy = GameBoys.GetActive()))
+			{
+				return 0;
+			}
+			if (!(pGameBoy->Flags & GB_ROM_COLOR) || pGameBoy->IsEmulating())
+			{
+				return 0;
+			}
+			if (HoverTile & 0x80000000)
+			{
+				TileMapNo = SelectedTile;
+			}
+			else
+			{
+				TileMapNo = HoverTile;
+			}
+			if (TileMapNo & 0x80000000)
+			{
+				return 0;
+			}
+			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] &= ~0x20;
+			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] |= SendMessage(hFlipX, BM_GETCHECK, 0, 0) == BST_CHECKED ? 0x20 : 0;
+			InvalidateRect(hTileMapChild, NULL, true);
+			return 0;
+
+		case ID_TILEMAP_FLIPY:
+			if (LockTileMapInfo)
+			{
+				return 0;
+			}
+			if (!(pGameBoy = GameBoys.GetActive()))
+			{
+				return 0;
+			}
+			if (!(pGameBoy->Flags & GB_ROM_COLOR) || pGameBoy->IsEmulating())
+			{
+				return 0;
+			}
+			if (HoverTile & 0x80000000)
+			{
+				TileMapNo = SelectedTile;
+			}
+			else
+			{
+				TileMapNo = HoverTile;
+			}
+			if (TileMapNo & 0x80000000)
+			{
+				return 0;
+			}
+			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] &= ~0x40;
+			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] |= SendMessage(hFlipY, BM_GETCHECK, 0, 0) == BST_CHECKED ? 0x40 : 0;
+			InvalidateRect(hTileMapChild, NULL, true);
+			return 0;
+
+		case ID_TILEMAP_PRIORITY:
+			if (LockTileMapInfo)
+			{
+				return 0;
+			}
+			if (!(pGameBoy = GameBoys.GetActive()))
+			{
+				return 0;
+			}
+			if (!(pGameBoy->Flags & GB_ROM_COLOR) || pGameBoy->IsEmulating())
+			{
+				return 0;
+			}
+			if (HoverTile & 0x80000000)
+			{
+				TileMapNo = SelectedTile;
+			}
+			else
+			{
+				TileMapNo = HoverTile;
+			}
+			if (TileMapNo & 0x80000000)
+			{
+				return 0;
+			}
+			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] &= ~0x80;
+			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] |= SendMessage(hPriority, BM_GETCHECK, 0, 0) == BST_CHECKED ? 0x80 : 0;
+			InvalidateRect(hTileMapChild, NULL, true);
+			return 0;
+
+		case ID_TILEMAP_TILENO:
+			if (LockTileMapInfo)
+			{
+				return 0;
+			}
+			if (!(pGameBoy = GameBoys.GetActive()))
+			{
+				return 0;
+			}
+			if (pGameBoy->IsEmulating())
+			{
+				return 0;
+			}
+			if (HoverTile & 0x80000000)
+			{
+				TileMapNo = SelectedTile;
+			}
+			else
+			{
+				TileMapNo = HoverTile;
+			}
+			if (TileMapNo & 0x80000000)
+			{
+				return 0;
+			}
+			if (hTileNo == (HWND)lParam)
+			{
+				switch (HIWORD(wParam))
+				{
+				case EN_UPDATE:
+					SendMessage(hTileNo, WM_GETTEXT, 6, (LPARAM)&szTileAddress);
+					if (szTileAddress[0] < '0' || szTileAddress[0] > '1' || szTileAddress[1] != ':' || szTileAddress[4] != '\0' || (szTileAddress[0] > '0' && !(pGameBoy->Flags & GB_ROM_COLOR)))
+					{
+						return 0;
+					}
+					if (HexToNum(&szTileAddress[2]) || HexToNum(&szTileAddress[3]))
+					{
+						return 0;
+					}
+					if (pGameBoy->MEM_VRAM[TileMapNo] == ((szTileAddress[2] << 4) | szTileAddress[3]) &&
+						(pGameBoy->MEM_VRAM[0x2000 + TileMapNo] & 8) == (szTileAddress[0] == '1' ? 8 : 0))
+					{
+						return 0;
+					}
+					pGameBoy->MEM_VRAM[TileMapNo] = (szTileAddress[2] << 4) | szTileAddress[3];
+					pGameBoy->MEM_VRAM[0x2000 + TileMapNo] &= ~8;
+					if (szTileAddress[0] == '1')
+					{
+						pGameBoy->MEM_VRAM[0x2000 + TileMapNo] |= 8;
+					}
+					InvalidateRect(hWin, NULL, true);
+					return 0;
+				}
+			}
+			break;
+
+		case ID_TILEMAP_TILEDATA:
+			if (LockTileMapInfo)
+			{
+				return 0;
+			}
+			if (HIWORD(wParam) == CBN_SELCHANGE)
+			{
+				if (!(pGameBoy = GameBoys.GetActive()))
+				{
+					return 0;
+				}
+				if (pGameBoy->IsEmulating())
+				{
+					return 0;
+				}
+				pGameBoy->MEM_CPU[0x8F40] &= ~0x10;
+				pGameBoy->MEM_CPU[0x8F40] |= SendMessage(hTileData, CB_GETCURSEL, 0, 0) == 1 ? 0 : 0x10;
+				InvalidateRect(hTileMapChild, NULL, true);
+				return 0;
+			}
+			break;
+
+		case ID_TILEMAP_BGADDRESS:
+			if (LockTileMapInfo)
+			{
+				return 0;
+			}
+			if (HIWORD(wParam) == CBN_SELCHANGE)
+			{
+				if (!(pGameBoy = GameBoys.GetActive()))
+				{
+					return 0;
+				}
+				if (pGameBoy->IsEmulating())
+				{
+					return 0;
+				}
+				pGameBoy->MEM_CPU[0x8F40] &= ~0x08;
+				pGameBoy->MEM_CPU[0x8F40] |= SendMessage(hBGAddress, CB_GETCURSEL, 0, 0) == 1 ? 0x08 : 0;
+				InvalidateRect(hTileMapChild, NULL, true);
+				return 0;
+			}
+			break;
+
+		case ID_TILEMAP_BGENABLED:
+			if (LockTileMapInfo)
+			{
+				return 0;
+			}
+			if (!(pGameBoy = GameBoys.GetActive()))
+			{
+				return 0;
+			}
+			if (pGameBoy->IsEmulating())
+			{
+				return 0;
+			}
+			pGameBoy->MEM_CPU[0x8F40] &= ~0x01;
+			pGameBoy->MEM_CPU[0x8F40] |= SendMessage(hBGEnabled, BM_GETCHECK, 0, 0) == BST_CHECKED ? 0x01 : 0;
+			InvalidateRect(hTileMapChild, NULL, true);
+			return 0;
+
+		case ID_TILEMAP_WNDADDRESS:
+			if (LockTileMapInfo)
+			{
+				return 0;
+			}
+			if (HIWORD(wParam) == CBN_SELCHANGE)
+			{
+				if (!(pGameBoy = GameBoys.GetActive()))
+				{
+					return 0;
+				}
+				if (pGameBoy->IsEmulating())
+				{
+					return 0;
+				}
+				pGameBoy->MEM_CPU[0x8F40] &= ~0x40;
+				pGameBoy->MEM_CPU[0x8F40] |= SendMessage(hWNDAddress, CB_GETCURSEL, 0, 0) == 1 ? 0x40 : 0;
+				InvalidateRect(hTileMapChild, NULL, true);
+				return 0;
+			}
+			break;
+
+		case ID_TILEMAP_WNDENABLED:
+			if (LockTileMapInfo)
+			{
+				return 0;
+			}
+			if (!(pGameBoy = GameBoys.GetActive()))
+			{
+				return 0;
+			}
+			if (pGameBoy->IsEmulating())
+			{
+				return 0;
+			}
+			pGameBoy->MEM_CPU[0x8F40] &= ~0x20;
+			pGameBoy->MEM_CPU[0x8F40] |= SendMessage(hWNDEnabled, BM_GETCHECK, 0, 0) == BST_CHECKED ? 0x20 : 0;
+			InvalidateRect(hTileMapChild, NULL, true);
+			return 0;
+
+		case ID_VIEW_ZOOM_100:
+			TileMap.Zoom = 1;
+			GetWindowRect(hWin, &rct);
+			si.cbSize = sizeof(si);
+			si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
+			si.nPos = 0;
+			si.nMin = 0;
+			si.nMax = 77 + 512;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTileMapChild, SB_HORZ, &si, false);
+			si.nMax = 20 + 256;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTileMapChild, SB_VERT, &si, false);
+			Pt.x = rct.left;
+			Pt.y = rct.top;
+			ScreenToClient(hWnd, &Pt);
+			MoveWindow(hWin, Pt.x - GetSystemMetrics(SM_CXEDGE), Pt.y - GetSystemMetrics(SM_CYEDGE), 171 + 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 4 * GetSystemMetrics(SM_CXEDGE), 55 + 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 4 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+			InvalidateRect(hWin, NULL, true);
 			return 0;
 
 		case ID_VIEW_ZOOM_200:
-			if (TileMap.Zoom != 2)
-			{
-				TileMap.Zoom = 2;
-				GetWindowRect(hWnd, &Rect2);
-				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMap.Zoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + TileMap.Zoom * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
-				si.cbSize = sizeof(si);
-				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
-				si.nPos = 0;
-				si.nMin = 0;
-				si.nMax = 82 + TileMap.Zoom * 512;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 39 + TileMap.Zoom * 256;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_VERT, &si, true);
-				InvalidateRect(hWin, NULL, true);
-			}
+			TileMap.Zoom = 2;
+			GetWindowRect(hWin, &rct);
+			si.cbSize = sizeof(si);
+			si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
+			si.nPos = 0;
+			si.nMin = 0;
+			si.nMax = 77 + 2 * 512;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTileMapChild, SB_HORZ, &si, false);
+			si.nMax = 20 + 2 * 256;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTileMapChild, SB_VERT, &si, false);
+			Pt.x = rct.left;
+			Pt.y = rct.top;
+			ScreenToClient(hWnd, &Pt);
+			MoveWindow(hWin, Pt.x - GetSystemMetrics(SM_CXEDGE), Pt.y - GetSystemMetrics(SM_CYEDGE), 171 + 2 * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 4 * GetSystemMetrics(SM_CXEDGE), 55 + 2 * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 4 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+			InvalidateRect(hWin, NULL, true);
 			return 0;
 
 		case ID_VIEW_ZOOM_300:
-			if (TileMap.Zoom != 3)
-			{
-				TileMap.Zoom = 3;
-				GetWindowRect(hWnd, &Rect2);
-				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMap.Zoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + TileMap.Zoom * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
-				si.cbSize = sizeof(si);
-				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
-				si.nPos = 0;
-				si.nMin = 0;
-				si.nMax = 82 + TileMap.Zoom * 512;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 39 + TileMap.Zoom * 256;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_VERT, &si, true);
-				InvalidateRect(hWin, NULL, true);
-			}
+			TileMap.Zoom = 3;
+			GetWindowRect(hWin, &rct);
+			si.cbSize = sizeof(si);
+			si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
+			si.nPos = 0;
+			si.nMin = 0;
+			si.nMax = 77 + 3 * 512;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTileMapChild, SB_HORZ, &si, false);
+			si.nMax = 20 + 3 * 256;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTileMapChild, SB_VERT, &si, false);
+			Pt.x = rct.left;
+			Pt.y = rct.top;
+			ScreenToClient(hWnd, &Pt);
+			MoveWindow(hWin, Pt.x - GetSystemMetrics(SM_CXEDGE), Pt.y - GetSystemMetrics(SM_CYEDGE), 171 + 3 * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 4 * GetSystemMetrics(SM_CXEDGE), 55 + 3 * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 4 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+			InvalidateRect(hWin, NULL, true);
 			return 0;
 
 		case ID_VIEW_ZOOM_400:
-			if (TileMap.Zoom != 4)
-			{
-				TileMap.Zoom = 4;
-				GetWindowRect(hWnd, &Rect2);
-				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMap.Zoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + TileMap.Zoom * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
-				si.cbSize = sizeof(si);
-				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
-				si.nPos = 0;
-				si.nMin = 0;
-				si.nMax = 82 + TileMap.Zoom * 512;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 39 + TileMap.Zoom * 256;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_VERT, &si, true);
-				InvalidateRect(hWin, NULL, true);
-			}
+			TileMap.Zoom = 4;
+			GetWindowRect(hWin, &rct);
+			si.cbSize = sizeof(si);
+			si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
+			si.nPos = 0;
+			si.nMin = 0;
+			si.nMax = 77 + 4 * 512;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTileMapChild, SB_HORZ, &si, false);
+			si.nMax = 20 + 4 * 256;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTileMapChild, SB_VERT, &si, false);
+			Pt.x = rct.left;
+			Pt.y = rct.top;
+			ScreenToClient(hWnd, &Pt);
+			MoveWindow(hWin, Pt.x - GetSystemMetrics(SM_CXEDGE), Pt.y - GetSystemMetrics(SM_CYEDGE), 171 + 4 * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 4 * GetSystemMetrics(SM_CXEDGE), 55 + 4 * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 4 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+			InvalidateRect(hWin, NULL, true);
 			return 0;
 		}
 		break;
+
+	case WM_SIZE:
+		GetClientRect(hWin, &rct);
+		MoveWindow(hTileMapChild, 5, 5, rct.right - 85, rct.bottom - 10, true);
+		MoveWindow(hTileZoom, rct.right - 75, 5, 71, 71, true);
+		MoveWindow(hTileAddress, rct.right - 75, 79, 70, 12, true);
+		MoveWindow(hTileNo, rct.right - 75, 94, 70, 20, true);
+		MoveWindow(hPaletteNo, rct.right - 75, 119, 70, 200, true);
+		MoveWindow(hFlipX, rct.right - 75, 143, 70, 12, true);
+		MoveWindow(hFlipY, rct.right - 75, 158, 70, 12, true);
+		MoveWindow(hPriority, rct.right - 75, 173, 70, 12, true);
+
+		MoveWindow(hTileData, rct.right - 75, 200, 70, 200, true);
+		MoveWindow(hBGEnabled, rct.right - 75, 225, 70, 12, true);
+		MoveWindow(hBGAddress, rct.right - 75, 240, 70, 200, true);
+		MoveWindow(hWNDEnabled, rct.right - 75, 265, 70, 12, true);
+		MoveWindow(hWNDAddress, rct.right - 75, 280, 70, 200, true);
+		return 0;
 
 	case WM_SYSCOMMAND:
 		//Window cannot be maximized
@@ -774,24 +1775,66 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		break;
 
 	case WM_CREATE:
-		si.cbSize = sizeof(si);
-		si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
-		si.nPos = 0;
-		si.nMin = 0;
-		si.nMax = 82 + TileMap.Zoom * 512;
-		si.nPage = si.nMax + 1;
-		SetScrollInfo(hWin, SB_HORZ, &si, true);
-		si.nMax = 39 + TileMap.Zoom * 256;
-		si.nPage = si.nMax + 1;
-		SetScrollInfo(hWin, SB_VERT, &si, true);
+		SelectedTile = HoverTile = 0x80000000;
+
+		hTileMapChild = CreateWindowEx(WS_EX_CLIENTEDGE, "TileMapChild", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		hTileZoom = CreateWindow("TileZoom", NULL, WS_VISIBLE | WS_CHILD, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SetWindowLong(hTileZoom, GWL_USERDATA, 0x80000000);
+		hTileAddress = CreateWindow("STATIC", NULL, WS_VISIBLE | WS_CHILD | WS_TABSTOP, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hTileAddress, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		hTileNo = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", NULL, WS_VISIBLE | WS_CHILD | WS_TABSTOP | WS_BORDER, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hTileNo, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		SetWindowLong(hTileNo, GWL_ID, ID_TILEMAP_TILENO);
+		hPaletteNo = CreateWindow("COMBOBOX", NULL, WS_VISIBLE | WS_CHILD | WS_TABSTOP | CBS_DROPDOWNLIST | CBS_HASSTRINGS, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hPaletteNo, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		SendMessage(hPaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP0");
+		SendMessage(hPaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP1");
+		SendMessage(hPaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP2");
+		SendMessage(hPaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP3");
+		SendMessage(hPaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP4");
+		SendMessage(hPaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP5");
+		SendMessage(hPaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP6");
+		SendMessage(hPaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP7");
+		SetWindowLong(hPaletteNo, GWL_ID, ID_TILEMAP_PALETTENO);
+		hFlipX = CreateWindow("BUTTON", "X-Flip", WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hFlipX, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		SetWindowLong(hFlipX, GWL_ID, ID_TILEMAP_FLIPX);
+		hFlipY = CreateWindow("BUTTON", "Y-Flip", WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hFlipY, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		SetWindowLong(hFlipY, GWL_ID, ID_TILEMAP_FLIPY);
+		hPriority = CreateWindow("BUTTON", "Prio", WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hPriority, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		SetWindowLong(hPriority, GWL_ID, ID_TILEMAP_PRIORITY);
+
+		hTileData = CreateWindow("COMBOBOX", NULL, WS_VISIBLE | WS_CHILD | WS_TABSTOP | WS_BORDER | CBS_DROPDOWNLIST | CBS_HASSTRINGS, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hTileData, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		SendMessage(hTileData, CB_ADDSTRING, 0, (LPARAM)&"8000");
+		SendMessage(hTileData, CB_ADDSTRING, 0, (LPARAM)&"8800");
+		SetWindowLong(hTileData, GWL_ID, ID_TILEMAP_TILEDATA);
+		hBGEnabled = CreateWindow("BUTTON", "Bgnd", WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hBGEnabled, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		SetWindowLong(hBGEnabled, GWL_ID, ID_TILEMAP_BGENABLED);
+		hBGAddress = CreateWindow("COMBOBOX", NULL, WS_VISIBLE | WS_CHILD | WS_TABSTOP | WS_BORDER | CBS_DROPDOWNLIST | CBS_HASSTRINGS, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hBGAddress, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		SendMessage(hBGAddress, CB_ADDSTRING, 0, (LPARAM)&"9800");
+		SendMessage(hBGAddress, CB_ADDSTRING, 0, (LPARAM)&"9C00");
+		SetWindowLong(hBGAddress, GWL_ID, ID_TILEMAP_BGADDRESS);
+		hWNDEnabled = CreateWindow("BUTTON", "Window Enabled", WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hWNDEnabled, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		SetWindowLong(hWNDEnabled, GWL_ID, ID_TILEMAP_WNDENABLED);
+		hWNDAddress = CreateWindow("COMBOBOX", NULL, WS_VISIBLE | WS_CHILD | WS_TABSTOP | WS_BORDER | CBS_DROPDOWNLIST | CBS_HASSTRINGS, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hWNDAddress, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		SendMessage(hWNDAddress, CB_ADDSTRING, 0, (LPARAM)&"9800");
+		SendMessage(hWNDAddress, CB_ADDSTRING, 0, (LPARAM)&"9C00");
+		SetWindowLong(hWNDAddress, GWL_ID, ID_TILEMAP_WNDADDRESS);
 		return 0;
 
 	case WM_DESTROY:
 		hTileMap = NULL;
 		GetWindowRect(hClientWnd, &Rect2);
 		GetWindowRect(hWin, &rct);
-		TileMap.x = rct.left - Rect2.left;
-		TileMap.y = rct.top - Rect2.top;
+		TileMap.x = rct.left - Rect2.left - GetSystemMetrics(SM_CXEDGE);
+		TileMap.y = rct.top - Rect2.top - GetSystemMetrics(SM_CYEDGE);
 		TileMap.Width = rct.right - rct.left;
 		TileMap.Height = rct.bottom - rct.top;
 		return 0;
@@ -820,7 +1863,7 @@ LRESULT CALLBACK PalettesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 		{
 			BeginPaint(hWin, &Paint);
 
-			pGameBoy = GameBoyList.GetActive();
+			pGameBoy = GameBoys.GetActive();
 
 			SelectObject(Paint.hdc, GetStockObject(ANSI_FIXED_FONT));
 			SetBkMode(Paint.hdc, TRANSPARENT);
@@ -913,8 +1956,8 @@ LRESULT CALLBACK PalettesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 		hPalettes = NULL;
 		GetWindowRect(hClientWnd, &Rect2);
 		GetWindowRect(hWin, &rct);
-		Palettes.x = rct.left - Rect2.left;
-		Palettes.y = rct.top - Rect2.top;
+		Palettes.x = rct.left - Rect2.left - GetSystemMetrics(SM_CXEDGE);
+		Palettes.y = rct.top - Rect2.top - GetSystemMetrics(SM_CYEDGE);
 		Palettes.Width = rct.right - rct.left;
 		Palettes.Height = rct.bottom - rct.top;
 		return 0;
@@ -925,26 +1968,79 @@ LRESULT CALLBACK PalettesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 
 
-LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+HWND		hTilesChild, hTiles_TileZoom, hTiles_PaletteNo;
+DWORD		Tiles_SelectedTile, Tiles_HoverTile;
+BOOL		LockTilesUpdate;
+
+LRESULT CALLBACK TilesChildWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CGameBoy			*pGameBoy;
 	PAINTSTRUCT			Paint;
-	WORD				pTile;
-	BYTE				TileY;
-	BYTE				Color1, Color2;
+	HPEN				hPen, hOldPen;
+	SCROLLINFO			si;
+	TRACKMOUSEEVENT		tme;
 	BITMAPINFO			bmi;
 	HBITMAP				hBitmap, hOldBitmap;
 	DWORD				*pBitmap[8];
 	HDC					hdc;
 	RGBQUAD				Palette[4];
+	DWORD				PaletteNo;
 	WORD				Bank;
-	RECT				rct, Rect2;
-	SCROLLINFO			si;
-	DWORD				x, y;
+	WORD				pTile;
+	BYTE				TileY;
+	BYTE				Color1, Color2;
+	DWORD				x, y, TileNo;
+	long				x2, y2;
+	RECT				rct;
 
 
 	switch (uMsg)
 	{
+	case WM_MOUSELEAVE:
+		SendMessage(hTiles, WM_APP_HOVERTILE, 0, 0x80000000);
+		return 0;
+
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONDBLCLK:
+	case WM_MOUSEMOVE:
+		tme.cbSize = sizeof(tme);
+		tme.dwFlags = TME_LEAVE;
+		tme.hwndTrack = hWin;
+		TrackMouseEvent(&tme);
+
+		si.cbSize = sizeof(si);
+		si.fMask = SIF_POS;
+		GetScrollInfo(hWin, SB_HORZ, &si);
+		x = si.nPos + LOWORD(lParam);
+		GetScrollInfo(hWin, SB_VERT, &si);
+		y = si.nPos + HIWORD(lParam);
+
+		if (x < 5 || (unsigned)x > 40 + Tiles.Zoom * 256 || ((unsigned)x > 20 + Tiles.Zoom * 128 && (unsigned)x < 25 + Tiles.Zoom * 128) || y < 5 || (unsigned)y > 28 + Tiles.Zoom * 192)
+		{
+			SendMessage(hTiles, WM_APP_HOVERTILE, 0, 0x80000000);
+			return 0;
+		}
+
+		if ((unsigned)x > 20 + Tiles.Zoom * 128)
+		{
+			x -= 20 + Tiles.Zoom * 128;
+			Bank = 0x2000;
+		}
+		else
+		{
+			Bank = 0;
+		}
+
+		TileNo = Bank + 16 * ((x - 5) / (Tiles.Zoom * 8 + 1) + 16 * ((y - 5) / (Tiles.Zoom * 8 + 1)));
+		SendMessage(hTiles, uMsg == WM_MOUSEMOVE ? WM_APP_HOVERTILE : WM_APP_SELECTTILE, 0, TileNo);
+
+		if (uMsg == WM_LBUTTONDBLCLK && hTileMap)
+		{
+			SendMessage(hTileMap, WM_APP_SETTILE, 0, TileNo / 16);
+		}
+
+		return 0;
+
 	case WM_PAINT:
 		if (GetUpdateRect(hWin, NULL, true))
 		{
@@ -957,7 +2053,7 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 			BeginPaint(hWin, &Paint);
 
-			pGameBoy = GameBoyList.GetActive();
+			pGameBoy = GameBoys.GetActive();
 
 			ZeroMemory(&bmi, sizeof(bmi));
 			bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -970,24 +2066,110 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 			hdc = CreateCompatibleDC(Paint.hdc);
 			hOldBitmap = (HBITMAP)SelectObject(hdc, hBitmap);
+			ZeroMemory(Palette, sizeof(Palette));
 			if (pGameBoy)
 			{
-				if (pGameBoy->Flags & GB_ROM_COLOR)
+				PaletteNo = SendMessage(hTiles_PaletteNo, CB_GETCURSEL, 0, 0);
+				if (pGameBoy->Flags & GB_ROM_COLOR && PaletteNo <= 15)
 				{
-					SetDIBColorTable(hdc, 0, 4, (RGBQUAD *)&GreyScales);
+					if (PaletteNo <= 7)
+					{
+						Palette[0].rgbBlue = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8] >> 10) & 0x1F) << 3;
+						Palette[0].rgbGreen = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8] >> 5) & 0x1F) << 3;
+						Palette[0].rgbRed = (*(WORD *)&pGameBoy->BGP[PaletteNo * 8] & 0x1F) << 3;
+						Palette[1].rgbBlue = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 4] >> 10) & 0x1F) << 3;
+						Palette[1].rgbGreen = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 4] >> 5) & 0x1F) << 3;
+						Palette[1].rgbRed = (*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 4] & 0x1F) << 3;
+						Palette[2].rgbBlue = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 2] >> 10) & 0x1F) << 3;
+						Palette[2].rgbGreen = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 2] >> 5) & 0x1F) << 3;
+						Palette[2].rgbRed = (*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 2] & 0x1F) << 3;
+						Palette[3].rgbBlue = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 6] >> 10) & 0x1F) << 3;
+						Palette[3].rgbGreen = ((*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 6] >> 5) & 0x1F) << 3;
+						Palette[3].rgbRed = (*(WORD *)&pGameBoy->BGP[PaletteNo * 8 + 6] & 0x1F) << 3;
+					}
+					else
+					{
+						Palette[0].rgbBlue = 0xFF;
+						Palette[0].rgbGreen = 0xFF;
+						Palette[0].rgbRed = 0xFF;
+						Palette[1].rgbBlue = ((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 4] >> 10) & 0x1F) << 3;
+						Palette[1].rgbGreen = ((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 4] >> 5) & 0x1F) << 3;
+						Palette[1].rgbRed = (*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 4] & 0x1F) << 3;
+						Palette[2].rgbBlue = ((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 2] >> 10) & 0x1F) << 3;
+						Palette[2].rgbGreen = ((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 2] >> 5) & 0x1F) << 3;
+						Palette[2].rgbRed = (*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 2] & 0x1F) << 3;
+						Palette[3].rgbBlue = ((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 6] >> 10) & 0x1F) << 3;
+						Palette[3].rgbGreen = ((*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 6] >> 5) & 0x1F) << 3;
+						Palette[3].rgbRed = (*(WORD *)&pGameBoy->OBP[(PaletteNo & 7) * 8 + 6] & 0x1F) << 3;
+					}
 				}
 				else
 				{
-					*(DWORD *)&Palette[0] = GreyScales[pGameBoy->MEM_CPU[0x8F47] & 3];
-					*(DWORD *)&Palette[2] = GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 2) & 3];
-					*(DWORD *)&Palette[1] = GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 4) & 3];
-					*(DWORD *)&Palette[3] = GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 6) & 3];
-					SetDIBColorTable(hdc, 0, 4, Palette);
+					switch (PaletteNo & 3)
+					{
+					case 1:
+						Palette[0].rgbBlue = 0xFF;
+						Palette[0].rgbGreen = 0xFF;
+						Palette[0].rgbRed = 0xFF;
+						Palette[1].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 4) & 3];
+						Palette[1].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 4) & 3];
+						Palette[1].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 4) & 3];
+						Palette[2].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 2) & 3];
+						Palette[2].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 2) & 3];
+						Palette[2].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 2) & 3];
+						Palette[3].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 6) & 3];
+						Palette[3].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 6) & 3];
+						Palette[3].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F48] >> 6) & 3];
+						break;
+
+					case 2:
+						Palette[0].rgbBlue = 0xFF;
+						Palette[0].rgbGreen = 0xFF;
+						Palette[0].rgbRed = 0xFF;
+						Palette[1].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 4) & 3];
+						Palette[1].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 4) & 3];
+						Palette[1].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 4) & 3];
+						Palette[2].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 2) & 3];
+						Palette[2].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 2) & 3];
+						Palette[2].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 2) & 3];
+						Palette[3].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 6) & 3];
+						Palette[3].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 6) & 3];
+						Palette[3].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F49] >> 6) & 3];
+						break;
+
+					default:
+						Palette[0].rgbBlue = (BYTE)GreyScales[pGameBoy->MEM_CPU[0x8F47] & 3];
+						Palette[0].rgbGreen = (BYTE)GreyScales[pGameBoy->MEM_CPU[0x8F47] & 3];
+						Palette[0].rgbRed = (BYTE)GreyScales[pGameBoy->MEM_CPU[0x8F47] & 3];
+						Palette[1].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 4) & 3];
+						Palette[1].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 4) & 3];
+						Palette[1].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 4) & 3];
+						Palette[2].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 2) & 3];
+						Palette[2].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 2) & 3];
+						Palette[2].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 2) & 3];
+						Palette[3].rgbBlue = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 6) & 3];
+						Palette[3].rgbGreen = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 6) & 3];
+						Palette[3].rgbRed = (BYTE)GreyScales[(pGameBoy->MEM_CPU[0x8F47] >> 6) & 3];
+						break;
+					}
 				}
+				SetDIBColorTable(hdc, 0, 4, Palette);
 			}
 			else
 			{
-				SetDIBColorTable(hdc, 0, 4, (RGBQUAD *)&GreyScales);
+				Palette[0].rgbBlue = 0xFF;
+				Palette[0].rgbGreen = 0xFF;
+				Palette[0].rgbRed = 0xFF;
+				Palette[1].rgbBlue = 0xFF;
+				Palette[1].rgbGreen = 0xFF;
+				Palette[1].rgbRed = 0xFF;
+				Palette[2].rgbBlue = 0xFF;
+				Palette[2].rgbGreen = 0xFF;
+				Palette[2].rgbRed = 0xFF;
+				Palette[3].rgbBlue = 0xFF;
+				Palette[3].rgbGreen = 0xFF;
+				Palette[3].rgbRed = 0xFF;
+				SetDIBColorTable(hdc, 0, 4, Palette);
 			}
 
 			if (!pGameBoy)
@@ -1036,6 +2218,31 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			DeleteDC(hdc);
 			DeleteObject(hBitmap);
 
+			if (!(Tiles_SelectedTile & 0x80000000))
+			{
+				if (Tiles_SelectedTile & 0x2000)
+				{
+					x2 = (Tiles.Zoom * 8 + 1) * ((Tiles_SelectedTile >> 4) & 0x0F) + 25 + 128 * Tiles.Zoom - x;
+				}
+				else
+				{
+					x2 = (Tiles.Zoom * 8 + 1) * ((Tiles_SelectedTile >> 4) & 0x0F) + 4 - x;
+				}
+				y2 = (Tiles.Zoom * 8 + 1) * ((Tiles_SelectedTile >> 8) & 0x1F) + 4 - y;
+
+				hPen = CreatePen(PS_SOLID, 0, RGB(0x00, 0x00, 0xFF));
+				hOldPen = (HPEN)SelectObject(Paint.hdc, hPen);
+
+				MoveToEx(Paint.hdc, x2, y2, NULL);
+				LineTo(Paint.hdc, x2 + 8 * Tiles.Zoom + 1, y2);
+				LineTo(Paint.hdc, x2 + 8 * Tiles.Zoom + 1, y2 + 8 * Tiles.Zoom + 1);
+				LineTo(Paint.hdc, x2, y2 + 8 * Tiles.Zoom + 1);
+				LineTo(Paint.hdc, x2, y2);
+
+				SelectObject(Paint.hdc, hOldPen);
+				DeleteObject(hPen);
+			}
+
 			EndPaint(hWin, &Paint);
 		}
 		return 0;
@@ -1071,7 +2278,7 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		SetScrollInfo(hWin, SB_HORZ, &si, true);
 		si.fMask = SIF_PAGE | SIF_POS;
 		GetScrollInfo(hWin, SB_VERT, &si);
-		si.nPage = rct.bottom - rct.top - 2 * GetSystemMetrics(SM_CYSIZEFRAME) - 2 * GetSystemMetrics(SM_CYEDGE) /*- GetSystemMetrics(SM_CYHSCROLL)*/ - GetSystemMetrics(SM_CYSMCAPTION);
+		si.nPage = rct.bottom - rct.top - 2 * GetSystemMetrics(SM_CYSIZEFRAME) - 2 * GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYSMCAPTION);
 		if ((unsigned)rct.right - rct.left - 2 * GetSystemMetrics(SM_CXSIZEFRAME) - 2 * GetSystemMetrics(SM_CXEDGE) < x + 1)
 		{
 			si.nPage -= GetSystemMetrics(SM_CYHSCROLL);
@@ -1159,94 +2366,294 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		UpdateWindow(hWin);
 		return 0;
 
+	case WM_CREATE:
+		si.cbSize = sizeof(si);
+		si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
+		si.nPos = 0;
+		si.nMin = 0;
+		si.nMax = 40 + Tiles.Zoom * 256;
+		si.nPage = si.nMax + 1;
+		SetScrollInfo(hWin, SB_HORZ, &si, true);
+		si.nMax = 10 + Tiles.Zoom * 192;
+		si.nPage = si.nMax + 1;
+		SetScrollInfo(hWin, SB_VERT, &si, true);
+		return 0;
+	}
+
+	return DefWindowProc(hWin, uMsg, wParam, lParam);
+}
+
+
+
+void TilesUpdateInfo()
+{
+	CGameBoy		*pGameBoy;
+	DWORD			TileNo, PaletteNo;
+
+
+	if (pGameBoy = GameBoys.GetActive())
+	{
+		LockTilesUpdate = true;
+
+		PaletteNo = SendMessage(hTiles_PaletteNo, CB_GETCURSEL, 0, 0);
+		if (PaletteNo == CB_ERR)
+		{
+			PaletteNo = 0;
+		}
+		if (pGameBoy->Flags & GB_ROM_COLOR)
+		{
+			if (SendMessage(hTiles_PaletteNo, CB_GETCOUNT, 0, 0) == 3)
+			{
+				PaletteNo += 16;
+			}
+		}
+		else
+		{
+			if (SendMessage(hTiles_PaletteNo, CB_GETCOUNT, 0, 0) == 19)
+			{
+				if (PaletteNo > 16)
+				{
+					PaletteNo -= 16;
+				}
+				else
+				{
+					PaletteNo = 0;
+				}
+			}
+		}
+
+		if ((SendMessage(hTiles_PaletteNo, CB_GETCOUNT, 0, 0) == 3 && (pGameBoy->Flags & GB_ROM_COLOR))
+			|| (SendMessage(hTiles_PaletteNo, CB_GETCOUNT, 0, 0) == 19 && !(pGameBoy->Flags & GB_ROM_COLOR)))
+		{
+			SendMessage(hTiles_PaletteNo, CB_RESETCONTENT, 0, 0);
+			if (pGameBoy->Flags & GB_ROM_COLOR)
+			{
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP0");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP1");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP2");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP3");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP4");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP5");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP6");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP7");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP0");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP1");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP2");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP3");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP4");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP5");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP6");
+				SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP7");
+			}
+			SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP");
+			SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP0");
+			SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP1");
+			SendMessage(hTiles_PaletteNo, CB_SETCURSEL, PaletteNo, 0);
+		}
+
+		if (Tiles_HoverTile & 0x80000000)
+		{
+			TileNo = Tiles_SelectedTile;
+		}
+		else
+		{
+			TileNo = Tiles_HoverTile;
+		}
+		if (!(TileNo & 0x80000000))
+		{
+			SetWindowLong(hTiles_TileZoom, GWL_USERDATA, (Tiles_HoverTile & 0x80000000 ? Tiles_SelectedTile : Tiles_HoverTile) | (PaletteNo << 16));
+			EnableWindow(hTiles_PaletteNo, true);
+		}
+		else
+		{
+			SetWindowLong(hTiles_TileZoom, GWL_USERDATA, 0x80000000);
+			EnableWindow(hTiles_PaletteNo, true);
+		}
+
+		LockTilesUpdate = false;
+	}
+	else
+	{
+		Tiles_SelectedTile = Tiles_HoverTile = 0x80000000;
+		SetWindowLong(hTiles_TileZoom, GWL_USERDATA, 0x80000000);
+		EnableWindow(hTiles_PaletteNo, false);
+	}
+
+	InvalidateRect(hTiles_TileZoom, NULL, true);
+}
+
+
+
+LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	RECT				rct, Rect2;
+	SCROLLINFO			si;
+	POINT				Pt;
+	DWORD				x, y;
+
+
+	switch (uMsg)
+	{
+	case WM_APP_SELECTTILE:
+		si.cbSize = sizeof(si);
+		si.fMask = SIF_POS;
+		GetScrollInfo(hTilesChild, SB_HORZ, &si);
+		x = si.nPos;
+		GetScrollInfo(hTilesChild, SB_VERT, &si);
+		y = si.nPos;
+
+		//Erase last selection
+		if (!(Tiles_SelectedTile & 0x80000000))
+		{
+			if (Tiles_SelectedTile & 0x2000)
+			{
+				rct.left = (Tiles.Zoom * 8 + 1) * ((Tiles_SelectedTile >> 4) & 0x0F) + 25 + 128 * Tiles.Zoom - x;
+			}
+			else
+			{
+				rct.left = (Tiles.Zoom * 8 + 1) * ((Tiles_SelectedTile >> 4) & 0x0F) + 4 - x;
+			}
+			rct.top = (Tiles.Zoom * 8 + 1) * ((Tiles_SelectedTile >> 8) & 0x1F) + 4 - y;
+			rct.right = rct.left + Tiles.Zoom * 8 + 2;
+			rct.bottom = rct.top + Tiles.Zoom * 8 + 2;
+			Tiles_SelectedTile = 0x80000000;
+			InvalidateRect(hTilesChild, &rct, true);
+			UpdateWindow(hTilesChild);
+		}
+
+		Tiles_SelectedTile = lParam;
+		TilesUpdateInfo();
+
+		if (!(Tiles_SelectedTile & 0x80000000))
+		{
+			if (Tiles_SelectedTile & 0x2000)
+			{
+				rct.left = (Tiles.Zoom * 8 + 1) * ((Tiles_SelectedTile >> 4) & 0x0F) + 25 + 128 * Tiles.Zoom - x;
+			}
+			else
+			{
+				rct.left = (Tiles.Zoom * 8 + 1) * ((Tiles_SelectedTile >> 4) & 0x0F) + 4 - x;
+			}
+			rct.top = (Tiles.Zoom * 8 + 1) * ((Tiles_SelectedTile >> 8) & 0x1F) + 4 - y;
+			rct.right = rct.left + Tiles.Zoom * 8 + 2;
+			rct.bottom = rct.top + Tiles.Zoom * 8 + 2;
+			InvalidateRect(hTilesChild, &rct, true);
+		}
+		return 0;
+
+	case WM_APP_HOVERTILE:
+		Tiles_HoverTile = lParam;
+		TilesUpdateInfo();
+		return 0;
+
+	case WM_PAINT:
+		TilesUpdateInfo();
+		break;
+
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
-		case ID_VIEW_ZOOM_100:
-			if (Tiles.Zoom != 1)
+		case ID_TILES_PALETTENO:
+			if (LockTilesUpdate)
 			{
-				Tiles.Zoom = 1;
-				GetWindowRect(hWnd, &Rect2);
-				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + Tiles.Zoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + Tiles.Zoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
-				si.cbSize = sizeof(si);
-				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
-				si.nPos = 0;
-				si.nMin = 0;
-				si.nMax = 43 + Tiles.Zoom * 256;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 31 + Tiles.Zoom * 194;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_VERT, &si, true);
-				InvalidateRect(hWin, NULL, true);
+				break;
 			}
+			switch (HIWORD(wParam))
+			{
+			case CBN_SELCHANGE:
+				InvalidateRect(hWin, NULL, true);
+				return 0;
+			}
+			break;
+
+		case ID_VIEW_ZOOM_100:
+			Tiles.Zoom = 1;
+			GetWindowRect(hWin, &rct);
+			si.cbSize = sizeof(si);
+			si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
+			si.nPos = 0;
+			si.nMin = 0;
+			si.nMax = 40 + 256;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTilesChild, SB_HORZ, &si, true);
+			si.nMax = 10 + 192;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTilesChild, SB_VERT, &si, true);
+			Pt.x = rct.left;
+			Pt.y = rct.top;
+			ScreenToClient(hWnd, &Pt);
+			MoveWindow(hWin, Pt.x - GetSystemMetrics(SM_CXEDGE), Pt.y - GetSystemMetrics(SM_CYEDGE), 134 + 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 4 * GetSystemMetrics(SM_CXEDGE), 45 + 192 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 4 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+			InvalidateRect(hWin, NULL, true);
 			return 0;
 
 		case ID_VIEW_ZOOM_200:
-			if (Tiles.Zoom != 2)
-			{
-				Tiles.Zoom = 2;
-				GetWindowRect(hWnd, &Rect2);
-				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + Tiles.Zoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + Tiles.Zoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
-				si.cbSize = sizeof(si);
-				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
-				si.nPos = 0;
-				si.nMin = 0;
-				si.nMax = 43 + Tiles.Zoom * 256;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 31 + Tiles.Zoom * 194;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_VERT, &si, true);
-				InvalidateRect(hWin, NULL, true);
-			}
+			Tiles.Zoom = 2;
+			GetWindowRect(hWin, &rct);
+			si.cbSize = sizeof(si);
+			si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
+			si.nPos = 0;
+			si.nMin = 0;
+			si.nMax = 40 + 2 * 256;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTilesChild, SB_HORZ, &si, true);
+			si.nMax = 10 + 2 * 192;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTilesChild, SB_VERT, &si, true);
+			Pt.x = rct.left;
+			Pt.y = rct.top;
+			ScreenToClient(hWnd, &Pt);
+			MoveWindow(hWin, Pt.x - GetSystemMetrics(SM_CXEDGE), Pt.y - GetSystemMetrics(SM_CYEDGE), 134 + 2 * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 4 * GetSystemMetrics(SM_CXEDGE), 45 + 2 * 192 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 4 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+			InvalidateRect(hWin, NULL, true);
 			return 0;
 
 		case ID_VIEW_ZOOM_300:
-			if (Tiles.Zoom != 3)
-			{
-				Tiles.Zoom = 3;
-				GetWindowRect(hWnd, &Rect2);
-				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + Tiles.Zoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + Tiles.Zoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
-				si.cbSize = sizeof(si);
-				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
-				si.nPos = 0;
-				si.nMin = 0;
-				si.nMax = 43 + Tiles.Zoom * 256;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 31 + Tiles.Zoom * 194;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_VERT, &si, true);
-				InvalidateRect(hWin, NULL, true);
-			}
+			Tiles.Zoom = 3;
+			GetWindowRect(hWin, &rct);
+			si.cbSize = sizeof(si);
+			si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
+			si.nPos = 0;
+			si.nMin = 0;
+			si.nMax = 40 + 3 * 256;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTilesChild, SB_HORZ, &si, true);
+			si.nMax = 10 + 3 * 192;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTilesChild, SB_VERT, &si, true);
+			Pt.x = rct.left;
+			Pt.y = rct.top;
+			ScreenToClient(hWnd, &Pt);
+			MoveWindow(hWin, Pt.x - GetSystemMetrics(SM_CXEDGE), Pt.y - GetSystemMetrics(SM_CYEDGE), 134 + 3 * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 4 * GetSystemMetrics(SM_CXEDGE), 45 + 3 * 192 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 4 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+			InvalidateRect(hWin, NULL, true);
 			return 0;
 
 		case ID_VIEW_ZOOM_400:
-			if (Tiles.Zoom != 4)
-			{
-				Tiles.Zoom = 4;
-				GetWindowRect(hWnd, &Rect2);
-				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + Tiles.Zoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + Tiles.Zoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
-				si.cbSize = sizeof(si);
-				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
-				si.nPos = 0;
-				si.nMin = 0;
-				si.nMax = 43 + Tiles.Zoom * 256;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 31 + Tiles.Zoom * 194;
-				si.nPage = si.nMax + 1;
-				SetScrollInfo(hWin, SB_VERT, &si, true);
-				InvalidateRect(hWin, NULL, true);
-			}
+			Tiles.Zoom = 4;
+			GetWindowRect(hWin, &rct);
+			si.cbSize = sizeof(si);
+			si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
+			si.nPos = 0;
+			si.nMin = 0;
+			si.nMax = 40 + Tiles.Zoom * 256;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTilesChild, SB_HORZ, &si, true);
+			si.nMax = 10 + Tiles.Zoom * 192;
+			si.nPage = si.nMax + 1;
+			SetScrollInfo(hTilesChild, SB_VERT, &si, true);
+			Pt.x = rct.left;
+			Pt.y = rct.top;
+			ScreenToClient(hWnd, &Pt);
+			MoveWindow(hWin, Pt.x - GetSystemMetrics(SM_CXEDGE), Pt.y - GetSystemMetrics(SM_CYEDGE), 134 + 4 * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 4 * GetSystemMetrics(SM_CXEDGE), 45 + 4 * 192 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 4 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+			InvalidateRect(hWin, NULL, true);
 			return 0;
 		}
 		break;
+
+	case WM_SIZE:
+		GetClientRect(hWin, &rct);
+		MoveWindow(hTilesChild, 5, 5, rct.right - 85, rct.bottom - 10, true);
+		MoveWindow(hTiles_TileZoom, rct.right - 75, 5, 71, 71, true);
+		MoveWindow(hTiles_PaletteNo, rct.right - 75, 80, 70, 200, true);
+		return 0;
 
 	case WM_SYSCOMMAND:
 		//Window cannot be maximized
@@ -1257,24 +2664,25 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		break;
 
 	case WM_CREATE:
-		si.cbSize = sizeof(si);
-		si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
-		si.nPos = 0;
-		si.nMin = 0;
-		si.nMax = 43 + Tiles.Zoom * 256;
-		si.nPage = si.nMax + 1;
-		SetScrollInfo(hWin, SB_HORZ, &si, true);
-		si.nMax = 31 + Tiles.Zoom * 194;
-		si.nPage = si.nMax + 1;
-		SetScrollInfo(hWin, SB_VERT, &si, true);
+		Tiles_SelectedTile = Tiles_HoverTile = 0x80000000;
+
+		hTilesChild = CreateWindowEx(WS_EX_CLIENTEDGE, "TilesChild", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		hTiles_TileZoom = CreateWindow("TileZoom", NULL, WS_VISIBLE | WS_CHILD, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SetWindowLong(hTiles_TileZoom, GWL_USERDATA, 0x80000000);
+		hTiles_PaletteNo = CreateWindow("COMBOBOX", NULL, WS_VISIBLE | WS_CHILD | WS_TABSTOP | CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_VSCROLL, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		SendMessage(hTiles_PaletteNo, WM_SETFONT, (WPARAM)hFixedFont, 0);
+		SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP");
+		SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP0");
+		SendMessage(hTiles_PaletteNo, CB_ADDSTRING, 0, (LPARAM)&"OBP1");
+		SetWindowLong(hTiles_PaletteNo, GWL_ID, ID_TILES_PALETTENO);
 		return 0;
 
 	case WM_DESTROY:
 		hTiles = NULL;
 		GetWindowRect(hClientWnd, &Rect2);
 		GetWindowRect(hWin, &rct);
-		Tiles.x = rct.left - Rect2.left;
-		Tiles.y = rct.top - Rect2.top;
+		Tiles.x = rct.left - Rect2.left - GetSystemMetrics(SM_CXEDGE);
+		Tiles.y = rct.top - Rect2.top - GetSystemMetrics(SM_CYEDGE);
 		Tiles.Width = rct.right - rct.left;
 		Tiles.Height = rct.bottom - rct.top;
 		return 0;
@@ -1668,7 +3076,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 	switch (uMsg)
 	{
 	case WM_COMMAND:
-		if (!(pGameBoy = GameBoyList.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive()))
 		{
 			break;
 		}
@@ -1852,8 +3260,15 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		}
 		break;
 
+	case WM_MENUSELECT:
+		return SendMessage(hWnd, uMsg, wParam, lParam);
+
+	case WM_EXITMENULOOP:
+		SetStatus(NULL, SF_READY);
+		return 0;
+
 	case WM_SETFOCUS:
-		if (GameBoyList.GetActive())
+		if (GameBoys.GetActive())
 		{
 			CreateCaret(hWin, NULL, 2, 16);
 			SetCaretPos(MemoryCaretX * FixedFontWidth, MemoryCaretY * FixedFontHeight);
@@ -1871,7 +3286,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_KEYDOWN:
-		if (!(pGameBoy = GameBoyList.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive()))
 		{
 			break;
 		}
@@ -2557,7 +3972,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_VSCROLL:
-		if (!GameBoyList.GetActive())
+		if (!GameBoys.GetActive())
 		{
 			return 0;
 		}
@@ -2657,7 +4072,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 	case WM_RBUTTONDOWN:
 	case WM_LBUTTONDOWN:
-		if (!(pGameBoy = GameBoyList.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive()))
 		{
 			return 0;
 		}
@@ -2682,7 +4097,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_RBUTTONUP:
-		if (!(pGameBoy = GameBoyList.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive()))
 		{
 			return 0;
 		}
@@ -2698,7 +4113,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		{
 			BeginPaint(hWin, &Paint);
 
-			if (pGameBoy = GameBoyList.GetActive())
+			if (pGameBoy = GameBoys.GetActive())
 			{
 				if (MemoryCaret)
 				{
@@ -2976,8 +4391,8 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		hMemory = NULL;
 		GetWindowRect(hClientWnd, &Rect2);
 		GetWindowRect(hWin, &rct);
-		Memory.x = rct.left - Rect2.left;
-		Memory.y = rct.top - Rect2.top;
+		Memory.x = rct.left - Rect2.left - GetSystemMetrics(SM_CXEDGE);
+		Memory.y = rct.top - Rect2.top - GetSystemMetrics(SM_CYEDGE);
 		Memory.Width = rct.right - rct.left;
 		Memory.Height = rct.bottom - rct.top;
 		return 0;
@@ -3236,6 +4651,32 @@ void DisAsmReadMem(CGameBoy *pGameBoy, WORD pByte, BYTE **p, BYTE **Access, BYTE
 
 
 
+BOOL OutputLabel(CGameBoy *pGameBoy, WORD Offset, HDC hdc, int y, int *x)
+{
+	char		*pszLabel;
+	SIZE		Size;
+	BYTE		*p, *Access, Bank;
+
+
+	if (pGameBoy->pDebugInfo)
+	{
+		DisAsmReadMem(pGameBoy, Offset, &p, &Access, &Bank);
+
+		if (pszLabel = pGameBoy->pDebugInfo->GetLabel(Bank, Offset))
+		{
+			TextOut(hdc, *x, y, pszLabel, strlen(pszLabel));
+			GetTextExtentPoint32(hdc, pszLabel, strlen(pszLabel), &Size);
+			*x += Size.cx;
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+
 void OutputLabels(CGameBoy *pGameBoy, BYTE Bank, WORD Offset, HDC hdc, int *y)
 {
 	char		*pszLabel;
@@ -3298,14 +4739,14 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 	BYTE			Byte, *p, *p2, *p3, *Access, *Access2, *Access3, Bank;
 	DWORD			dw;
 	int				x, y;
-	BOOL			SetY;
-	EMULATIONINFO	*pEmulationInfo;
+	BOOL			SetY, Label;
+	EMULATIONINFO	EmulationInfo;
 
 
 	switch (uMsg)
 	{
 	case WM_COMMAND:
-		if (!(pGameBoy = GameBoyList.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive()))
 		{
 			break;
 		}
@@ -3490,89 +4931,130 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		case ID_EMULATION_STEPOVER:
 			if (OpCodeNames[(BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC)].Flags & OCF_CALL)
 			{
-				if (!pGameBoy->hThread)
+				if (pGameBoy->IsEmulating())
 				{
-					if (!(pEmulationInfo = new EMULATIONINFO))
-					{
-						MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
-						return 0;
-					}
-					pEmulationInfo->GameBoy1 = pGameBoy;
-					pEmulationInfo->Flags = EMU_RUNTO;
-					pEmulationInfo->RunToOffset = pGameBoy->Reg_PC + ((BYTE)OpCodeNames[(BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC)].Flags & OCF_BYTES) + 1;
-					if (pEmulationInfo->RunToOffset >= 0x4000 && pEmulationInfo->RunToOffset < 0x8000)
-					{
-						pEmulationInfo->RunToBank = pGameBoy->ActiveRomBank;
-					}
-					if (pEmulationInfo->RunToOffset >= 0xA000 && pEmulationInfo->RunToOffset < 0xC000)
-					{
-						pEmulationInfo->RunToBank = pGameBoy->ActiveRamBank;
-					}
-					if (pEmulationInfo->RunToOffset >= 0xD000 && pEmulationInfo->RunToOffset < 0xE000 && pGameBoy->Flags & GB_ROM_COLOR)
-					{
-						pEmulationInfo->RunToBank = pFF00_C(pGameBoy, 0x4F) & 7;
-					}
-					pGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &pGameBoy->ThreadId);
-				}
-				break;
-			}
-
-		case ID_EMULATION_STEPINTO:
-			if (!pGameBoy->hThread)
-			{
-				if (!(pEmulationInfo = new EMULATIONINFO))
-				{
-					MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
 					return 0;
 				}
-				pEmulationInfo->GameBoy1 = pGameBoy;
-				pEmulationInfo->Flags = EMU_STEPINTO;
-				pGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &pGameBoy->ThreadId);
+				EmulationInfo.Flags = EMU_RUNTO;
+				EmulationInfo.RunToOffset = pGameBoy->Reg_PC + ((BYTE)OpCodeNames[(BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC)].Flags & OCF_BYTES) + 1;
+				if (EmulationInfo.RunToOffset >= 0x4000 && EmulationInfo.RunToOffset < 0x8000)
+				{
+					EmulationInfo.RunToBank = pGameBoy->ActiveRomBank;
+				}
+				if (EmulationInfo.RunToOffset >= 0xA000 && EmulationInfo.RunToOffset < 0xC000)
+				{
+					EmulationInfo.RunToBank = pGameBoy->ActiveRamBank;
+				}
+				if (EmulationInfo.RunToOffset >= 0xD000 && EmulationInfo.RunToOffset < 0xE000 && pGameBoy->Flags & GB_ROM_COLOR)
+				{
+					if (pFF00_C(pGameBoy, 0x4F) & 7)
+					{
+						EmulationInfo.RunToBank = pFF00_C(pGameBoy, 0x4F) & 7;
+					}
+					else
+					{
+						EmulationInfo.RunToBank = 1;
+					}
+				}
+				pGameBoy->Step(&EmulationInfo);
+				return 0;
 			}
+			//If PC isn't on a call instruction, Step Over and Step Into are the same
+
+		case ID_EMULATION_STEPINTO:
+			if (pGameBoy->IsEmulating())
+			{
+				return 0;
+			}
+			EmulationInfo.Flags = EMU_STEPINTO;
+			pGameBoy->Step(&EmulationInfo);
 			return 0;
 
 		case ID_EMULATION_STEPOUT:
-			if (!pGameBoy->hThread)
+			if (pGameBoy->IsEmulating())
 			{
-				if (!(pEmulationInfo = new EMULATIONINFO))
-				{
-					MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
-					return 0;
-				}
-				pEmulationInfo->GameBoy1 = pGameBoy;
-				pEmulationInfo->Flags = EMU_STEPOUT;
-				pGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &pGameBoy->ThreadId);
+				return 0;
 			}
+			EmulationInfo.Flags = EMU_STEPOUT;
+			pGameBoy->Step(&EmulationInfo);
 			return 0;
 
 		case ID_EMULATION_RUNTOCURSOR:
-			if (!pGameBoy->hThread)
+			if (pGameBoy->IsEmulating())
 			{
-				if (!(pEmulationInfo = new EMULATIONINFO))
-				{
-					MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
-					return 0;
-				}
-				pEmulationInfo->GameBoy1 = pGameBoy;
-				pEmulationInfo->Flags = EMU_RUNTO;
-				pEmulationInfo->RunToOffset = DisAsmCaretByte;
-				if (DisAsmCaretByte >= 0x4000 && DisAsmCaretByte < 0x8000)
-				{
-					pEmulationInfo->RunToBank = pGameBoy->ActiveRomBank;
-				}
-				if (DisAsmCaretByte >= 0xA000 && DisAsmCaretByte < 0xC000)
-				{
-					pEmulationInfo->RunToBank = pGameBoy->ActiveRamBank;
-				}
-				if (DisAsmCaretByte >= 0xD000 && DisAsmCaretByte < 0xE000 && pGameBoy->Flags & GB_ROM_COLOR)
-				{
-					pEmulationInfo->RunToBank = pFF00_C(pGameBoy, 0x4F) & 7;
-				}
-				pGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &pGameBoy->ThreadId);
+				return 0;
 			}
+			EmulationInfo.Flags = EMU_RUNTO;
+			EmulationInfo.RunToOffset = DisAsmCaretByte;
+			DisAsmReadMem(pGameBoy, DisAsmCaretByte, &p, &Access, &EmulationInfo.RunToBank);
+			pGameBoy->Step(&EmulationInfo);
 			return 0;
 
 		case ID_EMULATION_SETNEXTSTATEMENT:
+			DisAsmReadMem(pGameBoy, DisAsmCaretByte, &p, &Access, &Bank);
+			if (DisAsmCaretByte >= 0x4000 && DisAsmCaretByte < 0x8000)
+			{
+				if (pGameBoy->ActiveRomBank != Bank)
+				{
+					pGameBoy->SwitchRomBank(Bank);
+					InvalidateRect(hWin, NULL, true);
+					if (hRegisters)
+					{
+						InvalidateRect(hWin, NULL, true);
+					}
+				}
+			}
+			else if (DisAsmCaretByte >= 0x8000 && DisAsmCaretByte < 0xA000 && (pGameBoy->Flags & GB_ROM_COLOR))
+			{
+				if ((pGameBoy->MEM_CPU[0x8F4F] & 1) != Bank)
+				{
+					pGameBoy->SwitchVBK(Bank);
+					InvalidateRect(hWin, NULL, true);
+					if (hRegisters)
+					{
+						InvalidateRect(hWin, NULL, true);
+					}
+				}
+			}
+			else if (DisAsmCaretByte >= 0xA000 && DisAsmCaretByte < 0xC000)
+			{
+				if (pGameBoy->ActiveRamBank != Bank)
+				{
+					pGameBoy->SwitchRamBank(Bank);
+					InvalidateRect(hWin, NULL, true);
+					if (hRegisters)
+					{
+						InvalidateRect(hWin, NULL, true);
+					}
+				}
+			}
+			else if (DisAsmCaretByte >= 0xD000 && DisAsmCaretByte < 0xE000 && (pGameBoy->Flags & GB_ROM_COLOR))
+			{
+				if (pGameBoy->MEM_CPU[0x8F70] & 7)
+				{
+					if ((pGameBoy->MEM_CPU[0x8F70] & 7) != Bank)
+					{
+						pGameBoy->SwitchSVBK(Bank);
+						InvalidateRect(hWin, NULL, true);
+						if (hRegisters)
+						{
+							InvalidateRect(hWin, NULL, true);
+						}
+					}
+				}
+				else
+				{
+					if (Bank != 1)
+					{
+						pGameBoy->SwitchSVBK(Bank);
+						InvalidateRect(hWin, NULL, true);
+						if (hRegisters)
+						{
+							InvalidateRect(hWin, NULL, true);
+						}
+					}
+				}
+			}
 			if (pGameBoy->Reg_PC != DisAsmCaretByte)
 			{
 				pGameBoy->Reg_PC = DisAsmCaretByte;
@@ -3608,8 +5090,15 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		}
 		break;
 
+	case WM_MENUSELECT:
+		return SendMessage(hWnd, uMsg, wParam, lParam);
+
+	case WM_EXITMENULOOP:
+		SetStatus(NULL, SF_READY);
+		return 0;
+
 	case WM_SETFOCUS:
-		if (GameBoyList.GetActive())
+		if (GameBoys.GetActive())
 		{
 			CreateCaret(hWin, NULL, 2, 16);
 			SetCaretPos(DisAsmCaretX, DisAsmCaretY);
@@ -3627,7 +5116,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_KEYDOWN:
-		if (!(pGameBoy = GameBoyList.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive()))
 		{
 			break;
 		}
@@ -3952,7 +5441,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		break;
 
 	case WM_VSCROLL:
-		if (!(pGameBoy = GameBoyList.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive()))
 		{
 			return 0;
 		}
@@ -4046,7 +5535,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 	case WM_RBUTTONDOWN:
 	case WM_LBUTTONDOWN:
-		if (!(pGameBoy = GameBoyList.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive()))
 		{
 			return 0;
 		}
@@ -4098,7 +5587,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_RBUTTONUP:
-		if (!(pGameBoy = GameBoyList.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive()))
 		{
 			return 0;
 		}
@@ -4114,7 +5603,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		{
 			BeginPaint(hWin, &Paint);
 
-			if (pGameBoy = GameBoyList.GetActive())
+			if (pGameBoy = GameBoys.GetActive())
 			{
 				if (DisAsmCaret)
 				{
@@ -4283,7 +5772,13 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						DeleteDC(hdc);
 					}
 
-					if (pGameBoy->Reg_PC == pByte)
+					if (pGameBoy->Reg_PC == pByte && ((pByte < 0x4000 || (pByte >= 0xC000 && pByte < 0xD000) ||
+						(pByte >= 0xD000 && !(pGameBoy->Flags & GB_ROM_COLOR)) || pByte >= 0xE000) ||
+						(pByte >= 0x4000 && pByte < 0x8000 && Bank == pGameBoy->ActiveRomBank) ||
+						(pByte >= 0x8000 && pByte < 0xA000 && Bank == (pGameBoy->MEM_CPU[0x8F4F] & 1)) ||
+						(pByte >= 0xA000 && pByte < 0xC000 && Bank == pGameBoy->ActiveRamBank) ||
+						(pByte >= 0xD000 && pByte < 0xE000 && ((Bank == 1 && (pGameBoy->MEM_CPU[0x8F70] & 7) == 0)
+						|| Bank == (pGameBoy->MEM_CPU[0x8F70] & 7)))))
 					{
 						hBitmap = LoadImage(hInstance, MAKEINTRESOURCE(IDB_CURRENTSTATEMENT), IMAGE_BITMAP, 0, 0, 0);
 						hdc = CreateCompatibleDC(Paint.hdc);
@@ -4323,6 +5818,8 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 									}
 								}
 
+								Label = false;
+
 								if (OpCodeNames[*p].Flags & OCF_DATA16)
 								{
 									DisAsmReadMem(pGameBoy, ++pByte, &p3, &Access3, &Bank);
@@ -4346,29 +5843,70 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 									if (*Access3 & MEM_READ)
 									{
 										TextOut(Paint.hdc, 15 + 14 * FixedFontWidth, y, ToHex(*p3, false), 2);
-										TextOut(Paint.hdc, x, y, NumBuffer, 2);
+										if (*Access2 & MEM_READ && (OpCodeNames[*p].Flags & OCF_JUMP || OpCodeNames[*p].Flags & OCF_ADDRESS))
+										{
+											if (OutputLabel(pGameBoy, (*p3 << 8) | *p2, Paint.hdc, y, &x))
+											{
+												Label = true;
+											}
+											else
+											{
+												TextOut(Paint.hdc, x, y, NumBuffer, 2);
+												x += 2 * FixedFontWidth;
+											}
+										}
+										else
+										{
+											TextOut(Paint.hdc, x, y, NumBuffer, 2);
+											x += 2 * FixedFontWidth;
+										}
 									}
 									else
 									{
 										TextOut(Paint.hdc, 15 + 14 * FixedFontWidth, y, "??", 2);
 										TextOut(Paint.hdc, x, y, "??", 2);
+										x += 2 * FixedFontWidth;
 									}
-									x += 2 * FixedFontWidth;
 								}
 								if (*Access2 & MEM_READ)
 								{
 									TextOut(Paint.hdc, 15 + 11 * FixedFontWidth, y, ToHex(*p2, false), 2);
-									if (OpCodeNames[*p].Flags & OCF_DISP)
+									if (!Label)
 									{
-										TextOut(Paint.hdc, x, y, ToHex(pByte + 1 + (*p2 & 0x80 ? - (short)((BYTE)-*p2) : *p2), true), 4);
-										x += 4 * FixedFontWidth;
-									}
-									else
-									{
-										if (*p != 0x10)
+										if (OpCodeNames[*p].Flags & OCF_DISP)
 										{
-											TextOut(Paint.hdc, x, y, NumBuffer, 2);
-											x += 2 * FixedFontWidth;
+											if (OutputLabel(pGameBoy, pByte + 1 + (*p2 & 0x80 ? - (short)((BYTE)-*p2) : *p2), Paint.hdc, y, &x))
+											{
+												Label = true;
+											}
+											else
+											{
+												TextOut(Paint.hdc, x, y, ToHex(pByte + 1 + (*p2 & 0x80 ? - (short)((BYTE)-*p2) : *p2), true), 4);
+												x += 4 * FixedFontWidth;
+											}
+										}
+										else
+										{
+											if (OpCodeNames[*p].Flags & OCF_ADDRESS)
+											{
+												if (OutputLabel(pGameBoy, 0xFF00 | *p2, Paint.hdc, y, &x))
+												{
+													Label = true;
+												}
+											}
+											if (!Label)
+											{
+												if (*p != 0x10)
+												{
+													if (OpCodeNames[*p].Flags & OCF_ADDRESS && OpCodeNames[*p].Flags & OCF_DATA8)
+													{
+														TextOut(Paint.hdc, x, y, "FF", 2);
+														x += 2 * FixedFontWidth;
+													}
+													TextOut(Paint.hdc, x, y, NumBuffer, 2);
+													x += 2 * FixedFontWidth;
+												}
+											}
 										}
 									}
 								}
@@ -4514,8 +6052,8 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		hDisAsm = NULL;
 		GetWindowRect(hClientWnd, &Rect2);
 		GetWindowRect(hWin, &rct);
-		DisAsm.x = rct.left - Rect2.left;
-		DisAsm.y = rct.top - Rect2.top;
+		DisAsm.x = rct.left - Rect2.left - GetSystemMetrics(SM_CXEDGE);
+		DisAsm.y = rct.top - Rect2.top - GetSystemMetrics(SM_CYEDGE);
 		DisAsm.Width = rct.right - rct.left;
 		DisAsm.Height = rct.bottom - rct.top;
 		return 0;
@@ -4564,7 +6102,7 @@ void PaintRegisters(HDC hdc, RECT *pRect)
 	CGameBoy	*pGameBoy;
 
 
-	pGameBoy = GameBoyList.GetActive();
+	pGameBoy = GameBoys.GetActive();
 
 	SelectObject(hdc, hFixedFont);
 	//SetBkMode(Paint.hdc, TRANSPARENT);
@@ -4692,6 +6230,10 @@ void PaintRegisters(HDC hdc, RECT *pRect)
 						TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, ToHex(pGameBoy->Reg_PC + 1 + (OpCodeNames[Byte].Flags & OCF_BYTES) - (signed short)(-(signed char)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1)), true), 4);
 					}
 				}
+				if (OpCodeNames[Byte].Flags & OCF_REG_HL)
+				{
+					TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, ToHex(pGameBoy->Reg_HL, true), 4);
+				}
 			}
 		}
 
@@ -4754,7 +6296,7 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 	switch (uMsg)
 	{
 	case WM_SETFOCUS:
-		if (GameBoyList.GetActive())
+		if (GameBoys.GetActive())
 		{
 			CreateCaret(hWin, NULL, 2, 16);
 			SetCaretPos(RegisterCaretX * FixedFontWidth, RegisterCaretY * FixedFontHeight);
@@ -4772,7 +6314,7 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		return 0;
 
 	case WM_KEYDOWN:
-		if (!(pGameBoy = GameBoyList.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive()))
 		{
 			return 0;
 		}
@@ -4907,13 +6449,10 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 	case WM_PAINT:
 		if (GetUpdateRect(hWin, NULL, true))
 		{
-			if (pGameBoy = GameBoyList.GetActive())
+			if (pGameBoy = GameBoys.GetActive())
 			{
-				if (pGameBoy->hThread)
-				{
-					InvalidateRect(hWin, NULL, true);
-					GetUpdateRect(hWin, NULL, true);
-				}
+				InvalidateRect(hWin, NULL, true);
+				GetUpdateRect(hWin, NULL, true);
 			}
 			BeginPaint(hWin, &Paint);
 
@@ -4943,8 +6482,8 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		hRegisters = NULL;
 		GetWindowRect(hClientWnd, &Rect2);
 		GetWindowRect(hWin, &rct);
-		Registers.x = rct.left - Rect2.left;
-		Registers.y = rct.top - Rect2.top;
+		Registers.x = rct.left - Rect2.left - GetSystemMetrics(SM_CXEDGE);
+		Registers.y = rct.top - Rect2.top - GetSystemMetrics(SM_CYEDGE);
 		Registers.Width = rct.right - rct.left;
 		Registers.Height = rct.bottom - rct.top;
 		return 0;
@@ -4981,7 +6520,7 @@ LPARAM CALLBACK HardwareWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			SetBkMode(Paint.hdc, TRANSPARENT);
 			TextOut(Paint.hdc, FixedFontWidth - x, FixedFontHeight - y, "ROM Size:", 9);
 			TextOut(Paint.hdc, FixedFontWidth - x, FixedFontHeight + FixedFontHeight - y, "RAM Size:", 9);
-			if (pGameBoy = GameBoyList.GetActive())
+			if (pGameBoy = GameBoys.GetActive())
 			{
 				if (pGameBoy->MEM_ROM)
 				{
@@ -5135,8 +6674,8 @@ LPARAM CALLBACK HardwareWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		hHardware = NULL;
 		GetWindowRect(hClientWnd, &Rect2);
 		GetWindowRect(hWin, &rct);
-		Hardware.x = rct.left - Rect2.left;
-		Hardware.y = rct.top - Rect2.top;
+		Hardware.x = rct.left - Rect2.left - GetSystemMetrics(SM_CXEDGE);
+		Hardware.y = rct.top - Rect2.top - GetSystemMetrics(SM_CYEDGE);
 		Hardware.Width = rct.right - rct.left;
 		Hardware.Height = rct.bottom - rct.top;
 		return 0;
@@ -5185,6 +6724,14 @@ BOOL CreateDebugWindows()
 	}
 	hMemory = NULL;
 
+	/*wc.lpfnWndProc = TileAddressWndProc;
+	wc.lpszClassName = "TileAddress";
+	if (!RegisterClass(&wc))
+	{
+		DisplayErrorMessage(NULL);
+		return true;
+	}*/
+
 	wc.style = 0;
 	wc.lpfnWndProc = TilesWndProc;
 	wc.lpszClassName = "Tiles";
@@ -5196,6 +6743,15 @@ BOOL CreateDebugWindows()
 		return true;
 	}
 	hTiles = NULL;
+	wc.style = CS_DBLCLKS;
+	wc.lpfnWndProc = TilesChildWndProc;
+	wc.lpszClassName = "TilesChild";
+	if (!RegisterClass(&wc))
+	{
+		DisplayErrorMessage(NULL);
+		return true;
+	}
+	wc.style = 0;
 	wc.lpfnWndProc = PalettesWndProc;
 	wc.lpszClassName = "Palettes";
 	if (!RegisterClass(&wc))
@@ -5212,6 +6768,20 @@ BOOL CreateDebugWindows()
 		return true;
 	}
 	hTileMap = NULL;
+	wc.lpfnWndProc = TileMapChildWndProc;
+	wc.lpszClassName = "TileMapChild";
+	if (!RegisterClass(&wc))
+	{
+		DisplayErrorMessage(NULL);
+		return true;
+	}
+	wc.lpfnWndProc = TileZoomWndProc;
+	wc.lpszClassName = "TileZoom";
+	if (!RegisterClass(&wc))
+	{
+		DisplayErrorMessage(NULL);
+		return true;
+	}
 	wc.style = CS_HREDRAW | CS_VREDRAW;
 	wc.lpfnWndProc = HardwareWndProc;
 	wc.lpszClassName = "Hardware";

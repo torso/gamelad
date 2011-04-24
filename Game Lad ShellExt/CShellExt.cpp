@@ -486,6 +486,85 @@ BOOL CALLBACK RomInfoDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 
 
+LPARAM CALLBACK BitmapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	PAINTSTRUCT		Paint;
+	HBRUSH			hBrush;
+	RECT			rct;
+
+
+	switch (uMsg)
+	{
+	case WM_PAINT:
+		if (GetUpdateRect(hWin, NULL, true))
+		{
+			BeginPaint(hWin, &Paint);
+
+			hBrush = (HBRUSH)GetStockObject(BLACK_BRUSH);
+			rct.left = 0;
+			rct.top = 0;
+			rct.right = 162;
+			rct.bottom = 146;
+			FrameRect(Paint.hdc, &rct, hBrush);
+			BitBlt(Paint.hdc, 1, 1, 160, 144, (HDC)GetWindowLong(hWin, GWL_USERDATA), 0, 0, SRCCOPY);
+
+			EndPaint(hWin, &Paint);
+		}
+		return 0;
+	}
+
+	return CallWindowProc(((CShellExt *)GetWindowLong(GetParent(hWin), GWL_USERDATA))->m_OldStaticWndProc, hWin, uMsg, wParam, lParam);
+}
+
+
+
+BOOL CALLBACK SaveStateDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+		SetWindowLong(hDlg, GWL_USERDATA, (LPARAM)((PROPSHEETPAGE *)lParam)->lParam);
+
+		SendDlgItemMessage(hDlg, IDC_VERSION, WM_SETTEXT, 0, (LPARAM)((CShellExt *)((PROPSHEETPAGE *)lParam)->lParam)->m_Version);
+
+		if (((CShellExt *)((PROPSHEETPAGE *)lParam)->lParam)->m_SaveStateFlags & SSF_SCREEN)
+		{
+			((CShellExt *)((PROPSHEETPAGE *)lParam)->lParam)->m_hBitmapWnd = CreateWindow("STATIC", NULL, WS_VISIBLE | WS_CHILD | SS_BLACKFRAME, 10, 30, 162, 146, hDlg, NULL, hInstance, NULL);
+			((CShellExt *)((PROPSHEETPAGE *)lParam)->lParam)->m_OldStaticWndProc = (WNDPROC)SetWindowLong(((CShellExt *)((PROPSHEETPAGE *)lParam)->lParam)->m_hBitmapWnd, GWL_WNDPROC, (long)BitmapWndProc);
+			SetWindowLong(((CShellExt *)((PROPSHEETPAGE *)lParam)->lParam)->m_hBitmapWnd, GWL_USERDATA, (long)((CShellExt *)((PROPSHEETPAGE *)lParam)->lParam)->m_hBitmapDC);
+		}
+		return false;
+	}
+
+	return false;
+}
+
+
+
+#define		ReadFromFile(dest)									\
+	if (!ReadFile(hFile, &dest, sizeof(dest), &nBytes, NULL))	\
+	{															\
+		CloseHandle(hFile);										\
+		return NOERROR;											\
+	}															\
+	if (nBytes != sizeof(dest))									\
+	{															\
+		CloseHandle(hFile);										\
+		return NOERROR;											\
+	}
+
+#define		ReadFromFile2(dest, size)							\
+	if (!ReadFile(hFile, &dest, (size), &nBytes, NULL))			\
+	{															\
+		CloseHandle(hFile);										\
+		return NOERROR;											\
+	}															\
+	if (nBytes != (size))										\
+	{															\
+		CloseHandle(hFile);										\
+		return NOERROR;											\
+	}
+
 STDMETHODIMP CShellExt::AddPages(LPFNADDPROPSHEETPAGE lpfnAddPage, LPARAM lParam)
 {
 	PROPSHEETPAGE	psp;
@@ -493,8 +572,9 @@ STDMETHODIMP CShellExt::AddPages(LPFNADDPROPSHEETPAGE lpfnAddPage, LPARAM lParam
 	FORMATETC		fmte;
 	STGMEDIUM		medium;
 	HANDLE			hFile;
-	DWORD			nBytes, FileSize;
+	DWORD			nBytes, FileSize, Value, Pos, y;
 	BYTE			Buffer[0x100];
+	BITMAPINFO		bmi;
 
 
 	if (!m_pDataObj)
@@ -521,103 +601,171 @@ STDMETHODIMP CShellExt::AddPages(LPFNADDPROPSHEETPAGE lpfnAddPage, LPARAM lParam
 	if (DragQueryFile((HDROP)medium.hGlobal, (UINT)-1, 0, 0) < 2)
 	{
 		DragQueryFile((HDROP)medium.hGlobal, 0, m_szFilename, sizeof(m_szFilename));
+		if (!strchr(m_szFilename, '.'))
+		{
+			return NOERROR;
+		}
+
 		if ((hFile = CreateFile(m_szFilename, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL)) == INVALID_HANDLE_VALUE)
 		{
 			return NOERROR;
 		}
-		if (!ReadFile(hFile, Buffer, 0x100, &nBytes, NULL))
+		psp.dwSize = sizeof(psp);
+		psp.dwFlags = PSP_USEREFPARENT | PSP_USECALLBACK;
+		psp.hInstance = hInstance;
+		psp.pfnCallback = RomInfoCallback;
+		psp.pcRefParent = &DllRefCount;
+		psp.lParam = (LPARAM)this;
+		if (tolower(*(strrchr(m_szFilename, '.') + 1)) == 'g' && tolower(*(strrchr(m_szFilename, '.') + 2)) == 'l')
 		{
-			CloseHandle(hFile);
-			return NOERROR;
-		}
-		if (!ReadFile(hFile, m_RomHeader, 0x50, &nBytes, NULL))
-		{
-			CloseHandle(hFile);
-			return NOERROR;
-		}
-		FileSize = GetFileSize(hFile, NULL);
-		if (nBytes != 0x50 || (RomSize(m_RomHeader[0x48]) + 1) * 16384U != FileSize)
-		{
-			CloseHandle(hFile);
-			return NOERROR;
-		}
+			m_SaveStateFlags = 0;
 
-		m_RomHeaderFlags = 0;
+			ReadFromFile(Value);
+			if (Value != ('g' | ('l' << 8) | ('s' << 16)))
+			{
+				CloseHandle(hFile);
+				return NOERROR;
+			}
+			ReadFromFile(Value);
+			Pos = 0;
+			do
+			{
+				ReadFromFile(m_Version[Pos]);
+				Pos++;
+			}
+			while (m_Version[Pos - 1] != '\0');
+			if (Value <= 0)
+			{
+				ReadFromFile2(Value, 2);
 
-		//Complement check
-		m_ComplementCheck = 0xE7;
-		for (nBytes = 25; nBytes != 0; nBytes--)
-		{
-			m_ComplementCheck -= m_RomHeader[0x33 + nBytes];
-		}
-		if (m_ComplementCheck != m_RomHeader[0x4D])
-		{
-			m_RomHeaderFlags |= RHF_BADCOMPLEMENTCHECK;
-		}
+				m_SaveStateFlags |= SSF_SCREEN;
 
-		//Checksum
-		m_CheckSum = 0x1546 + m_ComplementCheck + m_RomHeader[0] + m_RomHeader[1] + m_RomHeader[2] + m_RomHeader[3];
-		for (nBytes = 0; nBytes < 0x100; nBytes++)
-		{
-			m_CheckSum += Buffer[nBytes];
-		}
-		for (nBytes = 0x34; nBytes < 0x4D; nBytes++)
-		{
-			m_CheckSum += m_RomHeader[nBytes];
-		}
-		if (!ReadFile(hFile, Buffer, 0xB0, &nBytes, NULL))
-		{
+				if (!(m_hBitmapDC = CreateCompatibleDC(NULL)))
+				{
+					return 0;
+				}
+				ZeroMemory(&bmi, sizeof(bmi));
+				bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+				bmi.bmiHeader.biWidth = 160;
+				bmi.bmiHeader.biHeight = -144;
+				bmi.bmiHeader.biPlanes = 1;
+				bmi.bmiHeader.biBitCount = 16;
+				bmi.bmiHeader.biCompression = BI_RGB;
+				if (!(m_hBitmap = CreateDIBSection(m_hBitmapDC, &bmi, DIB_RGB_COLORS, (void **)&m_pBitmap, NULL, 0)))
+				{
+					ReleaseDC(NULL, m_hBitmapDC);
+					m_hBitmapDC = NULL;
+				}
+				m_hOldBitmap = (HBITMAP)SelectObject(m_hBitmapDC, m_hBitmap);
+
+				for (y = 0; y < 144; y++)
+				{
+					if (!ReadFile(hFile, m_pBitmap + y * 160, 160 * 2, &nBytes, NULL))
+					{
+						CloseHandle(hFile);
+						return NOERROR;
+					}
+					if (nBytes != 160 * 2)
+					{
+						CloseHandle(hFile);
+						return NOERROR;
+					}
+				}
+			}
+			psp.pszTemplate = MAKEINTRESOURCE(IDD_SAVESTATE);
+			psp.pfnDlgProc = SaveStateDlgProc;
 			CloseHandle(hFile);
-			return NOERROR;
 		}
-		for (nBytes = 0; nBytes < 0xB0; nBytes++)
-		{
-			m_CheckSum += Buffer[nBytes];
-		}
-		while (true)
+		else
 		{
 			if (!ReadFile(hFile, Buffer, 0x100, &nBytes, NULL))
 			{
 				CloseHandle(hFile);
 				return NOERROR;
 			}
-			if (nBytes < 0x100)
+			if (!ReadFile(hFile, m_RomHeader, 0x50, &nBytes, NULL))
 			{
-				if (nBytes != 0)
-				{
-					char NumBuffer[10];
-					MessageBox(NULL, itoa(nBytes, NumBuffer, 16), NULL, MB_OK);
-				}
-				break;
+				CloseHandle(hFile);
+				return NOERROR;
+			}
+			FileSize = GetFileSize(hFile, NULL);
+			if (nBytes != 0x50 || (RomSize(m_RomHeader[0x48]) + 1) * 16384U != FileSize)
+			{
+				CloseHandle(hFile);
+				return NOERROR;
 			}
 
+			m_RomHeaderFlags = 0;
+
+			//Complement check
+			m_ComplementCheck = 0xE7;
+			for (nBytes = 25; nBytes != 0; nBytes--)
+			{
+				m_ComplementCheck -= m_RomHeader[0x33 + nBytes];
+			}
+			if (m_ComplementCheck != m_RomHeader[0x4D])
+			{
+				m_RomHeaderFlags |= RHF_BADCOMPLEMENTCHECK;
+			}
+
+			//Checksum
+			m_CheckSum = 0x1546 + m_ComplementCheck + m_RomHeader[0] + m_RomHeader[1] + m_RomHeader[2] + m_RomHeader[3];
 			for (nBytes = 0; nBytes < 0x100; nBytes++)
 			{
 				m_CheckSum += Buffer[nBytes];
 			}
-		}
-		m_CheckSum = (m_CheckSum << 8) | (m_CheckSum >> 8);
-		if (m_CheckSum != *(WORD *)&m_RomHeader[0x4E])
-		{
-			m_RomHeaderFlags |= RHF_BADCHECKSUM;
-		}
+			for (nBytes = 0x34; nBytes < 0x4D; nBytes++)
+			{
+				m_CheckSum += m_RomHeader[nBytes];
+			}
+			if (!ReadFile(hFile, Buffer, 0xB0, &nBytes, NULL))
+			{
+				CloseHandle(hFile);
+				return NOERROR;
+			}
+			for (nBytes = 0; nBytes < 0xB0; nBytes++)
+			{
+				m_CheckSum += Buffer[nBytes];
+			}
+			while (true)
+			{
+				if (!ReadFile(hFile, Buffer, 0x100, &nBytes, NULL))
+				{
+					CloseHandle(hFile);
+					return NOERROR;
+				}
+				if (nBytes < 0x100)
+				{
+					if (nBytes != 0)
+					{
+						char NumBuffer[10];
+						MessageBox(NULL, itoa(nBytes, NumBuffer, 16), NULL, MB_OK);
+					}
+					break;
+				}
 
-		CloseHandle(hFile);
+				for (nBytes = 0; nBytes < 0x100; nBytes++)
+				{
+					m_CheckSum += Buffer[nBytes];
+				}
+			}
+			m_CheckSum = (m_CheckSum << 8) | (m_CheckSum >> 8);
+			if (m_CheckSum != *(WORD *)&m_RomHeader[0x4E])
+			{
+				m_RomHeaderFlags |= RHF_BADCHECKSUM;
+			}
 
-		//Nintendo character area
-		if (memcmp(&m_RomHeader[4], NintendoGraphic, sizeof(NintendoGraphic)))
-		{
-			m_RomHeaderFlags |= RHF_BADNINTENDOCHARACTERAREA;
+			CloseHandle(hFile);
+
+			//Nintendo character area
+			if (memcmp(&m_RomHeader[4], NintendoGraphic, sizeof(NintendoGraphic)))
+			{
+				m_RomHeaderFlags |= RHF_BADNINTENDOCHARACTERAREA;
+			}
+
+			psp.pszTemplate = MAKEINTRESOURCE(IDD_ROMINFO);
+			psp.pfnDlgProc = RomInfoDlgProc;
 		}
-
-		psp.dwSize = sizeof(psp);
-		psp.dwFlags = PSP_USEREFPARENT | PSP_USECALLBACK;
-		psp.hInstance = hInstance;
-		psp.pszTemplate = MAKEINTRESOURCE(IDD_ROMINFO);
-		psp.pfnDlgProc = RomInfoDlgProc;
-		psp.pfnCallback = RomInfoCallback;
-		psp.pcRefParent = &DllRefCount;
-		psp.lParam = (LPARAM)this;
 
 		AddRef();
 		if (hpsp = CreatePropertySheetPage(&psp))
@@ -777,10 +925,7 @@ STDMETHODIMP CShellExt::GetCommandString(UINT idCmd, UINT uFlags, UINT *pwReserv
 #ifdef ICONHANDLER
 STDMETHODIMP CShellExt::GetIconLocation(UINT uFlags, LPSTR szIconFile, UINT cchMax, LPINT piIndex, UINT *pwFlags)
 {
-	//GetModuleFileName(hInstance, szIconFile, cchMax);
-
-	//*piIndex = (int)GetPrivateProfileInt("IconImage", "Index", 0, m_szFileUserClickedOn);
-
+	*pwFlags = GIL_DONTCACHE | GIL_NOTFILENAME;
 	return S_OK;
 }
 
@@ -788,6 +933,38 @@ STDMETHODIMP CShellExt::GetIconLocation(UINT uFlags, LPSTR szIconFile, UINT cchM
 
 STDMETHODIMP CShellExt::Extract(LPCSTR pszFile, UINT nIconIndex, HICON *phiconLarge, HICON *phiconSmall, UINT nIconSize)
 {
+	//*phiconLarge = (HICON)LoadImage(NULL, (char *)32516, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
+	*phiconLarge = (HICON)LoadImage(NULL, (char *)32516, IMAGE_ICON, LOWORD(nIconSize), LOWORD(nIconSize), 0);
+	*phiconSmall = (HICON)LoadImage(NULL, (char *)32516, IMAGE_ICON, HIWORD(nIconSize), HIWORD(nIconSize), 0);
+	return NOERROR;
+	/*if (!m_pDataObj)
+	{
+		return S_FALSE;
+	}
+
+	fmte.cfFormat = CF_HDROP;
+	fmte.ptd = NULL;
+	fmte.dwAspect = DVASPECT_CONTENT;
+	fmte.lindex = -1;
+	fmte.tymed = TYMED_HGLOBAL;
+
+	if (m_pDataObj->GetData(&fmte, &medium))
+	{
+		return S_FALSE;
+	}
+	if (!medium.hGlobal)
+	{
+		return S_FALSE;
+	}
+
+	//Find out how many files the user has selected...
+	if (DragQueryFile((HDROP)medium.hGlobal, (UINT)-1, 0, 0) < 2)
+	{
+		DragQueryFile((HDROP)medium.hGlobal, 0, m_szFilename, sizeof(m_szFilename));
+		return NOERROR;
+	}*/
+
+	//MessageBox(NULL, pszFile, "Game Lad", MB_OK);
 	return S_FALSE;
 }
 #endif //ICONHANDLER

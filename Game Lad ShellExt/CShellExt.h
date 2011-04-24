@@ -6,6 +6,8 @@
 #define		RHF_BADCOMPLEMENTCHECK			0x02
 #define		RHF_BADNINTENDOCHARACTERAREA	0x04
 
+#define		SSF_SCREEN						0x01
+
 
 
 class CShellExt : public	IShellExtInit,
@@ -37,6 +39,15 @@ public:
 	DWORD					m_RomHeaderFlags;
 	BYTE					m_ComplementCheck;
 	WORD					m_CheckSum;
+
+	DWORD					m_SaveStateFlags;
+	char					m_Version[0x50];
+	HDC						m_hBitmapDC;
+	HBITMAP					m_hBitmap, m_hOldBitmap;
+	WORD					*m_pBitmap;
+	HWND					m_hBitmapWnd;
+	WNDPROC					m_OldStaticWndProc;
+
 
 public:
 	CShellExt();

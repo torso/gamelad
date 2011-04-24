@@ -98,11 +98,16 @@ SOURCE=.\CDebugInfo.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\CGameBoys.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\Debugger.cpp
 # End Source File
 # Begin Source File
 
 SOURCE=.\Emulation.cpp
+# PROP Exclude_From_Build 1
 # End Source File
 # Begin Source File
 
@@ -129,6 +134,10 @@ SOURCE=.\Z80.cpp
 # Begin Source File
 
 SOURCE=.\CDebugInfo.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\CGameBoys.h
 # End Source File
 # Begin Source File
 

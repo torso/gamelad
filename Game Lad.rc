@@ -33,10 +33,28 @@ BEGIN
         MENUITEM "&Open Rom...\tCtrl+O",        ID_FILE_OPEN
         MENUITEM "&Close\tCtrl+F4",             ID_FILE_CLOSE
         MENUITEM SEPARATOR
-        MENUITEM "&Load Battery Ram",           ID_FILE_LOADBATTERY
-        MENUITEM "&Save Battery Ram\tCtrl+S",   ID_FILE_SAVEBATTERY
-        MENUITEM "Save Battery Ram &As...",     ID_FILE_SAVEBATTERYAS
-        MENUITEM "Clear &Battery Ram",          ID_FILE_CLEARBATTERY
+        MENUITEM "&Save State\tF2",             ID_FILE_SAVESTATE
+        MENUITEM "&Load State\tF3",             ID_FILE_LOADSTATE
+        MENUITEM "Save State &As...\tShift+F2", ID_FILE_SAVESTATEAS
+        MENUITEM "Loa&d State...\tShift+F3",    ID_FILE_LOADSTATEAS
+        POPUP "S&tate Slot"
+        BEGIN
+            MENUITEM "&0\tF4,0",                    ID_FILE_STATESLOT_0
+            MENUITEM "&1\tF4,1",                    ID_FILE_STATESLOT_1
+            MENUITEM "&2\tF4,2",                    ID_FILE_STATESLOT_2
+            MENUITEM "&3\tF4,3",                    ID_FILE_STATESLOT_3
+            MENUITEM "&4\tF4,4",                    ID_FILE_STATESLOT_4
+            MENUITEM "&5\tF4,5",                    ID_FILE_STATESLOT_5
+            MENUITEM "&6\tF4,6",                    ID_FILE_STATESLOT_6
+            MENUITEM "&7\tF4,7",                    ID_FILE_STATESLOT_7
+            MENUITEM "&8\tF4,8",                    ID_FILE_STATESLOT_8
+            MENUITEM "&9\tF4,9",                    ID_FILE_STATESLOT_9
+        END
+        MENUITEM SEPARATOR
+        MENUITEM "Sa&ve Battery Ram\tCtrl+S",   ID_FILE_SAVEBATTERY
+        MENUITEM "Load &Battery Ram...",        ID_FILE_LOADBATTERY
+        MENUITEM "Save Batter&y Ram As...",     ID_FILE_SAVEBATTERYAS
+        MENUITEM "Clea&r Battery Ram",          ID_FILE_CLEARBATTERY
         MENUITEM SEPARATOR
         MENUITEM "&Exit",                       ID_FILE_EXIT
     END
@@ -55,6 +73,27 @@ BEGIN
         MENUITEM "T&ile Map",                   ID_VIEW_TILEMAP
         MENUITEM "&Tiles",                      ID_VIEW_TILES
         MENUITEM SEPARATOR
+        MENUITEM "&Status bar",                 ID_VIEW_STATUSBAR
+        POPUP "&Zoom"
+        BEGIN
+            MENUITEM "&100%",                       ID_VIEW_ZOOM_100
+            MENUITEM "&200%",                       ID_VIEW_ZOOM_200
+            MENUITEM "&300%",                       ID_VIEW_ZOOM_300
+            MENUITEM "&400%",                       ID_VIEW_ZOOM_400
+        END
+        POPUP "&Frame Skip"
+        BEGIN
+            MENUITEM "&0",                          ID_VIEW_FRAMESKIP_0
+            MENUITEM "&1",                          ID_VIEW_FRAMESKIP_1
+            MENUITEM "&2",                          ID_VIEW_FRAMESKIP_2
+            MENUITEM "&3",                          ID_VIEW_FRAMESKIP_3
+            MENUITEM "&4",                          ID_VIEW_FRAMESKIP_4
+            MENUITEM "&5",                          ID_VIEW_FRAMESKIP_5
+            MENUITEM "&6",                          ID_VIEW_FRAMESKIP_6
+            MENUITEM "&7",                          ID_VIEW_FRAMESKIP_7
+            MENUITEM "&8",                          ID_VIEW_FRAMESKIP_8
+            MENUITEM "&9",                          ID_VIEW_FRAMESKIP_9
+        END
         POPUP "&Bank"
         BEGIN
             MENUITEM "&ROM...",                     ID_MEMORY_ROM
@@ -79,13 +118,6 @@ BEGIN
                 MENUITEM "Bank &7",                     ID_MEMORY_SVBK_BANK7
             END
         END
-        POPUP "&Zoom"
-        BEGIN
-            MENUITEM "&100%",                       ID_VIEW_ZOOM_100
-            MENUITEM "&200%",                       ID_VIEW_ZOOM_200
-            MENUITEM "&300%",                       ID_VIEW_ZOOM_300
-            MENUITEM "&400%",                       ID_VIEW_ZOOM_400
-        END
     END
     POPUP "E&mulation"
     BEGIN
@@ -107,7 +139,8 @@ BEGIN
     END
     POPUP "&Tools"
     BEGIN
-        MENUITEM "&Options",                    ID_TOOLS_OPTIONS
+        MENUITEM "&Options...",                 ID_TOOLS_OPTIONS
+        MENUITEM "&Sound Enabled",              ID_TOOLS_SOUNDENABLED
     END
     POPUP "&Window"
     BEGIN
@@ -206,7 +239,7 @@ FONT 8, "MS Sans Serif"
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,137,7,50,14
     ICON            IDI_MAINICON,IDC_STATIC,7,15,20,20
-    LTEXT           "Game Lad 1.1",IDC_STATIC,36,7,100,14
+    LTEXT           "Game Lad 1.2",IDC_STATIC,36,7,100,14
     LTEXT           "Written by: Torbjörn Söderstedt",IDC_STATIC,36,21,100,
                     14
     LTEXT           "http://gamelad.emuunlim.com",IDC_STATIC,36,35,100,14
@@ -246,29 +279,6 @@ BEGIN
                     WS_VSCROLL | WS_TABSTOP
 END
 
-IDD_OPTIONS_SHELL DIALOG DISCARDABLE  0, 0, 235, 156
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
-CAPTION "Shell"
-FONT 8, "MS Sans Serif"
-BEGIN
-    PUSHBUTTON      "Register File Types",IDC_REGISTER_FILE_TYPES,138,7,71,
-                    14
-    COMBOBOX        IDC_AUTOSTART,137,40,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    CONTROL         "Load battery if possible",IDC_AUTOLOADBATTERY,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,138,73,88,10
-    COMBOBOX        IDC_GBTYPE,137,106,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    LTEXT           "This will register *.gb and *.gbc file extensions to be opened with Game Lad. This will take effect immediately.",
-                    IDC_STATIC,7,7,122,33
-    LTEXT           "Select whether emulation should start automatically when opening a ROM.",
-                    IDC_STATIC,7,40,122,33
-    LTEXT           "The file extension is removed, and .sav is appended. If a file is found, it is loaded as battery RAM.",
-                    IDC_STATIC,7,73,122,33
-    LTEXT           "The default hardware to emulate.",IDC_STATIC,7,106,122,
-                    33
-END
-
 IDD_ENTERNUMBER DIALOG DISCARDABLE  0, 0, 118, 46
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Enter Address"
@@ -277,6 +287,41 @@ BEGIN
     EDITTEXT        IDC_NUMBER,7,7,104,12,ES_AUTOHSCROLL
     DEFPUSHBUTTON   "OK",IDOK,7,25,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,61,25,50,14
+END
+
+IDD_OPTIONS_GENERAL DIALOG DISCARDABLE  0, 0, 235, 156
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
+CAPTION "General"
+FONT 8, "MS Sans Serif"
+BEGIN
+    GROUPBOX        "Associate files with Game Lad",IDC_STATIC,7,7,221,34
+    CONTROL         "Game Boy ROM files (.gb and .gbc)",IDC_REGISTERGBROM,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,17,170,10
+    CONTROL         "Game Lad save states (.gls)",IDC_REGISTERSAVESTATE,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,28,170,10
+    GROUPBOX        "Save",IDC_STATIC,7,42,221,52
+    CONTROL         "Load battery if possible",IDC_AUTOLOADBATTERY,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,53,103,10
+    CONTROL         "Load latest saved state",IDC_AUTOLOADSTATE,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,117,53,105,10
+    LTEXT           "Save battery on close",IDC_STATIC,14,64,103,14
+    COMBOBOX        IDC_SAVEBATTERY,117,64,67,82,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Save state on close",IDC_STATIC,14,78,103,13
+    COMBOBOX        IDC_SAVESTATE,117,78,67,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    GROUPBOX        "Miscellaneous",IDC_STATIC,7,95,221,54
+    LTEXT           "Default frame skip",IDC_STATIC,14,105,103,14
+    EDITTEXT        IDC_FRAMESKIP,117,105,67,12,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Spin2",IDC_FRAMESKIPSPIN,"msctls_updown32",
+                    UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS,184,105,
+                    11,12
+    LTEXT           "Hardware to emulate",IDC_STATIC,14,119,103,14
+    COMBOBOX        IDC_GBTYPE,117,119,67,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    LTEXT           "Initial state of an opened ROM",IDC_STATIC,14,133,103,9
+    COMBOBOX        IDC_AUTOSTART,117,133,67,82,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
 END
 
 
@@ -318,26 +363,30 @@ BEGIN
         HORZGUIDE, 127
     END
 
-    IDD_OPTIONS_SHELL, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 228
-        VERTGUIDE, 129
-        VERTGUIDE, 138
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 149
-        HORZGUIDE, 40
-        HORZGUIDE, 73
-        HORZGUIDE, 106
-        HORZGUIDE, 139
-    END
-
     IDD_ENTERNUMBER, DIALOG
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 111
         TOPMARGIN, 7
         BOTTOMMARGIN, 39
+    END
+
+    IDD_OPTIONS_GENERAL, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        VERTGUIDE, 14
+        VERTGUIDE, 117
+        VERTGUIDE, 184
+        VERTGUIDE, 222
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 149
+        HORZGUIDE, 53
+        HORZGUIDE, 64
+        HORZGUIDE, 78
+        HORZGUIDE, 105
+        HORZGUIDE, 119
+        HORZGUIDE, 133
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -363,6 +412,11 @@ BEGIN
                                                     NOINVERT
     VK_F11,         ID_EMULATION_STEPINTO,  VIRTKEY, NOINVERT
     VK_F11,         ID_EMULATION_STEPOUT,   VIRTKEY, SHIFT, NOINVERT
+    VK_F2,          ID_FILE_SAVESTATE,      VIRTKEY, NOINVERT
+    VK_F2,          ID_FILE_SAVESTATEAS,    VIRTKEY, SHIFT, NOINVERT
+    VK_F3,          ID_FILE_LOADSTATE,      VIRTKEY, NOINVERT
+    VK_F3,          ID_FILE_LOADSTATEAS,    VIRTKEY, SHIFT, NOINVERT
+    VK_F4,          ID_SAVESTATESLOT,       VIRTKEY, NOINVERT
     VK_F4,          ID_FILE_CLOSE,          VIRTKEY, CONTROL, NOINVERT
     VK_F5,          ID_EMULATION_STARTDEBUG, VIRTKEY, NOINVERT
     VK_F5,          ID_EMULATION_EXECUTE,   VIRTKEY, CONTROL, NOINVERT
@@ -377,6 +431,128 @@ END
 
 IDB_CURRENTSTATEMENT    BITMAP  DISCARDABLE     "Current Statement.bmp"
 IDB_BREAKPOINT          BITMAP  DISCARDABLE     "Breakpoint.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_OPEN           "Opens a Game Boy ROM file"
+    IDS_FILE_CLOSE          "Closes the active Game Boy window"
+    IDS_FILE_SAVESTATE      "Saves the state of the active Game Boy to the selected slot"
+    IDS_FILE_LOADSTATE      "Loads a state from the selected slot"
+    IDS_FILE_SAVESTATEAS    "Saves the state of the active Game Boy to a file"
+    IDS_FILE_LOADSTATEAS    "Loads a saved state from a file"
+    IDS_FILE_STATESLOT_0    "Selects save state slot zero"
+    IDS_FILE_STATESLOT_1    "Selects save state slot one"
+    IDS_FILE_STATESLOT_2    "Selects save state slot two"
+    IDS_FILE_STATESLOT_3    "Selects save state slot three"
+    IDS_FILE_STATESLOT_4    "Selects save state slot four"
+    IDS_FILE_STATESLOT_5    "Selects save state slot five"
+    IDS_FILE_STATESLOT_6    "Selects save state slot six"
+    IDS_FILE_STATESLOT_7    "Selects save state slot seven"
+    IDS_FILE_STATESLOT_8    "Selects save state slot eight"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_STATESLOT_9    "Selects save state slot nine"
+    IDS_FILE_SAVEBATTERY    "Saves battery RAM"
+    IDS_FILE_LOADBATTERY    "Loads battery RAM"
+    IDS_FILE_SAVEBATTERYAS  "Saves battery RAM with a new name"
+    IDS_FILE_CLEARBATTERY   "Clears battery RAM"
+    IDS_FILE_EXIT           "Closes Game Lad"
+    IDS_EDIT_GOTO           "Moves to a specified location"
+    IDS_VIEW_DISASSEMBLY    "Activates disassembly window"
+    IDS_VIEW_MEMORY         "Activates memory window"
+    IDS_VIEW_REGISTERS      "Activates registers window"
+    IDS_VIEW_HARDWARE       "Activates hardware window"
+    IDS_VIEW_PALETTES       "Activates palette window"
+    IDS_VIEW_TILEMAP        "Activates tile map window"
+    IDS_VIEW_TILES          "Activates tile window"
+    IDS_VIEW_STATUSBAR      "Shows or hides the status bar"
+    IDS_VIEW_ZOOM_100       "Zooms window to 100%"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_ZOOM_200       "Zooms window to 200%"
+    IDS_VIEW_ZOOM_300       "Zooms window to 300%"
+    IDS_VIEW_ZOOM_400       "Zooms window to 400%"
+    IDS_VIEW_FRAMESKIP_0    "Sets frame skip to zero"
+    IDS_VIEW_FRAMESKIP_1    "Sets frame skip to one"
+    IDS_VIEW_FRAMESKIP_2    "Sets frame skip to two"
+    IDS_VIEW_FRAMESKIP_3    "Sets frame skip to three"
+    IDS_VIEW_FRAMESKIP_4    "Sets frame skip to four"
+    IDS_VIEW_FRAMESKIP_5    "Sets frame skip to five"
+    IDS_VIEW_FRAMESKIP_6    "Sets frame skip to six"
+    IDS_VIEW_FRAMESKIP_7    "Sets frame skip to seven"
+    IDS_VIEW_FRAMESKIP_8    "Sets frame skip to eight"
+    IDS_VIEW_FRAMESKIP_9    "Sets frame skip to nine"
+    IDS_MEMORY_ROM          "Views specified ROM bank"
+    IDS_MEMORY_VBK_BANK0    "Views VRAM bank zero"
+    IDS_MEMORY_VBK_BANK1    "Views VRAM bank one"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MEMORY_RAM_BANK0    "Views RAM bank zero"
+    IDS_MEMORY_RAM_BANK1    "Views RAM bank one"
+    IDS_MEMORY_RAM_BANK2    "Views RAM bank two"
+    IDS_MEMORY_RAM_BANK3    "Views RAM bank three"
+    IDS_MEMORY_RAM_BANK4    "Views RAM bank four"
+    IDS_MEMORY_RAM_BANK5    "Views RAM bank five"
+    IDS_MEMORY_RAM_BANK6    "Views RAM bank six"
+    IDS_MEMORY_RAM_BANK7    "Views RAM bank seven"
+    IDS_MEMORY_RAM_BANK8    "Views RAM bank eight"
+    IDS_MEMORY_RAM_BANK9    "Views RAM bank nine"
+    IDS_MEMORY_RAM_BANK10   "Views RAM bank ten"
+    IDS_MEMORY_RAM_BANK11   "Views RAM bank eleven"
+    IDS_MEMORY_RAM_BANK12   "Views RAM bank twelve"
+    IDS_MEMORY_RAM_BANK13   "Views RAM bank thirteen"
+    IDS_MEMORY_RAM_BANK14   "Views RAM bank fourteen"
+    IDS_MEMORY_RAM_BANK15   "Views RAM bank fifteen"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MEMORY_SVBK_BANK1   "Views internal RAM bank one"
+    IDS_MEMORY_SVBK_BANK2   "Views internal RAM bank two"
+    IDS_MEMORY_SVBK_BANK3   "Views internal RAM bank three"
+    IDS_MEMORY_SVBK_BANK4   "Views internal RAM bank four"
+    IDS_MEMORY_SVBK_BANK5   "Views internal RAM bank five"
+    IDS_MEMORY_SVBK_BANK6   "Views internal RAM bank six"
+    IDS_MEMORY_SVBK_BANK7   "Views internal RAM bank seven"
+    IDS_EMULATION_STARTDEBUG "Starts debugging"
+    IDS_EMULATION_EXECUTE   "Executes program without debug warnings"
+    IDS_EMULATION_STOP      "Stops emulation"
+    IDS_EMULATION_STEPINTO  "Steps into the next statement"
+    IDS_EMULATION_STEPOVER  "Steps over the next statement"
+    IDS_EMULATION_STEPOUT   "Steps out of the current function"
+    IDS_EMULATION_RUNTOCURSOR 
+                            "Runs the program to the line containing the cursor"
+    IDS_EMULATION_SETNEXTSTATEMENT 
+                            "Sets the program counter to the line containing the cursor"
+    IDS_EMULATION_TOGGLEBREAKPOINT "Inserts or removes a breakpoint"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMULATION_RESET     "Resets the program"
+    IDS_TOOLS_OPTIONS       "Changes options"
+    IDS_TOOLS_SOUNDENABLED  "Enables sound"
+    IDS_WINDOW_NEXT         "Activates the next window"
+    IDS_WINDOW_PREVIOUS     "Activates the previous window"
+    IDS_WINDOW_CASCADE      "Arranges the windows as overlapping tiles"
+    IDS_WINDOW_TILEHORIZONTALLY 
+                            "Arranges the windows as horizontal, nonoverlapping tiles"
+    IDS_WINDOW_TILEVERTICALLY 
+                            "Arranges the windows as vertical, nonoverlapping tiles"
+    IDS_HELP_ABOUT          "Displays the program information and copyright"
+END
+
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

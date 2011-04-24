@@ -9,106 +9,7 @@
 
 
 
-#define		DefaultFrameSkip	0
-
-//#define		TIMEDEMO
-
-
-DWORD WINAPI GameLoop(void *pGameBoy)
-{
-	MSG				msg;
-	BYTE			FrameSkip = DefaultFrameSkip;
-	int				SkippedFrameNo = 0;
-
-#ifdef TIMEDEMO
-	LARGE_INTEGER	StartTime, CurrentTime, TimerFrequency;
-	DWORD			Count = 0;
-#endif //TEMIDEMO
-
-
-	((CGameBoy *)pGameBoy)->PrepareEmulation(false);
-	MemoryFlags = DisAsmFlags = 0;
-
-#ifdef TIMEDEMO
-	QueryPerformanceFrequency(&TimerFrequency);
-	QueryPerformanceCounter(&StartTime);
-#endif //TIMEDEMO
-
-
-	while (true)
-	{
-		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-		{
-			if (msg.message == WM_QUIT)
-			{
-				((CGameBoy *)pGameBoy)->CloseSound();
-				if (GameBoyList.GetActive() == pGameBoy)
-				{
-					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-				}
-				((CGameBoy *)pGameBoy)->hThread = NULL;
-				return msg.wParam;
-			}
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-
-
-		((CGameBoy *)pGameBoy)->MainLoop();
-		if (((CGameBoy *)pGameBoy)->Flags & GB_INVALIDOPCODE)
-		{
-			((CGameBoy *)pGameBoy)->CloseSound();
-			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
-			if (GameBoyList.GetActive() == pGameBoy)
-			{
-				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-			}
-			MessageBox(hWnd, "Invalid OP code", "Game Lad", MB_OK | MB_ICONWARNING);
-			((CGameBoy *)pGameBoy)->hThread = NULL;
-			return 0;
-		}
-
-		/*if (((CGameBoy *)pGameBoy)->FastFwd)
-		{
-			FrameSkip = 9;
-		}
-		else
-		{
-			FrameSkip = DefaultFrameSkip;
-		}*/
-
-		((CGameBoy *)pGameBoy)->Delay();
-
-
-		if (!SkippedFrameNo)
-		{
-			((CGameBoy *)pGameBoy)->RefreshScreen();
-		}
-		if (++SkippedFrameNo > FrameSkip)
-		{
-			SkippedFrameNo = 0;
-		}
-
-#ifdef TIMEDEMO
-		QueryPerformanceCounter(&CurrentTime);
-		if ((CurrentTime.QuadPart - StartTime.QuadPart) >= (TimerFrequency.QuadPart * 64))
-		{
-			((CGameBoy *)pGameBoy)->DirectionKeys = 0;
-			((CGameBoy *)pGameBoy)->Buttons = 0;
-			((CGameBoy *)pGameBoy)->CloseSound();
-			((CGameBoy *)pGameBoy)->hThread = NULL;
-			char	NumBuffer2[10];
-			MessageBox(hWnd, ultoa(Count, NumBuffer, 10), ultoa((DWORD)(CurrentTime.QuadPart - StartTime.QuadPart), NumBuffer2, 10), MB_OK | MB_ICONINFORMATION);
-			return 0;
-		}
-		Count++;
-#endif //TIMEDEMO
-	}
-}
-
-
-
-DWORD WINAPI DebugGameLoop(void *pGameBoy)
+DWORD DebugGameLoop(void *pGameBoy)
 {
 	MSG				msg;
 	BYTE			FrameSkip = DefaultFrameSkip;
@@ -187,7 +88,7 @@ DWORD WINAPI DebugGameLoop(void *pGameBoy)
 
 
 
-DWORD WINAPI StepGameLoop(void *pEmulationInfo)
+DWORD StepGameLoop(void *pEmulationInfo)
 {
 	MSG				msg;
 	BYTE			FrameSkip = DefaultFrameSkip;
@@ -349,6 +250,50 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 			}
 		}
 	}
+}
+
+
+
+DWORD WINAPI GameBoyThreadProc(void *pGameBoy)
+{
+	MSG				msg;
+
+
+	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
+	SetEvent(hStartStopEvent);
+
+	while (GetMessage(&msg, NULL, 0, 0))
+	{
+		switch (msg.message)
+		{
+		case WM_COMMAND:
+			switch (LOWORD(msg.wParam))
+			{
+			case ID_EMULATION_EXECUTE:
+				((CGameBoy *)pGameBoy)->Emulating = true;
+				SetEvent(hStartStopEvent);
+				GameLoop((CGameBoy *)pGameBoy);
+				((CGameBoy *)pGameBoy)->Emulating = false;
+				break;
+			}
+			break;
+
+		case WM_APP_STEP:
+			break;
+
+		case WM_APP_RESUME:
+			((CGameBoy *)pGameBoy)->Emulating = true;
+			SetEvent(hStartStopEvent);
+			GameLoop((CGameBoy *)pGameBoy);
+			((CGameBoy *)pGameBoy)->Emulating = false;
+			break;
+
+		default:
+			DispatchMessage(&msg);
+		}
+	}
+
+	return msg.wParam;
 }
 
 

@@ -55,6 +55,15 @@ BEGIN
                     WS_VISIBLE
 END
 
+IDD_SAVESTATE DIALOG DISCARDABLE  0, 0, 235, 156
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Save State"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "Required Game Lad version",IDC_STATIC,7,7,96,12
+    LTEXT           "Static",IDC_VERSION,109,7,119,12
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -80,6 +89,17 @@ BEGIN
         HORZGUIDE, 79
         HORZGUIDE, 97
         HORZGUIDE, 113
+    END
+
+    IDD_SAVESTATE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        VERTGUIDE, 103
+        VERTGUIDE, 109
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 149
+        HORZGUIDE, 19
     END
 END
 #endif    // APSTUDIO_INVOKED

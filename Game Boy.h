@@ -2,7 +2,30 @@
 
 #define		GAME_BOY_CPP	extern
 
-#endif
+#endif		//GAME_BOY_CPP
+
+
+
+#define			EMU_STEPINTO	1
+#define			EMU_RUNTO		2
+#define			EMU_STEPOUT		3
+
+
+
+struct EMULATIONINFO
+{
+	DWORD		Flags;
+	WORD		RunToOffset;
+	BYTE		RunToBank;
+};
+
+
+
+struct SOUNDBUFFER
+{
+	BYTE			Data[2048];
+	WAVEHDR			wh;
+};
 
 
 
@@ -88,9 +111,9 @@
 
 #define		Offset_pGBBitmap		0x03A13C //4
 
-#define		Offset_WindowTileY		0x03A140 //1
-#define		Offset_WindowY			0x03A141 //1
-#define		Offset_WindowTileY2		0x03A142 //1
+#define		Offset_WindowY			0x03A140 //1
+#define		Offset_WindowY2			0x03A141 //1
+//#define		Offset_				0x03A142 //1
 
 #define		Offset_SoundTicks		0x03A143 //1
 #define		Offset_Sound1Enabled	0x03A144 //1
@@ -122,6 +145,17 @@
 #define		Offset_Sound4TimeOut	0x03A18C //4
 #define		Offset_Sound4Frequency	0x03A190 //4
 #define		Offset_Sound4Envelope	0x03A194 //4
+#define		Offset_hWaveOut			0x03A198 //4
+#define		Offset_pSoundBuffer		0x03A19C //4
+#define		Offset_SoundBufferPosition	0x03A1A0 //4
+#define		Offset_nSoundBuffers	0x03A1A4 //1
+#define		Offset_FastFwd			0x03A1A5 //1
+#define		Offset_FramesToSkip		0x03A1A6 //1
+#define		Offset_FrameSkip		0x03A1A7 //1
+/*#define		Offset_SerialOutput		0x03A198 //4
+#define		Offset_SerialInput		0x03A199 //1
+#define		Offset_SerialByte		0x03A19A //1
+#define		Offset_SerialTicks		0x03A19B //1*/
 
 
 #define		FF00_C(Offset)			MEM_CPU[0x8F00 + Offset]
@@ -132,13 +166,6 @@
 //#define		pROM(n)					((BYTE *)(n + (DWORD)MEM_ROM))
 
 #define		pMemStatus_ROM(n)		((BYTE *)(n + (DWORD)MemStatus_ROM))
-
-
-struct SOUNDBUFFER
-{
-	BYTE			Data[1024];
-	WAVEHDR			wh;
-};
 
 
 
@@ -202,8 +229,6 @@ public:
 	BYTE			MaxRomBank;
 	BYTE			MaxRamBank;
 
-	//BYTE			DrawLineMask;
-
 	BYTE			*MEM[0x10];
 	BYTE			MEM_CPU[0x9000];
 	BYTE			*MEM_ROM;
@@ -231,10 +256,9 @@ public:
 
 	WORD			*pGBBitmap;
 
-	//DWORD			SIOClocks;
+	BYTE			WindowY, WindowY2;
 
-	signed char		WindowTileY;
-	BYTE			WindowY, WindowTileY2;
+	BYTE			DrawLineMask; //not used
 
 
 	BYTE			SoundTicks;
@@ -250,24 +274,22 @@ public:
 	DWORD			Sound3Ticks, Sound3TimeOut, Sound3Frequency;
 	DWORD			Sound4Ticks, Sound4TimeOut, Sound4Frequency, Sound4Envelope;
 
+	HWAVEOUT		hWaveOut;
+	SOUNDBUFFER		*SoundBuffer;
+	DWORD			SoundBufferPosition;
+	BYTE			nSoundBuffers;
 
-	BOOL			FastFwd;
+	BYTE			FastFwd;
+	BYTE			FramesToSkip, FrameSkip;
+
+	BYTE			StateSlot;
+
+	//BYTE			*SerialOutput, SerialInput, SerialByte, SerialTicks;
+
 
 	HWND			hGBWnd;
 	HDC				hGBDC;
 	HBITMAP			hGBBitmap, hOldBitmap;
-
-	HWAVEOUT		hWaveOut;
-	SOUNDBUFFER		*SoundBuffer;
-	DWORD			SoundBufferPosition;
-
-	HANDLE			hThread;
-	DWORD			ThreadId;
-
-	char			Rom[MAX_PATH];
-	char			Battery[MAX_PATH];
-	unsigned int	SaveRamSize;
-	BOOL			BatteryAvailable;
 
 #ifdef	CDEBUGINFO_H
 	CDebugInfo		*pDebugInfo;
@@ -275,31 +297,82 @@ public:
 	void			*pDebugInfo;
 #endif	//CDEBUGINFO_H
 
+
+private:
+	HANDLE			hThread;
+	DWORD			ThreadId;
+
+	char			Rom[MAX_PATH];
+	char			Battery[MAX_PATH];
+	unsigned int	SaveRamSize;
+	BYTE			BatteryAvailable;
+	BYTE			Emulating;
+
 	LARGE_INTEGER	LastTimerCount;
 	LONGLONG		DelayTime;
 
+
+private:
+	BOOL			StartThread();
+	void			ExecuteLoop();
+	void			DebugLoop();
+	void			StepLoop(EMULATIONINFO *pEmulationInfo);
+	void			SetStartDelay();
+	void			Delay();
+
+	void			PrepareEmulation(BOOL Debug);
+	void			MainLoop();
+	void			DebugMainLoop();
+	void			RefreshScreen();
+	BOOL			RestoreSound();
+
+	char			*CGameBoy::GetStateFilename(char *szFilename);
 
 public:
 	CGameBoy(BYTE Flags);
 	~CGameBoy();
 
-	BOOL			Init(char *pszROMFilename, char *pszBatteryFilename);
-	BOOL			LoadBattery();
+	BOOL			Init(char *pszROMFilename, char *pszStateFilename, char *pszBatteryFilename);
 	BOOL			LoadBattery(char *BatteryFilename);
 	BOOL			SaveBattery(BOOL Prompt, BOOL SaveAs);
 	void			GetBatteryFilename(char *Filename);
 	LPARAM			GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 	void			Reset(DWORD Flags);
 	void			Reset();
-	void			PrepareEmulation(BOOL Debug);
-	void			SetStartDelay();
-	void			Delay();
-	void			MainLoop();
-	void			DebugMainLoop();
-	void			RefreshScreen();
-	BOOL			RestoreSound();
 	void			CloseSound();
+
+	DWORD			ThreadProc();
+
+	BOOL			IsEmulating();
+	BOOL			HasBattery();
+
+	BOOL			Execute();
+	BOOL			StartDebug();
+	BOOL			Step(EMULATIONINFO *pEmulationInfo);
+	void			Resume();
+	void			Stop();
+
+	void			SetFrameSkip(int nFrameSkip);
+
+	BOOL			SaveState();
+	BOOL			SaveState(char *pszFilename, BOOL AlreadyStopped);
+	BOOL			SaveStateAs();
+	BOOL			LoadState();
+	BOOL			LoadState(char *pszFilename, BOOL AlreadyStopped);
+	BOOL			LoadStateAs();
+	void			SetStateSlot(int nSlot);
+	int				GetStateSlot();
+
+	BOOL			SwitchRomBank(BYTE Bank);
+	BOOL			SwitchRamBank(BYTE Bank);
+	BOOL			SwitchVBK(BYTE Bank);
+	BOOL			SwitchSVBK(BYTE Bank);
 };
+
+
+
+#define			WM_APP_STEP		WM_APP
+#define			WM_APP_RESUME	(WM_APP + 1)
 
 
 

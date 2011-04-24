@@ -1,217 +1,178 @@
 #include	<windows.h>
+#include	<shlobj.h>
 #include	<afxres.h>
 #include	"resource.h"
 
 #define		GAME_LAD_CPP
 #include	"Game Lad.h"
+#include	"CGameBoys.h"
 #include	"Emulation.h"
 #include	"Debugger.h"
 #include	"Error.h"
 
 
 
-KEYS		Keys = {VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, 'Z', 'X', VK_RETURN, VK_SHIFT, VK_TAB};
+#define		GAME_LAD_RELEASENO				3
+#define		VERSION_MAJOR					1
+#define		VERSION_MINOR					20
 
 
 
-CGameBoyList::CGameBoyList()
+#define		MENU_WINDOW		5
+
+
+
+KEYS		Keys = {VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, 'X', 'Z', VK_RETURN, VK_SHIFT, VK_TAB};
+
+
+
+CGameBoy	*F4Pressed = NULL;
+
+struct MENUHELPSTRINGS
 {
-	FirstGameBoy = NULL;
-	ActiveGameBoy = NULL;
-}
+	UINT	uiCommand, uiString;
+} MenuHelpStrings[] = {
+	ID_FILE_OPEN,					IDS_FILE_OPEN,
+	ID_FILE_CLOSE,					IDS_FILE_CLOSE,
+	ID_FILE_SAVESTATE,				IDS_FILE_SAVESTATE,
+	ID_FILE_LOADSTATE,				IDS_FILE_LOADSTATE,
+	ID_FILE_SAVESTATEAS,			IDS_FILE_SAVESTATEAS,
+	ID_FILE_LOADSTATEAS,			IDS_FILE_LOADSTATEAS,
+	ID_FILE_STATESLOT_0,			IDS_FILE_STATESLOT_0,
+	ID_FILE_STATESLOT_1,			IDS_FILE_STATESLOT_1,
+	ID_FILE_STATESLOT_2,			IDS_FILE_STATESLOT_2,
+	ID_FILE_STATESLOT_3,			IDS_FILE_STATESLOT_3,
+	ID_FILE_STATESLOT_4,			IDS_FILE_STATESLOT_4,
+	ID_FILE_STATESLOT_5,			IDS_FILE_STATESLOT_5,
+	ID_FILE_STATESLOT_6,			IDS_FILE_STATESLOT_6,
+	ID_FILE_STATESLOT_7,			IDS_FILE_STATESLOT_7,
+	ID_FILE_STATESLOT_8,			IDS_FILE_STATESLOT_8,
+	ID_FILE_STATESLOT_9,			IDS_FILE_STATESLOT_9,
+	ID_FILE_SAVEBATTERY,			IDS_FILE_SAVEBATTERY,
+	ID_FILE_LOADBATTERY,			IDS_FILE_LOADBATTERY,
+	ID_FILE_SAVEBATTERYAS,			IDS_FILE_SAVEBATTERYAS,
+	ID_FILE_CLEARBATTERY,			IDS_FILE_CLEARBATTERY,
+	ID_FILE_EXIT,					IDS_FILE_EXIT,
+	ID_EDIT_GOTO,					IDS_EDIT_GOTO,
+	ID_VIEW_DISASSEMBLY,			IDS_VIEW_DISASSEMBLY,
+	ID_VIEW_MEMORY,					IDS_VIEW_MEMORY,
+	ID_VIEW_REGISTERS,				IDS_VIEW_REGISTERS,
+	ID_VIEW_HARDWARE,				IDS_VIEW_HARDWARE,
+	ID_VIEW_PALETTES,				IDS_VIEW_PALETTES,
+	ID_VIEW_TILEMAP,				IDS_VIEW_TILEMAP,
+	ID_VIEW_TILES,					IDS_VIEW_TILES,
+	ID_VIEW_STATUSBAR,				IDS_VIEW_STATUSBAR,
+	ID_VIEW_ZOOM_100,				IDS_VIEW_ZOOM_100,
+	ID_VIEW_ZOOM_200,				IDS_VIEW_ZOOM_200,
+	ID_VIEW_ZOOM_300,				IDS_VIEW_ZOOM_300,
+	ID_VIEW_ZOOM_400,				IDS_VIEW_ZOOM_400,
+	ID_VIEW_FRAMESKIP_0,			IDS_VIEW_FRAMESKIP_0,
+	ID_VIEW_FRAMESKIP_1,			IDS_VIEW_FRAMESKIP_1,
+	ID_VIEW_FRAMESKIP_2,			IDS_VIEW_FRAMESKIP_2,
+	ID_VIEW_FRAMESKIP_3,			IDS_VIEW_FRAMESKIP_3,
+	ID_VIEW_FRAMESKIP_4,			IDS_VIEW_FRAMESKIP_4,
+	ID_VIEW_FRAMESKIP_5,			IDS_VIEW_FRAMESKIP_5,
+	ID_VIEW_FRAMESKIP_6,			IDS_VIEW_FRAMESKIP_6,
+	ID_VIEW_FRAMESKIP_7,			IDS_VIEW_FRAMESKIP_7,
+	ID_VIEW_FRAMESKIP_8,			IDS_VIEW_FRAMESKIP_8,
+	ID_VIEW_FRAMESKIP_9,			IDS_VIEW_FRAMESKIP_9,
+	ID_MEMORY_ROM,					IDS_MEMORY_ROM,
+	ID_MEMORY_VBK_BANK0,			IDS_MEMORY_VBK_BANK0,
+	ID_MEMORY_VBK_BANK1,			IDS_MEMORY_VBK_BANK1,
+	ID_MEMORY_RAM_BANK0,			IDS_MEMORY_RAM_BANK0,
+	ID_MEMORY_RAM_BANK1,			IDS_MEMORY_RAM_BANK1,
+	ID_MEMORY_RAM_BANK2,			IDS_MEMORY_RAM_BANK2,
+	ID_MEMORY_RAM_BANK3,			IDS_MEMORY_RAM_BANK3,
+	ID_MEMORY_RAM_BANK4,			IDS_MEMORY_RAM_BANK4,
+	ID_MEMORY_RAM_BANK5,			IDS_MEMORY_RAM_BANK5,
+	ID_MEMORY_RAM_BANK6,			IDS_MEMORY_RAM_BANK6,
+	ID_MEMORY_RAM_BANK7,			IDS_MEMORY_RAM_BANK7,
+	ID_MEMORY_RAM_BANK8,			IDS_MEMORY_RAM_BANK8,
+	ID_MEMORY_RAM_BANK9,			IDS_MEMORY_RAM_BANK9,
+	ID_MEMORY_RAM_BANK10,			IDS_MEMORY_RAM_BANK10,
+	ID_MEMORY_RAM_BANK11,			IDS_MEMORY_RAM_BANK11,
+	ID_MEMORY_RAM_BANK12,			IDS_MEMORY_RAM_BANK12,
+	ID_MEMORY_RAM_BANK13,			IDS_MEMORY_RAM_BANK13,
+	ID_MEMORY_RAM_BANK14,			IDS_MEMORY_RAM_BANK14,
+	ID_MEMORY_RAM_BANK15,			IDS_MEMORY_RAM_BANK15,
+	ID_MEMORY_SVBK_BANK1,			IDS_MEMORY_SVBK_BANK1,
+	ID_MEMORY_SVBK_BANK2,			IDS_MEMORY_SVBK_BANK2,
+	ID_MEMORY_SVBK_BANK3,			IDS_MEMORY_SVBK_BANK3,
+	ID_MEMORY_SVBK_BANK4,			IDS_MEMORY_SVBK_BANK4,
+	ID_MEMORY_SVBK_BANK5,			IDS_MEMORY_SVBK_BANK5,
+	ID_MEMORY_SVBK_BANK6,			IDS_MEMORY_SVBK_BANK6,
+	ID_MEMORY_SVBK_BANK7,			IDS_MEMORY_SVBK_BANK7,
+	ID_EMULATION_STARTDEBUG,		IDS_EMULATION_STARTDEBUG,
+	ID_EMULATION_EXECUTE,			IDS_EMULATION_EXECUTE,
+	ID_EMULATION_STOP,				IDS_EMULATION_STOP,
+	ID_EMULATION_STEPINTO,			IDS_EMULATION_STEPINTO,
+	ID_EMULATION_STEPOVER,			IDS_EMULATION_STEPOVER,
+	ID_EMULATION_STEPOUT,			IDS_EMULATION_STEPOUT,
+	ID_EMULATION_RUNTOCURSOR,		IDS_EMULATION_RUNTOCURSOR,
+	ID_EMULATION_SETNEXTSTATEMENT,	IDS_EMULATION_SETNEXTSTATEMENT,
+	ID_EMULATION_TOGGLEBREAKPOINT,	IDS_EMULATION_TOGGLEBREAKPOINT,
+	ID_EMULATION_RESET,				IDS_EMULATION_RESET,
+	ID_TOOLS_OPTIONS,				IDS_TOOLS_OPTIONS,
+	ID_TOOLS_SOUNDENABLED,			IDS_TOOLS_SOUNDENABLED,
+	ID_WINDOW_NEXT,					IDS_WINDOW_NEXT,
+	ID_WINDOW_PREVIOUS,				IDS_WINDOW_PREVIOUS,
+	ID_WINDOW_CASCADE,				IDS_WINDOW_CASCADE,
+	ID_WINDOW_TILEHORIZONTALLY,		IDS_WINDOW_TILEHORIZONTALLY,
+	ID_WINDOW_TILEVERTICALLY,		IDS_WINDOW_TILEVERTICALLY,
+	ID_HELP_ABOUT,					IDS_HELP_ABOUT,
+	0, 0};
 
 
 
-CGameBoy *CGameBoyList::NewGameBoy(char *pszROMFilename, char *pszBatteryFilename, BYTE Flags, BYTE AutoStart)
+BOOL		StatusReady = true;
+
+void SetStatus(char *szStatusText, DWORD dwStatus)
 {
-	GameBoy		*LastGameBoy;
-
-
-	if (!(LastGameBoy = new GameBoy))
+	if (dwStatus != SF_F4PRESSED)
 	{
-		MessageBox(NULL, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
-		return NULL;
-	}
-	LastGameBoy->pNext = FirstGameBoy;
-	FirstGameBoy = LastGameBoy;
-
-	if (!(LastGameBoy->pGameBoy = new CGameBoy(Flags)))
-	{
-		FirstGameBoy = LastGameBoy->pNext;
-		delete LastGameBoy;
-		MessageBox(NULL, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
-		return NULL;
-	}
-	if (LastGameBoy->pGameBoy->Init(pszROMFilename, pszBatteryFilename))
-	{
-		FirstGameBoy = LastGameBoy->pNext;
-		delete LastGameBoy->pGameBoy;
-		delete LastGameBoy;
-		return NULL;
+		F4Pressed = NULL;
 	}
 
-	ActiveGameBoy = LastGameBoy->pGameBoy;
-	if (AutoStart == AUTOSTART_DEBUG)
+	switch (dwStatus)
 	{
-		SendMessage(hWnd, WM_COMMAND, ID_EMULATION_STARTDEBUG, 0);
-	}
-	if (AutoStart == AUTOSTART_EXECUTE)
-	{
-		SendMessage(hWnd, WM_COMMAND, ID_EMULATION_EXECUTE, 0);
-	}
-	PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-	return LastGameBoy->pGameBoy;
-}
+	case SF_MESSAGE:
+		SendMessage(hStatusWnd, WM_SETTEXT, 0, (LPARAM)szStatusText);
+		StatusReady = true;
+		return;
 
+	case SF_CLEAR:
+		SendMessage(hStatusWnd, WM_SETTEXT, 0, NULL);
+		StatusReady = true;
+		return;
 
+	case SF_READY:
+		StatusReady = true;
+		break;
 
-BOOL CGameBoyList::DeleteGameBoy(CGameBoy *pCGameBoy)
-{
-	GameBoy		*pGameBoy = FirstGameBoy, *pGameBoy2;
-
-
-	if (FirstGameBoy->pGameBoy == pCGameBoy)
-	{
-		if (pGameBoy->pGameBoy->SaveBattery(true, false))
+	case SF_F4PRESSED:
+		if (F4Pressed)
 		{
-			return true;
+			SendMessage(hStatusWnd, WM_SETTEXT, 0, (LPARAM)&"Enter number of a state slot");
+			StatusReady = false;
 		}
-		if (pGameBoy->pGameBoy == ActiveGameBoy)
+		else
 		{
-			ActiveGameBoy = NULL;
+			StatusReady = true;
 		}
-		FirstGameBoy = FirstGameBoy->pNext;
-		delete pGameBoy->pGameBoy;
-		delete pGameBoy;
-		PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-		return false;
+		break;
 	}
 
-	while (pGameBoy->pNext->pGameBoy != pCGameBoy)
+	if (StatusReady)
 	{
-		pGameBoy = pGameBoy->pNext;
+		SendMessage(hStatusWnd, WM_SETTEXT, 0, (LPARAM)&"Ready");
 	}
-
-	if (pGameBoy->pNext->pGameBoy->SaveBattery(true, false))
-	{
-		return true;
-	}
-	if (pGameBoy->pNext->pGameBoy == ActiveGameBoy)
-	{
-		ActiveGameBoy = NULL;
-	}
-	pGameBoy2 = pGameBoy->pNext;
-	pGameBoy->pNext = pGameBoy2->pNext;
-	delete pGameBoy2->pGameBoy;
-	delete pGameBoy2;
-
-	PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-	return false;
-}
-
-
-
-BOOL CGameBoyList::DeleteAll()
-{
-	GameBoy		*NextGameBoy;
-
-
-	while (FirstGameBoy)
-	{
-		if (FirstGameBoy->pGameBoy)
-		{
-			if (FirstGameBoy->pGameBoy->hThread)
-			{
-				PostThreadMessage(FirstGameBoy->pGameBoy->ThreadId, WM_QUIT, 0, 0);
-				WaitForSingleObject(FirstGameBoy->pGameBoy->hThread, INFINITE);
-			}
-			if (FirstGameBoy->pGameBoy->SaveBattery(true, false))
-			{
-				return true;
-			}
-			if (FirstGameBoy->pGameBoy == ActiveGameBoy)
-			{
-				ActiveGameBoy = NULL;
-			}
-			delete FirstGameBoy->pGameBoy;
-		}
-		NextGameBoy = FirstGameBoy->pNext;
-		delete FirstGameBoy;
-		FirstGameBoy = NextGameBoy;
-	}
-
-	return false;
-}
-
-
-
-CGameBoy *CGameBoyList::GetActive()
-{
-	return ActiveGameBoy;
-}
-
-
-
-LPARAM CGameBoyList::WndProc(CGameBoy *pGameBoy, HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	if (pGameBoy)
-	{
-		switch (uMsg)
-		{
-		case WM_MDIACTIVATE:
-			if (hWin == (HWND)lParam)
-			{
-				ActiveGameBoy = pGameBoy;
-				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-				MemoryFlags = 0;
-			}
-			break;
-
-		case WM_KEYDOWN:
-			if (wParam == VK_ESCAPE && pGameBoy->hThread)
-			{
-				PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
-				WaitForSingleObject(pGameBoy->hThread, INFINITE);
-				return 0;
-			}
-			break;
-
-		case WM_CLOSE:
-			if (pGameBoy = GetActive())
-			{
-				if (pGameBoy->hThread)
-				{
-					PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
-					WaitForSingleObject(pGameBoy->hThread, INFINITE);
-					if (pGameBoy->SaveBattery(true, false))
-					{
-						if (pGameBoy->Flags & GB_DEBUG)
-						{
-							pGameBoy->hThread = CreateThread(NULL, 0, DebugGameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-						}
-						else
-						{
-							pGameBoy->hThread = CreateThread(NULL, 0, GameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-						}
-						return 0;
-					}
-				}
-				DeleteGameBoy(pGameBoy);
-			}
-			return 0;
-		}
-
-		return pGameBoy->GameBoyWndProc(uMsg, wParam, lParam);
-	}
-
-	return DefMDIChildProc(hWin, uMsg, wParam, lParam);
 }
 
 
 
 LPARAM CALLBACK GameBoyWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	return GameBoyList.WndProc((CGameBoy *)GetWindowLong(hWin, GWL_USERDATA), hWin, uMsg, wParam, lParam);
+	return GameBoys.WndProc((CGameBoy *)GetWindowLong(hWin, GWL_USERDATA), hWin, uMsg, wParam, lParam);
 }
 
 
@@ -249,7 +210,7 @@ void FatalError(DWORD ErrorNo, char *pszText)
 {
 	if (ErrorNo == FATAL_ERROR_OUTOFMEMORY)
 	{
-		MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
+		MessageBox(hWnd, OutOfMemoryMsg, NULL, MB_OK | MB_ICONERROR);
 	}
 }
 
@@ -291,19 +252,190 @@ BOOL HexToNum(char *pc)
 
 
 
-#define		DDEGB_DMG			0x01
-#define		DDEGB_GBC			0x02
-#define		DDEGB_LOAD			0x04
-#define		DDEGB_DEBUG			0x08
-#define		DDEGB_EXECUTE		0x10
-#define		DDEGB_NOBATTERY		0x20
-#define		DDEGB_BATTERY		0x40
+BOOL CreateKey(char *szKey, char *szData)
+{
+	HKEY	hKey;
+	DWORD	dw, ValueType, ValueSize;
+	char	szOldData[MAX_PATH + 4];
+
+
+	if (RegCreateKeyEx(HKEY_CLASSES_ROOT, szKey, 0, "REG_SZ", REG_OPTION_NON_VOLATILE, KEY_EXECUTE | KEY_WRITE, NULL, &hKey, &dw))
+	{
+		return false;
+	}
+	ValueSize = sizeof(szOldData);
+	if (!RegQueryValueEx(hKey, "", NULL, &ValueType, (BYTE *)&szOldData, &ValueSize))
+	{
+		if (ValueType == REG_SZ)
+		{
+			if (!strcmp(szData, szOldData))
+			{
+				return false;
+			}
+		}
+	}
+	if (RegSetValueEx(hKey, NULL, 0, REG_SZ, (BYTE *)szData, strlen(szData) + 1))
+	{
+		RegCloseKey(hKey);
+		return false;
+	}
+	RegCloseKey(hKey);
+
+	return true;
+}
+
+
+
+void RegisterGbFileType()
+{
+	char	szFilename[MAX_PATH + 4];
+	BOOL	Change;
+
+
+	GetModuleFileName(NULL, (char *)&szFilename[1], MAX_PATH);
+	szFilename[0] = '\"';
+	strcat(szFilename, "\"");
+
+	Change = false;
+	Change |= CreateKey(".gb", "GameBoyRom");
+	Change |= CreateKey(".gbc", "GameBoyRom");
+	Change |= CreateKey("GameBoyRom", "Game Boy Rom");
+	Change |= CreateKey("GameBoyRom\\shell", "open");
+	Change |= CreateKey("GameBoyRom\\shell\\open", "");
+	Change |= CreateKey("GameBoyRom\\shell\\open\\command", szFilename);
+	Change |= CreateKey("GameBoyRom\\shell\\open\\ddeexec", "open,\"%1\"");
+	Change |= CreateKey("GameBoyRom\\shell\\open\\ddeexec\\Application", "Game Lad");
+	Change |= CreateKey("GameBoyRom\\shell\\open\\ddeexec\\Topic", "system");
+	Change |= CreateKey("GameBoyRom\\shellex\\PropertySheetHandlers\\Game Lad", "{acdece20-a9d8-11d4-ace1-e0ae57c10001}");
+	strcat(szFilename, ",0");
+	Change |= CreateKey("GameBoyRom\\DefaultIcon", szFilename);
+	if (Change)
+	{
+		SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+	}
+}
+
+
+
+void RegisterGlsFileType()
+{
+	char	szFilename[MAX_PATH + 4];
+	BOOL	Change;
+
+
+	GetModuleFileName(NULL, (char *)&szFilename[1], MAX_PATH);
+	szFilename[0] = '\"';
+	strcat(szFilename, "\"");
+
+	Change = false;
+	Change |= CreateKey(".gls", "GameLadSaveState");
+	Change |= CreateKey("GameLadSaveState", "Game Lad Save State");
+	Change |= CreateKey("GameLadSaveState\\shell", "open");
+	Change |= CreateKey("GameLadSaveState\\shell\\open", "");
+	Change |= CreateKey("GameLadSaveState\\shell\\open\\command", szFilename);
+	Change |= CreateKey("GameLadSaveState\\shell\\open\\ddeexec", "state,\"%1\",open,\"\"");
+	Change |= CreateKey("GameLadSaveState\\shell\\open\\ddeexec\\Application", "Game Lad");
+	Change |= CreateKey("GameLadSaveState\\shell\\open\\ddeexec\\Topic", "system");
+	Change |= CreateKey("GameLadSaveState\\shellex\\PropertySheetHandlers\\Game Lad", "{acdece20-a9d8-11d4-ace1-e0ae57c10001}");
+	strcat(szFilename, ",1");
+	Change |= CreateKey("GameLadSaveState\\DefaultIcon", szFilename);
+	if (Change)
+	{
+		SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+	}
+
+	//Change |= CreateKey(hWin, "GameLadSaveState\\DefaultIcon", "%1");
+	//Change |= CreateKey(hWin, "GameLadSaveState\\shellex\\IconHandler", "{acdece20-a9d8-11d4-ace1-e0ae57c10001}");
+}
+
+
+
+BOOL DeleteKey(char *szKey)
+{
+	HKEY	hKey;
+
+
+	if (RegOpenKeyEx(HKEY_CLASSES_ROOT, szKey, 0, 0, &hKey))
+	{
+		return false;
+	}
+	RegCloseKey(hKey);
+	RegDeleteKey(HKEY_CLASSES_ROOT, szKey);
+
+	return true;
+}
+
+
+
+void UnRegisterGbFileType()
+{
+	BOOL	Change = false;
+
+
+	Change |= DeleteKey(".gb");
+	Change |= DeleteKey(".gbc");
+	Change |= DeleteKey("GameBoyRom\\shell\\open\\ddeexec\\Application");
+	Change |= DeleteKey("GameBoyRom\\shell\\open\\ddeexec\\Topic");
+	Change |= DeleteKey("GameBoyRom\\shell\\open\\ddeexec");
+	Change |= DeleteKey("GameBoyRom\\shell\\open\\command");
+	Change |= DeleteKey("GameBoyRom\\shell\\open");
+	Change |= DeleteKey("GameBoyRom\\shell");
+	Change |= DeleteKey("GameBoyRom\\shellex\\PropertySheetHandlers\\Game Lad");
+	Change |= DeleteKey("GameBoyRom\\shellex\\PropertySheetHandlers");
+	Change |= DeleteKey("GameBoyRom\\shellex");
+	Change |= DeleteKey("GameBoyRom\\DefaultIcon");
+	Change |= DeleteKey("GameBoyRom");
+
+	if (Change)
+	{
+		SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+	}
+}
+
+
+
+void UnRegisterGlsFileType()
+{
+	BOOL	Change = false;
+
+
+	Change |= DeleteKey(".gls");
+	Change |= DeleteKey("GameLadSaveState\\shell\\open\\ddeexec\\Application");
+	Change |= DeleteKey("GameLadSaveState\\shell\\open\\ddeexec\\Topic");
+	Change |= DeleteKey("GameLadSaveState\\shell\\open\\ddeexec");
+	Change |= DeleteKey("GameLadSaveState\\shell\\open\\command");
+	Change |= DeleteKey("GameLadSaveState\\shell\\open");
+	Change |= DeleteKey("GameLadSaveState\\shell");
+	Change |= DeleteKey("GameLadSaveState\\shellex\\PropertySheetHandlers\\Game Lad");
+	Change |= DeleteKey("GameLadSaveState\\shellex\\PropertySheetHandlers");
+	Change |= DeleteKey("GameLadSaveState\\shellex");
+	Change |= DeleteKey("GameLadSaveState\\DefaultIcon");
+	Change |= DeleteKey("GameLadSaveState");
+
+	if (Change)
+	{
+		SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+	}
+}
+
+
+
+#define		DDEGB_DMG			0x00000001
+#define		DDEGB_GBC			0x00000002
+#define		DDEGB_LOAD			0x00000004
+#define		DDEGB_DEBUG			0x00000008
+#define		DDEGB_EXECUTE		0x00000010
+#define		DDEGB_NOBATTERY		0x00000020
+#define		DDEGB_BATTERY		0x00000040
+#define		DDEGB_STATE			0x00000080
+#define		DDEGB_NOSTATE		0x00000100
 
 struct DDEGAMEBOY
 {
 	DWORD		Flags;
 	char		szROM[MAX_PATH];
 	char		szBattery[MAX_PATH];
+	char		szState[MAX_PATH];
 };
 
 
@@ -340,6 +472,7 @@ HDDEDATA CALLBACK DdeCallback(UINT uType, UINT uFmt, HCONV hconv, HSZ hsz1, HSZ 
 		DDEGameBoy->Flags = 0;
 		DDEGameBoy->szROM[0] = 0;
 		DDEGameBoy->szBattery[0] = 0;
+		DDEGameBoy->szState[0] = 0;
 		if (!strncmp(&pBuffer[FirstCharacter], "dmg,", 4))
 		{
 			DDEGameBoy->Flags |= DDEGB_DMG;
@@ -358,7 +491,7 @@ HDDEDATA CALLBACK DdeCallback(UINT uType, UINT uFmt, HCONV hconv, HSZ hsz1, HSZ 
 			{
 				Size = strchr(&pBuffer[FirstCharacter + 1], '\"') - &pBuffer[FirstCharacter + 1];
 				strncpy(DDEGameBoy->szBattery, &pBuffer[FirstCharacter + 1], Size);
-				DDEGameBoy->szBattery[FirstCharacter + 1 + Size] = 0;
+				DDEGameBoy->szBattery[Size] = 0;
 				FirstCharacter += 2 + Size;
 			}
 			FirstCharacter++;
@@ -367,6 +500,24 @@ HDDEDATA CALLBACK DdeCallback(UINT uType, UINT uFmt, HCONV hconv, HSZ hsz1, HSZ 
 		{
 			DDEGameBoy->Flags |= DDEGB_NOBATTERY;
 			FirstCharacter += 10;
+		}
+		if (!strncmp(&pBuffer[FirstCharacter], "state,", 6))
+		{
+			DDEGameBoy->Flags |= DDEGB_STATE;
+			FirstCharacter += 6;
+			if (pBuffer[FirstCharacter] == '\"')
+			{
+				Size = strchr(&pBuffer[FirstCharacter + 1], '\"') - &pBuffer[FirstCharacter + 1];
+				strncpy(DDEGameBoy->szState, &pBuffer[FirstCharacter + 1], Size);
+				DDEGameBoy->szState[Size] = 0;
+				FirstCharacter += 2 + Size;
+			}
+			FirstCharacter++;
+		}
+		else if (!strncmp(&pBuffer[FirstCharacter], "nostate,", 10))
+		{
+			DDEGameBoy->Flags |= DDEGB_NOSTATE;
+			FirstCharacter += 8;
 		}
 		if (!strncmp(&pBuffer[FirstCharacter], "open,", 5))
 		{
@@ -587,29 +738,6 @@ UINT CALLBACK OFNHookProc(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lParam)
 
 
 
-BOOL CreateKey(HWND hWin, char *Key, char *Data)
-{
-	HKEY	hKey;
-	DWORD	dw;
-
-
-	if (RegCreateKeyEx(HKEY_CLASSES_ROOT, Key, 0, "REG_SZ", REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, &dw))
-	{
-		return true;
-	}
-	if (RegSetValueEx(hKey, NULL, 0, REG_SZ, (BYTE *)Data, strlen(Data) + 1))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(hWin);
-		return true;
-	}
-	RegCloseKey(hKey);
-
-	return false;
-}
-
-
-
 struct CHARACTERS
 {
 	BYTE	Vk;
@@ -797,117 +925,26 @@ BOOL CALLBACK KeyOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 
 
-BOOL CALLBACK ShellEnumChildProc(HWND hWin, LPARAM lParam)
+BOOL CALLBACK GeneralOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	switch (GetWindowLong(hWin, GWL_ID))
-	{
-	case IDC_AUTOSTART:
-		if (lParam)
-		{
-			SendMessage(hWin, CB_ADDSTRING, 0, (LPARAM)"Stopped");
-			SendMessage(hWin, CB_ADDSTRING, 0, (LPARAM)"Start Debug");
-			SendMessage(hWin, CB_ADDSTRING, 0, (LPARAM)"Execute");
-			switch (Settings.AutoStart)
-			{
-			case 0:
-				SendMessage(hWin, CB_SETCURSEL, 0, 0);
-				break;
-
-			case AUTOSTART_DEBUG:
-				SendMessage(hWin, CB_SETCURSEL, 1, 0);
-				break;
-
-			case AUTOSTART_EXECUTE:
-				SendMessage(hWin, CB_SETCURSEL, 2, 0);
-				break;
-			}
-		}
-		else
-		{
-			switch (SendMessage(hWin, CB_GETCURSEL, 0, 0))
-			{
-			case 0:
-				Settings.AutoStart = 0;
-				break;
-
-			case 1:
-				Settings.AutoStart = AUTOSTART_DEBUG;
-				break;
-
-			case 2:
-				Settings.AutoStart = AUTOSTART_EXECUTE;
-				break;
-			}
-		}
-		break;
-
-	case IDC_AUTOLOADBATTERY:
-		if (lParam)
-		{
-			SendMessage(hWin, BM_SETCHECK, Settings.AutoLoadBattery ? BST_CHECKED : BST_UNCHECKED, 0);
-		}
-		else
-		{
-			Settings.AutoLoadBattery = SendMessage(hWin, BM_GETCHECK, 0, 0) == BST_CHECKED ? true : false;
-		}
-		break;
-
-	case IDC_GBTYPE:
-		if (lParam)
-		{
-			SendMessage(hWin, CB_ADDSTRING, 0, (long)"Game Boy");
-			SendMessage(hWin, CB_ADDSTRING, 0, (long)"Game Boy Color");
-			SendMessage(hWin, CB_SETCURSEL, Settings.GBType == GB_COLOR ? 1 : 0, 0);
-		}
-		else
-		{
-			Settings.GBType = SendMessage(hWin, CB_GETCURSEL, 0, 0) == 1 ? GB_COLOR : 0;
-		}
-		break;
-	}
-
-	return true;
-}
-
-
-
-BOOL CALLBACK ShellOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	char	Filename[MAX_PATH + 4];
-	BOOL	Error;
-
-
 	switch (uMsg)
 	{
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
-		case IDC_REGISTER_FILE_TYPES:
-			Error = false;
-			Error |= CreateKey(hWin, ".gb", "GameBoyRom");
-			Error |= CreateKey(hWin, ".gbc", "GameBoyRom");
-			Error |= CreateKey(hWin, "GameBoyRom", "Game Boy Rom");
-			GetModuleFileName(NULL, (char *)&Filename[1], MAX_PATH);
-			Error |= CreateKey(hWin, "GameBoyRom\\DefaultIcon", (char *)&Filename[1]);
-			Error |= CreateKey(hWin, "GameBoyRom\\shell", "open");
-			Error |= CreateKey(hWin, "GameBoyRom\\shell\\open", "");
-			Filename[0] = '\"';
-			strcat(Filename, "\"");
-			Error |= CreateKey(hWin, "GameBoyRom\\shell\\open\\command", Filename);
-			Error |= CreateKey(hWin, "GameBoyRom\\shell\\open\\ddeexec", "open,\"%1\"");
-			Error |= CreateKey(hWin, "GameBoyRom\\shell\\open\\ddeexec\\Application", "Game Lad");
-			Error |= CreateKey(hWin, "GameBoyRom\\shell\\open\\ddeexec\\Topic", "system");
-			Error |= CreateKey(hWin, "GameBoyRom\\shellex\\PropertySheetHandlers\\Game Lad", "{acdece20-a9d8-11d4-ace1-e0ae57c10001}");
-			if (Error)
+		case IDC_REGISTERGBROM:
+		case IDC_REGISTERSAVESTATE:
+		case IDC_AUTOLOADBATTERY:
+		case IDC_AUTOLOADSTATE:
+			if (HIWORD(wParam) == BN_CLICKED)
 			{
-				MessageBox(hWin, "An error occurred while updating the registry.", NULL, MB_OK | MB_ICONERROR);
-			}
-			else
-			{
-				MessageBox(hWin, "The registry was successfully updated.", "Game Lad", MB_OK | MB_ICONINFORMATION);
+				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
 			}
 			return true;
 
+		case IDC_SAVEBATTERY:
+		case IDC_SAVESTATE:
+		case IDC_GBTYPE:
 		case IDC_AUTOSTART:
 			if (HIWORD(wParam) == CBN_SELCHANGE)
 			{
@@ -915,36 +952,130 @@ BOOL CALLBACK ShellOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lP
 			}
 			return true;
 
-		case IDC_AUTOLOADBATTERY:
-			if (HIWORD(wParam) == BN_CLICKED)
+		case IDC_FRAMESKIP:
+			if (HIWORD(wParam) == EN_CHANGE)
 			{
 				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
 			}
 			return true;
+		}
+		break;
 
-		case IDC_GBTYPE:
-			if (HIWORD(wParam) == CBN_SELCHANGE)
+	case WM_NOTIFY:
+		if (wParam == IDC_FRAMESKIPSPIN)
+		{
+			if (((NMUPDOWN *)lParam)->hdr.code == UDN_DELTAPOS)
 			{
+				SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_GETTEXT, sizeof(NumBuffer), (LPARAM)&NumBuffer);
+				if (atoi(NumBuffer) - ((NMUPDOWN *)lParam)->iDelta < 0)
+				{
+					SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)&"0");
+				}
+				else
+				{
+					if (atoi(NumBuffer) - ((NMUPDOWN *)lParam)->iDelta > 9)
+					{
+						SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)&"9");
+					}
+					else
+					{
+						SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)itoa(atoi(NumBuffer) - ((NMUPDOWN *)lParam)->iDelta, NumBuffer, 10));
+					}
+				}
+				SetWindowLong(hWin, DWL_MSGRESULT, false);
 				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
 			}
+			return true;
+		}
+		if (((NMHDR *)lParam)->code == PSN_APPLY)
+		{
+			if (Settings.GbFile = SendDlgItemMessage(hWin, IDC_REGISTERGBROM, BM_GETCHECK, 0, 0) == BST_CHECKED ? true : false)
+			{
+				RegisterGbFileType();
+			}
+			else
+			{
+				UnRegisterGbFileType();
+			}
+			if (Settings.GlsFile = SendDlgItemMessage(hWin, IDC_REGISTERSAVESTATE, BM_GETCHECK, 0, 0) == BST_CHECKED ? true : false)
+			{
+				RegisterGlsFileType();
+			}
+			else
+			{
+				UnRegisterGlsFileType();
+			}
+
+			Settings.AutoLoadBattery = SendDlgItemMessage(hWin, IDC_AUTOLOADBATTERY, BM_GETCHECK, 0, 0) == BST_CHECKED ? true : false;
+			Settings.AutoLoadState = SendDlgItemMessage(hWin, IDC_AUTOLOADSTATE, BM_GETCHECK, 0, 0) == BST_CHECKED ? true : false;
+
+			Settings.SaveBattery = (BYTE)SendDlgItemMessage(hWin, IDC_SAVEBATTERY, CB_GETCURSEL, 0, 0);
+			Settings.SaveState = (BYTE)SendDlgItemMessage(hWin, IDC_SAVESTATE, CB_GETCURSEL, 0, 0);
+
+			SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_GETTEXT, sizeof(NumBuffer), (LPARAM)&NumBuffer);
+			Settings.FrameSkip = atoi(NumBuffer) < 0 ? 0 : atoi(NumBuffer) > 9 ? 9 : atoi(NumBuffer);
+
+			Settings.GBType = SendDlgItemMessage(hWin, IDC_GBTYPE, CB_GETCURSEL, 0, 0) == 1 ? GB_COLOR : 0;
+
+			switch (SendDlgItemMessage(hWin, IDC_AUTOSTART, CB_GETCURSEL, 0, 0))
+			{
+			case 0:
+				Settings.AutoStart = 0;
+				break;
+			case 1:
+				Settings.AutoStart = AUTOSTART_DEBUG;
+				break;
+			case 2:
+				Settings.AutoStart = AUTOSTART_EXECUTE;
+				break;
+			}
+
 			return true;
 		}
 		break;
 
 	/*case WM_HELP:
-		if (((HELPINFO *)lParam)->iCtrlId == ID_REGISTER_FILE_TYPES)
+		if (((HELPINFO *)lParam)->iCtrlId == IDC_REGISTERGBROM)
 		{
 		}
 		break;*/
 
 	case WM_INITDIALOG:
-		EnumChildWindows(hWin, ShellEnumChildProc, true);
-		break;
+		SendDlgItemMessage(hWin, IDC_REGISTERGBROM, BM_SETCHECK, Settings.GbFile ? BST_CHECKED : BST_UNCHECKED, 0);
+		SendDlgItemMessage(hWin, IDC_REGISTERSAVESTATE, BM_SETCHECK, Settings.GlsFile ? BST_CHECKED : BST_UNCHECKED, 0);
 
-	case WM_NOTIFY:
-		if (((NMHDR *)lParam)->code == PSN_APPLY)
+		SendDlgItemMessage(hWin, IDC_AUTOLOADBATTERY, BM_SETCHECK, Settings.AutoLoadBattery ? BST_CHECKED : BST_UNCHECKED, 0);
+		SendDlgItemMessage(hWin, IDC_AUTOLOADSTATE, BM_SETCHECK, Settings.AutoLoadState ? BST_CHECKED : BST_UNCHECKED, 0);
+
+		SendDlgItemMessage(hWin, IDC_SAVEBATTERY, CB_ADDSTRING, 0, (LPARAM)"No");
+		SendDlgItemMessage(hWin, IDC_SAVEBATTERY, CB_ADDSTRING, 0, (LPARAM)"Yes");
+		SendDlgItemMessage(hWin, IDC_SAVEBATTERY, CB_ADDSTRING, 0, (LPARAM)"Prompt");
+		SendDlgItemMessage(hWin, IDC_SAVEBATTERY, CB_SETCURSEL, Settings.SaveBattery, 0);
+		SendDlgItemMessage(hWin, IDC_SAVESTATE, CB_ADDSTRING, 0, (LPARAM)"No");
+		SendDlgItemMessage(hWin, IDC_SAVESTATE, CB_ADDSTRING, 0, (LPARAM)"Yes");
+		SendDlgItemMessage(hWin, IDC_SAVESTATE, CB_ADDSTRING, 0, (LPARAM)"Prompt");
+		SendDlgItemMessage(hWin, IDC_SAVESTATE, CB_SETCURSEL, Settings.SaveState, 0);
+
+		SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)itoa(Settings.FrameSkip, NumBuffer, 10));
+
+		SendDlgItemMessage(hWin, IDC_GBTYPE, CB_ADDSTRING, 0, (long)"Game Boy");
+		SendDlgItemMessage(hWin, IDC_GBTYPE, CB_ADDSTRING, 0, (long)"Game Boy Color");
+		SendDlgItemMessage(hWin, IDC_GBTYPE, CB_SETCURSEL, Settings.GBType == GB_COLOR ? 1 : 0, 0);
+
+		SendDlgItemMessage(hWin, IDC_AUTOSTART, CB_ADDSTRING, 0, (LPARAM)"Stopped");
+		SendDlgItemMessage(hWin, IDC_AUTOSTART, CB_ADDSTRING, 0, (LPARAM)"Debug");
+		SendDlgItemMessage(hWin, IDC_AUTOSTART, CB_ADDSTRING, 0, (LPARAM)"Execute");
+		switch (Settings.AutoStart)
 		{
-			EnumChildWindows(hWin, ShellEnumChildProc, false);
+		case 0:
+			SendDlgItemMessage(hWin, IDC_AUTOSTART, CB_SETCURSEL, 0, 0);
+			break;
+		case AUTOSTART_DEBUG:
+			SendDlgItemMessage(hWin, IDC_AUTOSTART, CB_SETCURSEL, 1, 0);
+			break;
+		case AUTOSTART_EXECUTE:
+			SendDlgItemMessage(hWin, IDC_AUTOSTART, CB_SETCURSEL, 2, 0);
+			break;
 		}
 		break;
 	}
@@ -954,27 +1085,13 @@ BOOL CALLBACK ShellOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lP
 
 
 
-/*WNDPROC			DefaultClientWndProc;
-
-LRESULT CALLBACK ClientWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	switch (uMsg)
-	{
-	}
-
-	return CallWindowProc(DefaultClientWndProc, hWin, uMsg, wParam, lParam);
-}*/
-
-
-
 LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CLIENTCREATESTRUCT	ccs;
 	OPENFILENAME		of;
-	char				Filename[MAX_PATH];
-	DWORD				ItemNo;
+	char				Filename[MAX_PATH], szBuffer[0x100];
+	DWORD				ItemNo, dw;
 	CGameBoy			*pGameBoy;
-	BOOL				Restart;
 	MENUITEMINFO		mii;
 	HWND				hTempWnd;
 	PROPSHEETPAGE		psp[2];
@@ -984,13 +1101,6 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	switch (uMsg)
 	{
-	case MM_WOM_DONE:
-		EnterCriticalSection(&cs);
-		waveOutUnprepareHeader((HWAVEOUT)wParam, (WAVEHDR *)lParam, sizeof(WAVEHDR));
-		delete ((WAVEHDR *)lParam)->lpData;
-		LeaveCriticalSection(&cs);
-		return 0;
-
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
@@ -1009,7 +1119,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
 				return 0;
 			}
-			GameBoyList.NewGameBoy(Filename, LoadBattery ? "" : NULL, GBType, AutoStart);
+			GameBoys.NewGameBoy(Filename, NULL, LoadBattery ? "" : NULL, GBType, AutoStart);
 			return 0;
 
 		case ID_FILE_CLOSE:
@@ -1019,19 +1129,104 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			}
 			return 0;
 
-		case ID_FILE_LOADBATTERY:
-			if (pGameBoy = GameBoyList.GetActive())
+		case ID_FILE_SAVESTATE:
+			if (pGameBoy = GameBoys.GetActive())
 			{
-				if (pGameBoy->hThread)
-				{
-					PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
-					WaitForSingleObject(pGameBoy->hThread, INFINITE);
-					Restart = true;
-				}
-				else
-				{
-					Restart = false;
-				}
+				return pGameBoy->SaveState();
+			}
+			return 0;
+
+		case ID_FILE_LOADSTATE:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				return pGameBoy->LoadState();
+			}
+			return 0;
+
+		case ID_FILE_SAVESTATEAS:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				return pGameBoy->SaveStateAs();
+			}
+			return 0;
+
+		case ID_FILE_LOADSTATEAS:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				return pGameBoy->LoadStateAs();
+			}
+			return 0;
+
+		case ID_FILE_STATESLOT_0:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetStateSlot(0);
+			}
+			return 0;
+		case ID_FILE_STATESLOT_1:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetStateSlot(1);
+			}
+			return 0;
+		case ID_FILE_STATESLOT_2:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetStateSlot(2);
+			}
+			return 0;
+		case ID_FILE_STATESLOT_3:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetStateSlot(3);
+			}
+			return 0;
+		case ID_FILE_STATESLOT_4:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetStateSlot(4);
+			}
+			return 0;
+		case ID_FILE_STATESLOT_5:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetStateSlot(5);
+			}
+			return 0;
+		case ID_FILE_STATESLOT_6:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetStateSlot(6);
+			}
+			return 0;
+		case ID_FILE_STATESLOT_7:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetStateSlot(7);
+			}
+			return 0;
+		case ID_FILE_STATESLOT_8:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetStateSlot(8);
+			}
+			return 0;
+		case ID_FILE_STATESLOT_9:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetStateSlot(9);
+			}
+			return 0;
+
+		case ID_SAVESTATESLOT:
+			F4Pressed = GameBoys.GetActive();
+			SetStatus(NULL, SF_F4PRESSED);
+			return 0;
+
+		case ID_FILE_LOADBATTERY:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->Stop();
 				if (!pGameBoy->SaveBattery(true, false))
 				{
 					ZeroMemory(&of, sizeof(of));
@@ -1049,96 +1244,37 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 						pGameBoy->LoadBattery(Filename);
 					}
 				}
-				if (Restart)
-				{
-					if (pGameBoy->Flags & GB_DEBUG)
-					{
-						pGameBoy->hThread = CreateThread(NULL, 0, DebugGameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-					}
-					else
-					{
-						pGameBoy->hThread = CreateThread(NULL, 0, GameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-					}
-				}
+				pGameBoy->Resume();
 			}
 			return 0;
 
 		case ID_FILE_SAVEBATTERY:
-			if (pGameBoy = GameBoyList.GetActive())
+			if (pGameBoy = GameBoys.GetActive())
 			{
-				if (pGameBoy->hThread)
-				{
-					PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
-					WaitForSingleObject(pGameBoy->hThread, INFINITE);
-					pGameBoy->SaveBattery(false, false);
-					if (pGameBoy->Flags & GB_DEBUG)
-					{
-						pGameBoy->hThread = CreateThread(NULL, 0, DebugGameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-					}
-					else
-					{
-						pGameBoy->hThread = CreateThread(NULL, 0, GameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-					}
-				}
-				else
-				{
-					pGameBoy->SaveBattery(false, false);
-				}
+				pGameBoy->Stop();
+				pGameBoy->SaveBattery(false, false);
+				pGameBoy->Resume();
 			}
 			return 0;
 
 		case ID_FILE_SAVEBATTERYAS:
-			if (pGameBoy = GameBoyList.GetActive())
+			if (pGameBoy = GameBoys.GetActive())
 			{
-				if (pGameBoy->hThread)
-				{
-					PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
-					WaitForSingleObject(pGameBoy->hThread, INFINITE);
-					pGameBoy->SaveBattery(false, true);
-					if (pGameBoy->Flags & GB_DEBUG)
-					{
-						pGameBoy->hThread = CreateThread(NULL, 0, DebugGameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-					}
-					else
-					{
-						pGameBoy->hThread = CreateThread(NULL, 0, GameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-					}
-				}
-				else
-				{
-					pGameBoy->SaveBattery(false, true);
-				}
+				pGameBoy->Stop();
+				pGameBoy->SaveBattery(false, true);
+				pGameBoy->Resume();
 			}
 			return 0;
 
 		case ID_FILE_CLEARBATTERY:
-			if (pGameBoy = GameBoyList.GetActive())
+			if (pGameBoy = GameBoys.GetActive())
 			{
-				if (pGameBoy->hThread)
-				{
-					PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
-					WaitForSingleObject(pGameBoy->hThread, INFINITE);
-					Restart = true;
-				}
-				else
-				{
-					Restart = false;
-				}
+				pGameBoy->Stop();
 				if (!pGameBoy->SaveBattery(true, false))
 				{
 					pGameBoy->LoadBattery(NULL);
 				}
-				if (Restart)
-				{
-					if (pGameBoy->Flags & GB_DEBUG)
-					{
-						pGameBoy->hThread = CreateThread(NULL, 0, DebugGameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-					}
-					else
-					{
-						pGameBoy->hThread = CreateThread(NULL, 0, GameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-					}
-				}
+				pGameBoy->Resume();
 			}
 			return 0;
 
@@ -1195,7 +1331,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case ID_VIEW_TILES:
 			if (!hTiles)
 			{
-				if (!(hTiles = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Tiles", "Tiles", WS_VISIBLE | WS_CAPTION | WS_BORDER | WS_VSCROLL | WS_HSCROLL, Tiles.x, Tiles.y, Tiles.Width, Tiles.Height, hClientWnd, NULL, hInstance, NULL)))
+				if (!(hTiles = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Tiles", "Tiles", WS_VISIBLE | WS_CAPTION | WS_BORDER, Tiles.x, Tiles.y, Tiles.Width, Tiles.Height, hClientWnd, NULL, hInstance, NULL)))
 				{
 					DisplayErrorMessage(NULL);
 				}
@@ -1209,7 +1345,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case ID_VIEW_TILEMAP:
 			if (!hTileMap)
 			{
-				if (!(hTileMap = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "TileMap", "Tile Map", WS_VISIBLE | WS_CAPTION | WS_BORDER | WS_VSCROLL | WS_HSCROLL, TileMap.x, TileMap.y, TileMap.Width, TileMap.Height, hClientWnd, NULL, hInstance, NULL)))
+				if (!(hTileMap = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE | WS_EX_CONTROLPARENT, "TileMap", "Tile Map", WS_VISIBLE | WS_CAPTION | WS_BORDER, TileMap.x, TileMap.y, TileMap.Width, TileMap.Height, hClientWnd, NULL, hInstance, NULL)))
 				{
 					DisplayErrorMessage(NULL);
 				}
@@ -1248,6 +1384,21 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			}
 			return 0;
 
+		case ID_VIEW_STATUSBAR:
+			if (GetWindowLong(hStatusWnd, GWL_STYLE) & WS_VISIBLE)
+			{
+				ShowWindow(hStatusWnd, false);
+				StatusBarAppearance = false;
+			}
+			else
+			{
+				ShowWindow(hStatusWnd, true);
+				StatusBarAppearance = true;
+			}
+			GetClientRect(hWin, &rct);
+			SendMessage(hWin, WM_SIZE, 0, (rct.bottom << 16) | (rct.right & 0xFFFF));
+			return 0;
+
 		case ID_VIEW_ZOOM_100:
 		case ID_VIEW_ZOOM_200:
 		case ID_VIEW_ZOOM_300:
@@ -1258,34 +1409,85 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			}
 			return 0;
 
-		case ID_EMULATION_STARTDEBUG:
-			if (pGameBoy = GameBoyList.GetActive())
+		case ID_VIEW_FRAMESKIP_0:
+			if (pGameBoy = GameBoys.GetActive())
 			{
-				if (!pGameBoy->hThread)
-				{
-					pGameBoy->hThread = CreateThread(NULL, 0, DebugGameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-				}
+				pGameBoy->SetFrameSkip(0);
+			}
+			return 0;
+		case ID_VIEW_FRAMESKIP_1:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetFrameSkip(1);
+			}
+			return 0;
+		case ID_VIEW_FRAMESKIP_2:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetFrameSkip(2);
+			}
+			return 0;
+		case ID_VIEW_FRAMESKIP_3:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetFrameSkip(3);
+			}
+			return 0;
+		case ID_VIEW_FRAMESKIP_4:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetFrameSkip(4);
+			}
+			return 0;
+		case ID_VIEW_FRAMESKIP_5:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetFrameSkip(5);
+			}
+			return 0;
+		case ID_VIEW_FRAMESKIP_6:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetFrameSkip(6);
+			}
+			return 0;
+		case ID_VIEW_FRAMESKIP_7:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetFrameSkip(7);
+			}
+			return 0;
+		case ID_VIEW_FRAMESKIP_8:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetFrameSkip(8);
+			}
+			return 0;
+		case ID_VIEW_FRAMESKIP_9:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				pGameBoy->SetFrameSkip(9);
+			}
+			return 0;
+
+		case ID_EMULATION_STARTDEBUG:
+			if (pGameBoy = GameBoys.GetActive())
+			{
+				return pGameBoy->StartDebug();
 			}
 			return 0;
 
 		case ID_EMULATION_EXECUTE:
-			if (pGameBoy = GameBoyList.GetActive())
+			if (pGameBoy = GameBoys.GetActive())
 			{
-				if (!pGameBoy->hThread)
-				{
-					pGameBoy->hThread = CreateThread(NULL, 0, GameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-				}
+				return pGameBoy->Execute();
 			}
 			return 0;
 
 		case ID_EMULATION_STOP:
-			if (pGameBoy = GameBoyList.GetActive())
+			if (pGameBoy = GameBoys.GetActive())
 			{
-				if (pGameBoy->hThread)
-				{
-					PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
-					WaitForSingleObject(pGameBoy->hThread, INFINITE);
-				}
+				pGameBoy->Stop();
 			}
 			return 0;
 
@@ -1334,26 +1536,11 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			break;
 
 		case ID_EMULATION_RESET:
-			if (pGameBoy = GameBoyList.GetActive())
+			if (pGameBoy = GameBoys.GetActive())
 			{
-				if (pGameBoy->hThread)
-				{
-					PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
-					WaitForSingleObject(pGameBoy->hThread, INFINITE);
-					pGameBoy->Reset();
-					if (pGameBoy->Flags & GB_DEBUG)
-					{
-						pGameBoy->hThread = CreateThread(NULL, 0, DebugGameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-					}
-					else
-					{
-						pGameBoy->hThread = CreateThread(NULL, 0, GameLoop, pGameBoy, 0, &pGameBoy->ThreadId);
-					}
-				}
-				else
-				{
-					pGameBoy->Reset();
-				}
+				pGameBoy->Stop();
+				pGameBoy->Reset();
+				pGameBoy->Resume();
 			}
 			return 0;
 
@@ -1366,8 +1553,8 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			psp[1].dwSize = sizeof(psp[1]);
 			psp[1].dwFlags = 0;
 			psp[1].hInstance = hInstance;
-			psp[1].pszTemplate = MAKEINTRESOURCE(IDD_OPTIONS_SHELL);
-			psp[1].pfnDlgProc = ShellOptionsDlgProc;
+			psp[1].pszTemplate = MAKEINTRESOURCE(IDD_OPTIONS_GENERAL);
+			psp[1].pfnDlgProc = GeneralOptionsDlgProc;
 			psh.dwSize = sizeof(psh);
 			psh.dwFlags = PSH_PROPSHEETPAGE;
 			psh.hwndParent = hWin;
@@ -1377,6 +1564,17 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			psh.nStartPage = 0;
 			psh.ppsp = psp;
 			PropertySheet(&psh);
+			return 0;
+
+		case ID_TOOLS_SOUNDENABLED:
+			if (!Settings.SoundEnabled)
+			{
+				GameBoys.EnableSound();
+			}
+			else
+			{
+				GameBoys.CloseSound();
+			}
 			return 0;
 
 		case ID_WINDOW_NEXT:
@@ -1402,13 +1600,14 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		while (ItemNo < DragQueryFile((HDROP)wParam, 0xFFFFFFFF, NULL, 0))
 		{
 			DragQueryFile((HDROP)wParam, ItemNo, Filename, sizeof(Filename));
-			GameBoyList.NewGameBoy(Filename, Settings.AutoLoadBattery ? "" : NULL, Settings.GBType, Settings.AutoStart);
+			GameBoys.NewGameBoy(Filename, Settings.AutoLoadState ? "" : NULL, Settings.AutoLoadBattery ? "" : NULL, Settings.GBType, Settings.AutoStart);
 			ItemNo++;
 		}
 		return 0;
 
 	case WM_APP_DDEOPENFILE:
-		GameBoyList.NewGameBoy(((DDEGAMEBOY *)lParam)->szROM,
+		GameBoys.NewGameBoy(((DDEGAMEBOY *)lParam)->szROM,
+			((DDEGAMEBOY *)lParam)->Flags & DDEGB_STATE ? ((DDEGAMEBOY *)lParam)->szState : ((DDEGAMEBOY *)lParam)->Flags & DDEGB_NOSTATE ? NULL : Settings.AutoLoadState ? "" : NULL,
 			((DDEGAMEBOY *)lParam)->Flags & DDEGB_BATTERY ? ((DDEGAMEBOY *)lParam)->szBattery : ((DDEGAMEBOY *)lParam)->Flags & DDEGB_NOBATTERY ? NULL : Settings.AutoLoadBattery ? "" : NULL,
 			((DDEGAMEBOY *)lParam)->Flags & DDEGB_DMG ? 0 : ((DDEGAMEBOY *)lParam)->Flags & DDEGB_GBC ? GB_COLOR : Settings.GBType,
 			((DDEGAMEBOY *)lParam)->Flags & DDEGB_LOAD ? 0 : ((DDEGAMEBOY *)lParam)->Flags & DDEGB_DEBUG ? AUTOSTART_DEBUG : ((DDEGAMEBOY *)lParam)->Flags & DDEGB_EXECUTE ? AUTOSTART_EXECUTE : Settings.AutoStart);
@@ -1447,28 +1646,42 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		return 0;
 
+	case WM_MENUSELECT:
+		SetStatus(NULL, SF_CLEAR);
+		if (!(HIWORD(wParam) & MF_POPUP))
+		{
+			ItemNo = 0;
+			while (MenuHelpStrings[ItemNo].uiCommand)
+			{
+				if (MenuHelpStrings[ItemNo].uiCommand == LOWORD(wParam))
+				{
+					if (LoadString(hStringInstance, MenuHelpStrings[ItemNo].uiString, szBuffer, sizeof(szBuffer)))
+					{
+						SetStatus(szBuffer, SF_MESSAGE);
+					}
+					break;
+				}
+				ItemNo++;
+			}
+		}
+		return 0;
+
+	case WM_EXITMENULOOP:
+		SetStatus(NULL, SF_READY);
+		return 0;
+
 	case WM_INITMENU:
 		mii.cbSize = sizeof(mii);
 		mii.fMask = MIIM_STATE;
-		if (pGameBoy = GameBoyList.GetActive())
+		if (pGameBoy = GameBoys.GetActive())
 		{
-			if (!pGameBoy->SaveRamSize)
-			{
-				mii.fState = MFS_GRAYED;
-				SetMenuItemInfo((HMENU)wParam, ID_FILE_LOADBATTERY, false, &mii);
-				SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVEBATTERY, false, &mii);
-				SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVEBATTERYAS, false, &mii);
-				SetMenuItemInfo((HMENU)wParam, ID_FILE_CLEARBATTERY, false, &mii);
-			}
-			else
-			{
-				mii.fState = MFS_ENABLED;
-				SetMenuItemInfo((HMENU)wParam, ID_FILE_LOADBATTERY, false, &mii);
-				SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVEBATTERY, false, &mii);
-				SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVEBATTERYAS, false, &mii);
-				SetMenuItemInfo((HMENU)wParam, ID_FILE_CLEARBATTERY, false, &mii);
-			}
-			if (pGameBoy->hThread)
+			mii.fState = pGameBoy->HasBattery() ? MFS_ENABLED : MFS_GRAYED;
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_LOADBATTERY, false, &mii);
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_CLEARBATTERY, false, &mii);
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVEBATTERY, false, &mii);
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVEBATTERYAS, false, &mii);
+
+			if (pGameBoy->IsEmulating())
 			{
 				mii.fState = MFS_ENABLED;
 				SetMenuItemInfo((HMENU)wParam, ID_EMULATION_STOP, false, &mii);
@@ -1500,6 +1713,61 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				SetMenuItemInfo((HMENU)wParam, ID_EMULATION_SETNEXTSTATEMENT, false, &mii);
 				SetMenuItemInfo((HMENU)wParam, ID_EMULATION_TOGGLEBREAKPOINT, false, &mii);
 			}
+
+			mii.fMask = MIIM_TYPE | MIIM_STATE;
+			mii.dwTypeData = szBuffer;
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_0, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->GetStateSlot() == 0 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_0, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_1, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->GetStateSlot() == 1 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_1, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_2, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->GetStateSlot() == 2 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_2, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_3, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->GetStateSlot() == 3 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_3, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_4, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->GetStateSlot() == 4 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_4, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_5, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->GetStateSlot() == 5 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_5, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_6, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->GetStateSlot() == 6 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_6, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_7, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->GetStateSlot() == 7 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_7, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_8, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->GetStateSlot() == 8 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_8, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_9, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->GetStateSlot() == 9 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_FILE_STATESLOT_9, false, &mii);
+			mii.fMask = MIIM_STATE;
+
 			mii.fState = MFS_ENABLED;
 		}
 		else
@@ -1520,6 +1788,68 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SetMenuItemInfo((HMENU)wParam, ID_EMULATION_TOGGLEBREAKPOINT, false, &mii);
 		}
 		SetMenuItemInfo((HMENU)wParam, ID_EMULATION_RESET, false, &mii);
+		SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVESTATE, false, &mii);
+		SetMenuItemInfo((HMENU)wParam, ID_FILE_LOADSTATE, false, &mii);
+		SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVESTATEAS, false, &mii);
+		SetMenuItemInfo((HMENU)wParam, ID_FILE_LOADSTATEAS, false, &mii);
+		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 0), 7, true, &mii);
+		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 2), 11, true, &mii);
+		if (mii.fState == MFS_ENABLED)
+		{
+			mii.fMask = MIIM_TYPE | MIIM_STATE;
+			mii.dwTypeData = szBuffer;
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_0, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->FrameSkip == 0 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_0, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_1, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->FrameSkip == 1 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_1, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_2, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->FrameSkip == 2 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_2, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_3, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->FrameSkip == 3 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_3, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_4, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->FrameSkip == 4 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_4, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_5, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->FrameSkip == 5 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_5, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_6, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->FrameSkip == 6 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_6, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_7, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->FrameSkip == 7 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_7, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_8, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->FrameSkip == 8 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_8, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_9, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->FrameSkip == 9 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_9, false, &mii);
+			mii.fMask = MIIM_STATE;
+		}
 		if (hTempWnd = (HWND)SendMessage(hClientWnd, WM_MDIGETACTIVE, 0, NULL))
 		{
 			if (hTempWnd == hDisAsm || hTempWnd == hMemory || hTempWnd == hRegisters || hTempWnd == hPalettes || hTempWnd == hHardware
@@ -1542,17 +1872,70 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			mii.fState = MFS_ENABLED;
 		}
 		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 2), 10, true, &mii);
+		if (mii.fState == MFS_ENABLED)
+		{
+			if (hTempWnd == hTiles)
+			{
+				dw = Tiles.Zoom;
+			}
+			else
+			{
+				if (hTempWnd == hTileMap)
+				{
+					dw = TileMap.Zoom;
+				}
+				else
+				{
+					GetClientRect(hTempWnd, &rct);
+					if (rct.right / 160 == rct.bottom / 144 && rct.right % 160 == 0 && rct.bottom % 144 == 0)
+					{
+						dw = rct.right / 160;
+					}
+					else
+					{
+						dw = 0;
+					}
+				}
+			}
+			mii.fMask = MIIM_TYPE | MIIM_STATE;
+			mii.dwTypeData = szBuffer;
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_100, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = dw == 1 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_100, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_200, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = dw == 2 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_200, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_300, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = dw == 3 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_300, false, &mii);
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_400, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = dw == 4 ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_400, false, &mii);
+			mii.fMask = MIIM_STATE;
+		}
 		if (hTempWnd && (hTempWnd == hMemory || hTempWnd == hDisAsm) && pGameBoy)
 		{
 			mii.fState = MFS_ENABLED;
-			CreateBankMenu(pGameBoy, GetSubMenu(GetSubMenu((HMENU)wParam, 2), 9), 0);
+			CreateBankMenu(pGameBoy, GetSubMenu(GetSubMenu((HMENU)wParam, 2), 12), 0);
 		}
 		else
 		{
 			mii.fState = MFS_GRAYED;
 		}
-		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 2), 9, true, &mii);
+		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 2), 12, true, &mii);
 		SetMenuItemInfo((HMENU)wParam, ID_EDIT_GOTO, false, &mii);
+		mii.fState = Settings.SoundEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+		SetMenuItemInfo((HMENU)wParam, ID_TOOLS_SOUNDENABLED, false, &mii);
+		mii.fState = GetWindowLong(hStatusWnd, GWL_STYLE) & WS_VISIBLE ? MFS_CHECKED : MFS_UNCHECKED;
+		SetMenuItemInfo((HMENU)wParam, ID_VIEW_STATUSBAR, false, &mii);
 		return 0;
 
 	/*case WM_NCCALCSIZE:
@@ -1620,18 +2003,33 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		ReleaseDC(hWin, hdc);
 		return 0;*/
 
+	case WM_SIZE:
+		if (!(GetWindowLong(hStatusWnd, GWL_STYLE) & WS_VISIBLE))
+		{
+			break;
+		}
+		GetWindowRect(hStatusWnd, &rct);
+		MoveWindow(hClientWnd, 0, 0, LOWORD(lParam), HIWORD(lParam) - (rct.bottom - rct.top), true);
+		MoveWindow(hStatusWnd, 0, HIWORD(lParam) - (rct.bottom - rct.top), LOWORD(lParam), HIWORD(lParam), true);
+		return 0;
+
 	case WM_CREATE:
-		ccs.hWindowMenu = GetSubMenu(GetMenu(hWin), 5);
-		ccs.idFirstChild = 0;
-		if (!(hClientWnd = CreateWindow("MDICLIENT", NULL, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_VSCROLL | WS_HSCROLL, 0, 0, 0, 0, hWin, NULL, hInstance, &ccs)))
+		if (!(hStatusWnd = CreateWindow(STATUSCLASSNAME, "Ready", (StatusBarAppearance ? WS_VISIBLE : 0) | WS_CHILD | SBARS_SIZEGRIP, 0, 0, 0, 0, hWin, NULL, hInstance, NULL)))
 		{
 			DisplayErrorMessage(NULL);
-			return 1;
+			return -1;
+		}
+		ccs.hWindowMenu = GetSubMenu(GetMenu(hWin), MENU_WINDOW);
+		ccs.idFirstChild = 0;
+		if (!(hClientWnd = CreateWindowEx(WS_EX_CLIENTEDGE, "MDICLIENT", NULL, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_VSCROLL | WS_HSCROLL, 0, 0, 0, 0, hWin, NULL, hInstance, &ccs)))
+		{
+			DisplayErrorMessage(NULL);
+			return -1;
 		}
 		return 0;
 
 	case WM_CLOSE:
-		if (GameBoyList.DeleteAll())
+		if (GameBoys.DeleteAll())
 		{
 			return 0;
 		}
@@ -1665,11 +2063,11 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 void UpdateRegistry()
 {
 	HKEY		hKey;
-	DWORD		Value, dw, dwErrCode;
+	DWORD		Value, ReleaseNo, ValueSize, ValueType, dw, dwErrCode;
 	char		szPath[MAX_PATH];
 
 
-	if (dwErrCode = RegCreateKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad", 0, "REG_DWORD", REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, &dw))
+	if (dwErrCode = RegCreateKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad", 0, "REG_DWORD", REG_OPTION_NON_VOLATILE, KEY_EXECUTE | KEY_SET_VALUE, NULL, &hKey, &dw))
 	{
 		DisplayErrorMessage(NULL, dwErrCode);
 		return;
@@ -1682,19 +2080,43 @@ void UpdateRegistry()
 		DisplayErrorMessage(NULL, dwErrCode);
 		return;
 	}
-	Value = 1;
+	Value = VERSION_MAJOR;
 	if (dwErrCode = RegSetValueEx(hKey, "VersionMajor", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
 	{
 		RegCloseKey(hKey);
 		DisplayErrorMessage(NULL, dwErrCode);
 		return;
 	}
-	Value = 0;
+	Value = VERSION_MINOR;
 	if (dwErrCode = RegSetValueEx(hKey, "VersionMinor", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
 	{
 		RegCloseKey(hKey);
 		DisplayErrorMessage(NULL, dwErrCode);
 		return;
+	}
+
+	ValueSize = sizeof(Value);
+	if (!RegQueryValueEx(hKey, "Release", NULL, &ValueType, (BYTE *)&ReleaseNo, &ValueSize))
+	{
+		if (ValueType != REG_DWORD)
+		{
+			ReleaseNo = 0;
+		}
+	}
+	else
+	{
+		ReleaseNo = 0;
+	}
+
+	if (ReleaseNo < GAME_LAD_RELEASENO)
+	{
+		ReleaseNo = GAME_LAD_RELEASENO;
+		if (dwErrCode = RegSetValueEx(hKey, "Release", 0, REG_DWORD, (BYTE *)&ReleaseNo, sizeof(DWORD)))
+		{
+			RegCloseKey(hKey);
+			DisplayErrorMessage(NULL, dwErrCode);
+			return;
+		}
 	}
 	RegCloseKey(hKey);
 
@@ -1746,6 +2168,16 @@ void UpdateRegistry()
 		return;
 	}
 	RegCloseKey(hKey);
+
+
+	if (Settings.GbFile)
+	{
+		RegisterGbFileType();
+	}
+	if (Settings.GlsFile)
+	{
+		RegisterGlsFileType();
+	}
 }
 
 
@@ -1906,121 +2338,94 @@ BOOL SaveWindowSettings(HKEY hKey, char *pszWindowName, WINDOWSETTINGS *pWindowS
 
 
 
+#define		LoadSetting(szSetting, cmd)													\
+	ValueSize = sizeof(Value);															\
+	if (!RegQueryValueEx(hKey, szSetting, NULL, &ValueType, (BYTE *)&Value, &ValueSize))\
+	{																					\
+		if (ValueType == REG_DWORD)														\
+		{																				\
+			cmd;																		\
+		}																				\
+	}
+
 void LoadCustomSettings()
 {
 	HKEY		hKey;
 	DWORD		Value, ValueSize, ValueType;
 
 
-	Settings.AutoStart = 0;
-	//Settings.AutoLoadDebug = true;
+	Settings.GbFile = true;
+	Settings.GlsFile = true;
 	Settings.AutoLoadBattery = true;
+	Settings.AutoLoadState = false;
+	Settings.SaveBattery = SAVEBATTERY_PROMPT;
+	Settings.SaveState = SAVESTATE_NO;
+	Settings.FrameSkip = 0;
 	Settings.GBType = GB_COLOR;
+	Settings.AutoStart = 0;
+	Settings.SoundEnabled = true;
 
 	if (!RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad\\Settings", 0, KEY_EXECUTE, &hKey))
 	{
-		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "AutoStart", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
-		{
-			if (ValueType == REG_DWORD)
-			{
-				Settings.AutoStart = (BYTE)Value & (AUTOSTART_DEBUG | AUTOSTART_EXECUTE);
-			}
-		}
-		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "AutoLoadBattery", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
-		{
-			if (ValueType == REG_DWORD)
-			{
-				Settings.AutoLoadBattery = Value ? true : false;
-			}
-		}
-		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "GameBoyType", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
-		{
-			if (ValueType == REG_DWORD)
-			{
-				Settings.GBType = (BYTE)Value & GB_COLOR;
-			}
-		}
+		LoadSetting("GbFile", {Settings.GbFile = Value ? true : false;});
+		LoadSetting("GlsFile", {Settings.GlsFile = Value ? true : false;});
+		LoadSetting("AutoLoadBattery", {Settings.AutoLoadBattery = Value ? true : false;});
+		LoadSetting("AutoLoadState", {Settings.AutoLoadState = Value ? true : false;});
+		LoadSetting("SaveBattery", {Settings.SaveBattery = (BYTE)Value & (SAVEBATTERY_NO | SAVEBATTERY_ALWAYS | SAVEBATTERY_PROMPT);});
+		LoadSetting("SaveState", {Settings.SaveState = (BYTE)Value & (SAVESTATE_NO | SAVESTATE_ALWAYS | SAVESTATE_PROMPT);});
+		LoadSetting("FrameSkip", {Settings.FrameSkip = Value >= 9 ? 9 : (BYTE)Value;});
+		LoadSetting("GameBoyType", {Settings.GBType = (BYTE)Value & GB_COLOR;});
+		LoadSetting("AutoStart", {Settings.AutoStart = (BYTE)Value & (AUTOSTART_DEBUG | AUTOSTART_EXECUTE);});
+		LoadSetting("SoundEnabled", {Settings.SoundEnabled = Value ? true : false;});
 		RegCloseKey(hKey);
 	}
 
 	if (!RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad\\Settings\\Player1", 0, KEY_EXECUTE, &hKey))
 	{
+		LoadSetting("Up", {Keys.Up = Value;});
+		LoadSetting("Down", {Keys.Down = Value;});
+		LoadSetting("Left", {Keys.Left = Value;});
+		LoadSetting("Right", {Keys.Right = Value;});
+		LoadSetting("A", {Keys.A = Value;});
+		LoadSetting("B", {Keys.B = Value;});
+		LoadSetting("Start", {Keys.Start = Value;});
+		LoadSetting("Select", {Keys.Select = Value;});
+		LoadSetting("FastForward", {Keys.FastForward = Value;});
+		RegCloseKey(hKey);
+	}
+
+	//In Game Lad 1.1 (release 2) and below, the A and B buttons were swapped.
+	//This will swap the buttons if Game Lad 1.2 (release 3) or higher has never
+	//been run on this computer.
+	if (!RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad", 0, KEY_EXECUTE, &hKey))
+	{
 		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "Up", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
+		if (!RegQueryValueEx(hKey, "Release", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
 		{
-			if (ValueType == REG_DWORD)
+			if (ValueType != REG_DWORD)
 			{
-				Keys.Up = Value;
+				Value = 0;
 			}
 		}
-		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "Down", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
+		else
 		{
-			if (ValueType == REG_DWORD)
-			{
-				Keys.Down = Value;
-			}
-		}
-		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "Left", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
-		{
-			if (ValueType == REG_DWORD)
-			{
-				Keys.Left = Value;
-			}
-		}
-		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "Right", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
-		{
-			if (ValueType == REG_DWORD)
-			{
-				Keys.Right = Value;
-			}
-		}
-		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "A", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
-		{
-			if (ValueType == REG_DWORD)
-			{
-				Keys.A = Value;
-			}
-		}
-		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "B", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
-		{
-			if (ValueType == REG_DWORD)
-			{
-				Keys.B = Value;
-			}
-		}
-		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "Start", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
-		{
-			if (ValueType == REG_DWORD)
-			{
-				Keys.Start = Value;
-			}
-		}
-		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "Select", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
-		{
-			if (ValueType == REG_DWORD)
-			{
-				Keys.Select = Value;
-			}
-		}
-		ValueSize = sizeof(Value);
-		if (!RegQueryValueEx(hKey, "FastForward", NULL, &ValueType, (BYTE *)&Value, &ValueSize))
-		{
-			if (ValueType == REG_DWORD)
-			{
-				Keys.FastForward = Value;
-			}
+			Value = 0;
 		}
 		RegCloseKey(hKey);
+		if (Value < 3)
+		{
+			Value = Keys.A;
+			Keys.A = Keys.B;
+			Keys.B = Value;
+		}
+		if (!RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad\\Settings\\Player1", 0, KEY_SET_VALUE, &hKey))
+		{
+			Value = Keys.A;
+			RegSetValueEx(hKey, "A", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD));
+			Value = Keys.B;
+			RegSetValueEx(hKey, "B", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD));
+			RegCloseKey(hKey);
+		}
 	}
 
 
@@ -2051,14 +2456,14 @@ void LoadCustomSettings()
 	Tiles.Appearance = 0;
 	Tiles.x = CW_USEDEFAULT;
 	Tiles.y = CW_USEDEFAULT;
-	Tiles.Width = 0;
-	Tiles.Height = 0;
+	Tiles.Width = 134 + 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 4 * GetSystemMetrics(SM_CXEDGE);
+	Tiles.Height = 45 + 192 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 4 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION);
 	Tiles.Zoom = 1;
 	TileMap.Appearance = 0;
 	TileMap.x = CW_USEDEFAULT;
 	TileMap.y = CW_USEDEFAULT;
-	TileMap.Width = 0;
-	TileMap.Height = 0;
+	TileMap.Width = 171 + 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 4 * GetSystemMetrics(SM_CXEDGE);
+	TileMap.Height = 55 + 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 4 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION);
 	TileMap.Zoom = 1;
 	Palettes.Appearance = 0;
 	Palettes.x = CW_USEDEFAULT;
@@ -2072,6 +2477,7 @@ void LoadCustomSettings()
 	Hardware.Width = 19 * FixedFontWidth + 4 * GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXVSCROLL);
 	Hardware.Height = 3 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 4 * GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CYHSCROLL);
 	Hardware.Zoom = 0;
+	StatusBarAppearance = true;
 
 	if (!RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad\\Settings\\Windows", 0, KEY_EXECUTE, &hKey))
 	{
@@ -2083,6 +2489,7 @@ void LoadCustomSettings()
 		LoadWindowSettings(hKey, "TileMap", &TileMap);
 		LoadWindowSettings(hKey, "Palettes", &Palettes);
 		LoadWindowSettings(hKey, "Hardware", &Hardware);
+		LoadSetting("StatusBarAppearance", {StatusBarAppearance = Value ? true : false;});
 		RegCloseKey(hKey);
 	}
 
@@ -2114,6 +2521,15 @@ void LoadCustomSettings()
 
 
 
+#define		SaveSetting(dwSetting, szSetting)													\
+	Value = dwSetting;																			\
+	if (dwErrCode = RegSetValueEx(hKey, szSetting, 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))\
+	{																							\
+		RegCloseKey(hKey);																		\
+		DisplayErrorMessage(NULL, dwErrCode);													\
+		return;																					\
+	}
+
 void SaveCustomSettings()
 {
 	HKEY		hKey;
@@ -2125,28 +2541,16 @@ void SaveCustomSettings()
 		DisplayErrorMessage(NULL, dwErrCode);
 		return;
 	}
-
-	Value = Settings.AutoStart;
-	if (dwErrCode = RegSetValueEx(hKey, "AutoStart", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
-	Value = Settings.AutoLoadBattery;
-	if (dwErrCode = RegSetValueEx(hKey, "AutoLoadBattery", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
-	Value = Settings.GBType;
-	if (dwErrCode = RegSetValueEx(hKey, "GameBoyType", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
+	SaveSetting(Settings.GbFile, "GbFile");
+	SaveSetting(Settings.GlsFile, "GlsFile");
+	SaveSetting(Settings.AutoLoadBattery, "AutoLoadBattery");
+	SaveSetting(Settings.AutoLoadState, "AutoLoadState");
+	SaveSetting(Settings.SaveBattery, "SaveBattery");
+	SaveSetting(Settings.SaveState, "SaveState");
+	SaveSetting(Settings.FrameSkip, "FrameSkip");
+	SaveSetting(Settings.GBType, "GameBoyType");
+	SaveSetting(Settings.AutoStart, "AutoStart");
+	SaveSetting(Settings.SoundEnabled, "SoundEnabled");
 	RegCloseKey(hKey);
 
 	if (dwErrCode = RegCreateKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad\\Settings\\Player1", 0, "REG_DWORD", REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, &dw))
@@ -2154,70 +2558,15 @@ void SaveCustomSettings()
 		DisplayErrorMessage(NULL, dwErrCode);
 		return;
 	}
-
-	Value = Keys.Up;
-	if (dwErrCode = RegSetValueEx(hKey, "Up", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
-	Value = Keys.Down;
-	if (dwErrCode = RegSetValueEx(hKey, "Down", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
-	Value = Keys.Left;
-	if (dwErrCode = RegSetValueEx(hKey, "Left", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
-	Value = Keys.Right;
-	if (dwErrCode = RegSetValueEx(hKey, "Right", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
-	Value = Keys.A;
-	if (dwErrCode = RegSetValueEx(hKey, "A", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
-	Value = Keys.B;
-	if (dwErrCode = RegSetValueEx(hKey, "B", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
-	Value = Keys.Start;
-	if (dwErrCode = RegSetValueEx(hKey, "Start", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
-	Value = Keys.Select;
-	if (dwErrCode = RegSetValueEx(hKey, "Select", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
-	Value = Keys.FastForward;
-	if (dwErrCode = RegSetValueEx(hKey, "FastForward", 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
-	{
-		RegCloseKey(hKey);
-		DisplayErrorMessage(NULL, dwErrCode);
-		return;
-	}
+	SaveSetting(Keys.Up, "Up");
+	SaveSetting(Keys.Down, "Down");
+	SaveSetting(Keys.Left, "Left");
+	SaveSetting(Keys.Right, "Right");
+	SaveSetting(Keys.A, "A");
+	SaveSetting(Keys.B, "B");
+	SaveSetting(Keys.Start, "Start");
+	SaveSetting(Keys.Select, "Select");
+	SaveSetting(Keys.FastForward, "FastForward");
 	RegCloseKey(hKey);
 
 
@@ -2259,13 +2608,14 @@ void SaveCustomSettings()
 	{
 		return;
 	}
+	SaveSetting(StatusBarAppearance, "StatusBarAppearance");
 
 	RegCloseKey(hKey);
 }
 
 
 
-//INITCOMMONCONTROLSEX	CommonControls = {sizeof(INITCOMMONCONTROLSEX), ICC_USEREX_CLASSES | ICC_TAB_CLASSES /*| ICC_COOL_CLASSES | ICC_BAR_CLASSES*/};
+INITCOMMONCONTROLSEX	CommonControls = {sizeof(INITCOMMONCONTROLSEX), ICC_BAR_CLASSES};
 
 int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -2305,18 +2655,19 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	FixedFontHeight = tm.tmHeight;
 
 
+	//Loads user's settings
+	LoadCustomSettings();
+
+
 	//Set Game Lad specific keys in the system registry
 	UpdateRegistry();
 
 
-	LoadCustomSettings();
-
-
-	/*if (!InitCommonControlsEx(&CommonControls))
+	if (!InitCommonControlsEx(&CommonControls))
 	{
 		DisplayErrorMessage(NULL);
 		return 1;
-	}*/
+	}
 
 
 	//Register main window's class
@@ -2353,13 +2704,13 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	}
 
 	//Create main window
-	if (!(hWnd = CreateWindowEx(WS_EX_CLIENTEDGE | WS_EX_ACCEPTFILES, "Game Lad", "Game Lad",
+	if (!(hWnd = CreateWindowEx(WS_EX_ACCEPTFILES, "Game Lad", "Game Lad",
 		WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
 		Main.x, Main.y, Main.Width, Main.Height,
 		NULL, LoadMenu(hInstance, MAKEINTRESOURCE(IDR_MENU)), hInstance, NULL)))
 	{
-		DestroyMenu(hPopupMenu);
 		DisplayErrorMessage(NULL);
+		DestroyMenu(hPopupMenu);
 		return 1;
 	}
 
@@ -2372,18 +2723,23 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	}
 
 
+	if (!(hStartStopEvent = CreateEvent(NULL, true, false, NULL)))
+	{
+		DisplayErrorMessage(NULL);
+		DestroyMenu(hPopupMenu);
+		DestroyWindow(hWnd);
+		return 1;
+	}
+
+
 	hAccelerator = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_ACCELERATOR));
 
 
-	//Initialize Dynamic Date Exchange
+	//Initialize Dynamic Data Exchange
 	DdeInitialize(&DdeInst, DdeCallback, APPCLASS_STANDARD | CBF_FAIL_ADVISES | CBF_FAIL_POKES | CBF_FAIL_REQUESTS | CBF_FAIL_SELFCONNECTIONS | CBF_SKIP_ALLNOTIFICATIONS, 0);
 	hDdeServiceString = DdeCreateStringHandle(DdeInst, "Game Lad", CP_WINANSI);
 	hDdeTopicString = DdeCreateStringHandle(DdeInst, SZDDESYS_TOPIC, CP_WINANSI);
 	DdeNameService(DdeInst, hDdeServiceString, 0, DNS_REGISTER);
-
-
-	//Syncronization for sound
-	InitializeCriticalSection(&cs);
 
 
 	ZeroMemory(ZeroStatus, sizeof(ZeroStatus));
@@ -2392,7 +2748,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	//See if a path to a file has been sent on the command line
 	if (lpCmdLine[0])
 	{
-		GameBoyList.NewGameBoy(lpCmdLine, Settings.AutoLoadBattery ? "" : NULL, Settings.GBType, Settings.AutoStart);
+		GameBoys.NewGameBoy(lpCmdLine, Settings.AutoLoadState ? "" : NULL, Settings.AutoLoadBattery ? "" : NULL, Settings.GBType, Settings.AutoStart);
 	}
 
 
@@ -2426,6 +2782,15 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	}
 
 
+	InitializeCriticalSection(&csSound);
+
+
+	/*if (!(hStringInstance = LoadLibrary("Language.dll")))
+	{
+		hStringInstance = hInstance;
+	}*/
+
+
 	//Show window
 	ShowWindow(hWnd, Main.Appearance & 2 ? SW_SHOWMAXIMIZED : nCmdShow);
 	UpdateWindow(hWnd);
@@ -2436,8 +2801,27 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	{
 		if (!TranslateAccelerator(hWnd, hAccelerator, &msg))
 		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
+			if (msg.message == WM_CHAR && F4Pressed)
+			{
+				if (msg.wParam >= '0' && msg.wParam <= '9')
+				{
+					if (F4Pressed == GameBoys.GetActive())
+					{
+						F4Pressed->SetStateSlot(msg.wParam - '0');
+					}
+				}
+				else
+				{
+					SetStatus(NULL, SF_READY);
+					DispatchMessage(&msg);
+				}
+				F4Pressed = NULL;
+			}
+			else
+			{
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
 		}
 	}
 
@@ -2445,9 +2829,18 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	//Time to clean up
 
 
+	/*if (hStringInstance != hInstance)
+	{
+		FreeLibrary(hStringInstance);
+	}*/
+
+
+	DeleteCriticalSection(&csSound);
+
+
 	DestroyMenu(hPopupMenu);
 
-	DeleteCriticalSection(&cs);
+	CloseHandle(hStartStopEvent);
 
 	DdeNameService(DdeInst, 0, 0, DNS_UNREGISTER);
 	DdeFreeStringHandle(DdeInst, hDdeServiceString);

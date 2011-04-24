@@ -17,6 +17,7 @@
 #define			MEMORY_VBK		0x00000008
 
 DEBUGGER_CPP	DWORD			MemoryFlags, DisAsmFlags;
+DEBUGGER_CPP	DWORD			SelectedTile, HoverTile;
 
 DEBUGGER_CPP	HWND			hRegisters, hDisAsm, hMemory;
 DEBUGGER_CPP	HWND			hTiles, hPalettes, hTileMap;
@@ -24,10 +25,10 @@ DEBUGGER_CPP	HWND			hHardware;
 
 
 
-DEBUGGER_CPP	BOOL	CreateBankMenu(CGameBoy *pGameBoy, HMENU hMenu, DWORD dwFirstPos);
-DEBUGGER_CPP	BOOL	CreateDebugWindows();
+DEBUGGER_CPP	BOOL			CreateBankMenu(CGameBoy *pGameBoy, HMENU hMenu, DWORD dwFirstPos);
+DEBUGGER_CPP	BOOL			CreateDebugWindows();
 
-DEBUGGER_CPP	void	PaintRegisters(HDC hdc, RECT *pRect);
+DEBUGGER_CPP	void			PaintRegisters(HDC hdc, RECT *pRect);
 
 
 
