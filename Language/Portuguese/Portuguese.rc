@@ -499,6 +499,22 @@ BEGIN
     IDS_SEARCHCHEAT_CURRENTVALUE "Current"
     IDS_SEARCHCHEAT_ENTERNUMBER "Enter a valid number"
     IDS_SEARCHCHEAT_NOSELECTION "No addresses selected"
+    IDS_OPTIONS_GRAPHIC     "Graphic"
+    IDS_GRAPHIC_INITIALZOOM "Initial zoom"
+    IDS_GRAPHIC_USEDIRECTX  "Use DirectX"
+    IDS_GRAPHIC_FULLSCREEN_FRAME "Fullscreen"
+    IDS_GRAPHIC_FS_RESOLUTION "Resolution"
+    IDS_GRAPHIC_FS_FITTOSCREEN "Fit to screen"
+    IDS_GRAPHIC_FS_FIT_GBSCREEN "10:9 (Game Boy)"
+    IDS_GRAPHIC_FS_ZOOM     "Zoom to"
+    IDS_VIEW_FRAMESKIP_AUTO_MENU "&Auto"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_FRAMESKIP_AUTO "Sets frame skip to automatic"
+    IDS_STATUS_SELECTFRAMESKIPAUTO "Frame skip set to automatic"
+    IDS_GRAPHIC_MANUALFRAMESKIP "Manual default frame skip"
 END
 
 #endif    // Portuguese (Brazil) resources

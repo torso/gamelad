@@ -634,7 +634,7 @@ STDMETHODIMP CShellExt::AddPages(LPFNADDPROPSHEETPAGE lpfnAddPage, LPARAM lParam
 				Pos++;
 			}
 			while (m_Version[Pos - 1] != '\0');
-			if (Value <= 0)
+			if (Value <= 1)
 			{
 				ReadFromFile2(Value, 2);
 
@@ -956,6 +956,11 @@ STDMETHODIMP CShellExt::Extract(LPCSTR pszFile, UINT nIconIndex, HICON *phiconLa
 		return S_FALSE;
 	}
 	ReadFromFile(Value);
+	if (Value > 1)
+	{
+		CloseHandle(hFile);
+		return S_FALSE;
+	}
 	Pos = 0;
 	do
 	{
@@ -963,11 +968,6 @@ STDMETHODIMP CShellExt::Extract(LPCSTR pszFile, UINT nIconIndex, HICON *phiconLa
 		Pos++;
 	}
 	while (m_Version[Pos - 1] != '\0');
-	if (Value > 0)
-	{
-		CloseHandle(hFile);
-		return S_FALSE;
-	}
 
 	if (!(hDisplayDC = CreateDC("DISPLAY", NULL, NULL, NULL)))
 	{

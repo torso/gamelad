@@ -38,11 +38,6 @@ CCheats::~CCheats()
 	{
 		delete m_pGames;
 	}
-
-	if (m_pGameBoy)
-	{
-		m_pGameBoy->Release();
-	}
 }
 
 
@@ -158,8 +153,9 @@ BOOL CCheats::MergeFile(char *pszFilename)
 		}
 	}
 
-	if ((hFile = CreateFile(pszFilename, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL)) == INVALID_HANDLE_VALUE)
+	if ((hFile = CreateFile(pszFilename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL)) == INVALID_HANDLE_VALUE)
 	{
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 		return true;
 	}
 
@@ -167,10 +163,12 @@ BOOL CCheats::MergeFile(char *pszFilename)
 	{
 		if (ReadUntil(hFile, '<'))
 		{
+			Save();
 			return true;
 		}
 		if (ReadString(hFile, szBuffer, sizeof(szBuffer), '>'))
 		{
+			Save();
 			return true;
 		}
 	}
@@ -180,10 +178,12 @@ BOOL CCheats::MergeFile(char *pszFilename)
 	{
 		if (ReadUntil(hFile, '<'))
 		{
+			Save();
 			return true;
 		}
 		if (ReadString(hFile, szBuffer, sizeof(szBuffer), '>'))
 		{
+			Save();
 			return true;
 		}
 		if (!strcmp(szBuffer, "game"))
@@ -196,6 +196,7 @@ BOOL CCheats::MergeFile(char *pszFilename)
 			{
 				CloseHandle(hFile);
 				DisplayErrorMessage(ERROR_OUTOFMEMORY);
+				Save();
 				return true;
 			}
 
@@ -203,10 +204,14 @@ BOOL CCheats::MergeFile(char *pszFilename)
 			{
 				if (ReadUntil(hFile, '<'))
 				{
+					Save();
+					SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 					return true;
 				}
 				if (ReadString(hFile, szBuffer, sizeof(szBuffer), '>'))
 				{
+					Save();
+					SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 					return true;
 				}
 				if (!strcmp(szBuffer, "title"))
@@ -261,6 +266,8 @@ BOOL CCheats::MergeFile(char *pszFilename)
 						CloseHandle(hFile);
 						delete GameInfo.pCheats;
 						DisplayErrorMessage(ERROR_OUTOFMEMORY);
+						Save();
+						SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 						return true;
 					}
 					do
@@ -269,12 +276,16 @@ BOOL CCheats::MergeFile(char *pszFilename)
 						{
 							delete GameInfo.pCheats;
 							delete Cheat.pCodes;
+							Save();
+							SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 							return true;
 						}
 						if (ReadString(hFile, szBuffer, sizeof(szBuffer), '>'))
 						{
 							delete GameInfo.pCheats;
 							delete Cheat.pCodes;
+							Save();
+							SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 							return true;
 						}
 						if (!strcmp(szBuffer, "code"))
@@ -285,6 +296,8 @@ BOOL CCheats::MergeFile(char *pszFilename)
 								CloseHandle(hFile);
 								delete GameInfo.pCheats;
 								delete Cheat.pCodes;
+								Save();
+								SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 								return true;
 							}
 						}
@@ -308,6 +321,7 @@ BOOL CCheats::MergeFile(char *pszFilename)
 						CloseHandle(hFile);
 						delete GameInfo.pCheats;
 						delete Cheat.pCodes;
+						Save();
 						return true;
 					}
 				}
@@ -349,6 +363,7 @@ BOOL CCheats::MergeFile(char *pszFilename)
 				{
 					CloseHandle(hFile);
 					delete GameInfo.pCheats;
+					Save();
 					return true;
 				}
 			}
@@ -385,6 +400,7 @@ BOOL CCheats::MergeFile(char *pszFilename)
 								{
 									CloseHandle(hFile);
 									delete GameInfo.pCheats;
+									Save();
 									return true;
 								}
 								pCheat1->pCodes = NULL;
@@ -412,6 +428,7 @@ BOOL CCheats::MergeFile(char *pszFilename)
 											{
 												CloseHandle(hFile);
 												delete GameInfo.pCheats;
+												Save();
 												return true;
 											}
 										}
@@ -429,6 +446,7 @@ BOOL CCheats::MergeFile(char *pszFilename)
 
 	CloseHandle(hFile);
 
+	Save();
 	SetStatus(LoadString(IDS_STATUS_LOADED, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 
 	return false;
@@ -440,12 +458,12 @@ BOOL CCheats::MergeFile(char *pszFilename)
 	if (!WriteFile(hFile, source, strlen(source), &nBytes, NULL))	\
 	{																\
 		CloseHandle(hFile);											\
-		return true;												\
+		return false;												\
 	}																\
 	if (nBytes != strlen(source))									\
 	{																\
 		CloseHandle(hFile);											\
-		return true;												\
+		return false;												\
 	}
 
 BOOL CCheats::Save()
@@ -467,7 +485,7 @@ BOOL CCheats::Save()
 
 	if ((hFile = CreateFile(szFilename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL)) == INVALID_HANDLE_VALUE)
 	{
-		return true;
+		return false;
 	}
 
 	WriteToFile("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n");
@@ -477,7 +495,7 @@ BOOL CCheats::Save()
 	{
 		WriteToFile("</cheatlist>\r\n");
 		CloseHandle(hFile);
-		return false;
+		return true;
 	}
 
 	m_pGames->ResetSearch();
@@ -539,7 +557,7 @@ BOOL CCheats::Save()
 
 	CloseHandle(hFile);
 
-	return false;
+	return true;
 }
 
 
@@ -1077,6 +1095,29 @@ BOOL CCheats::UpdateCheats()
 	delete m_pGames;
 	m_pGames = pGames;
 
+
+	while (true)
+	{
+		if (Save())
+		{
+			//File saved OK
+			break;
+		}
+		else
+		{
+			switch (MessageBox(hMsgParent, "Error saving Cheat list. Changes will not be saved. Retry?", "Game Lad", MB_OK | MB_YESNOCANCEL))
+			{
+			case IDNO:
+				//Discard changes
+				return false;
+
+			case IDCANCEL:
+				//Return to cheat dialog
+				return true;
+			}
+		}
+	}
+
 	return false;
 }
 
@@ -1433,11 +1474,26 @@ WNDPROC		OldTreeViewProc, OldEditBoxProc, OldButtonProc;
 
 LPARAM CALLBACK TreeViewProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	HTREEITEM			hti;
+	HTREEITEM		hti;
+	POINT			Point;
 
 
 	switch (uMsg)
 	{
+	case WM_COMMAND:
+		break;
+
+	case WM_RBUTTONUP:
+		//GetCursorPos(&Point);
+		Point.x = LOWORD(lParam);
+		Point.y = HIWORD(lParam);
+		ClientToScreen(hWin, &Point);
+		TrackPopupMenu(GetSubMenu(hPopupMenu, 2), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
+		return 0;
+
+	case WM_RBUTTONDOWN:
+		return 0;
+
 	case WM_SETFOCUS:
 		SetWindowLong(GetDlgItem(GetParent(hWin), IDOK), GWL_USERDATA, true);
 		InvalidateRect(GetDlgItem(GetParent(hWin), IDOK), NULL, true);
@@ -1461,6 +1517,9 @@ LPARAM CALLBACK TreeViewProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				return true;
 			}
 			break;
+
+		case VK_APPS:
+			return 0;
 		}
 		break;
 	}

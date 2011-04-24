@@ -24,6 +24,49 @@
 
 
 
+void __fastcall SetRTCReg(CGameBoy *pGameBoy)
+{
+	SYSTEMTIME		SystemTime;
+	FILETIME		FileTime;
+	BYTE			NewDay;
+
+
+	GetLocalTime(&SystemTime);
+	SystemTimeToFileTime(&SystemTime, &FileTime);
+
+	*(ULONGLONG *)&FileTime -= *(ULONGLONG *)&pGameBoy->RTC_Day0;
+	if (*(ULONGLONG *)&FileTime > 0xC92A69C00000)
+	{
+		if (!(pGameBoy->RTC_DAYH & 1))
+		{
+			pGameBoy->RTC_DAYH |= 0x81;
+		}
+	}
+	else
+	{
+		if (pGameBoy->RTC_DAYH & 1)
+		{
+			pGameBoy->RTC_DAYH &= 0xFE;
+		}
+	}
+	*(ULONGLONG *)&FileTime = *(ULONGLONG *)&FileTime % 0xC92A69C00000;
+
+	NewDay = (BYTE)(*(ULONGLONG *)&FileTime / 0xC92A69C000);
+	if (pGameBoy->RTC_DAYL != NewDay)
+	{
+		pGameBoy->RTC_DAYH |= 0x80;
+		pGameBoy->RTC_DAYL = NewDay;
+	}
+	*(ULONGLONG *)&FileTime = *(ULONGLONG *)&FileTime % 0xC92A69C000;
+	pGameBoy->RTC_HRS = (BYTE)(*(ULONGLONG *)&FileTime / 0x861C46800);
+	*(ULONGLONG *)&FileTime = *(ULONGLONG *)&FileTime % 0x861C46800;
+	pGameBoy->RTC_MIN = (BYTE)(*(ULONGLONG *)&FileTime / 0x23C34600);
+	*(ULONGLONG *)&FileTime = *(ULONGLONG *)&FileTime % 0x23C34600;
+	pGameBoy->RTC_SEC = (BYTE)(*(ULONGLONG *)&FileTime / 0x989680);
+}
+
+
+
 /*BYTE	SgbCmd = 0;
 DWORD	SgbCmdPtr = 0;
 BYTE	SgbCmdBuffer[16 * 7];
@@ -356,21 +399,41 @@ void __declspec(naked) __fastcall Port(CGameBoy *pGameBoy, BYTE Addr)
 		cmp		dl, 0x07
 		je		TAC
 		cmp		dl, 0x10
-		jb		NoPort
+		je		NR10
+		cmp		dl, 0x11
+		je		NR11
+		cmp		dl, 0x12
+		je		NR12
+		cmp		dl, 0x13
+		je		NR13
 		cmp		dl, 0x14
 		je		NR14
-		jb		Sound1Port
 		cmp		dl, 0x16
-		jb		NoPort
+		je		NR21
+		cmp		dl, 0x17
+		je		NR22
+		cmp		dl, 0x18
+		je		NR23
 		cmp		dl, 0x19
 		je		NR24
-		jb		Sound2Port
+		cmp		dl, 0x1A
+		je		NR30
+		cmp		dl, 0x1B
+		je		NR31
+		cmp		dl, 0x1C
+		je		NR32
+		cmp		dl, 0x1D
+		je		NR33
 		cmp		dl, 0x1E
 		je		NR34
-		jb		Sound3Port
+		cmp		dl, 0x20
+		je		NR41
+		cmp		dl, 0x21
+		je		NR42
+		cmp		dl, 0x22
+		je		NR43
 		cmp		dl, 0x23
 		je		NR44
-		jb		Sound4Port
 		cmp		dl, 0x26
 		je		NR52
 		cmp		dl, 0x40
@@ -460,11 +523,21 @@ SgbNoReturn:
 		ret
 
 SC:
-		mov		[ecx + FF00_ASM + 0x02], al
+		or		al, 0x7E
+		mov		byte ptr [ecx + FF00_ASM + 0x02], al
 
 		test	al, 0x80
 		jz		NoTransfer
 
+		test	dword ptr [ecx + Offset_Flags], GB_LINKCABLE
+		jnz		HasLinkCable
+
+		test	al, 1
+		jz		NoTransfer
+		mov		dword ptr [ecx + Offset_SerialTicks], 128
+		ret
+
+HasLinkCable:
 		or		dword ptr [ecx + Offset_Flags], GB_EXITLOOP
 
 NoTransfer:
@@ -501,327 +574,553 @@ TAC_1:
 		mov		dword ptr [ecx + Offset_Hz], 512
 		ret
 
+NR10:
+		//NR10
+		mov		byte ptr [ecx + FF00_ASM + 0x10], al
+		test	al, 0x07
+		jz		NR10_NoSweep
+		push	eax
+		and		eax, 0x70
+		shl		eax, 9
+		mov		dword ptr [ecx + Offset_Sound1Sweep], eax
+		pop		eax
+		ret
+NR10_NoSweep:
+		mov		dword ptr [ecx + Offset_Sound1Sweep], 0
+		ret
+
+NR11:
+		//NR11
+		push	edx
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x11], al
+
+		mov		dl, byte ptr [ecx + FF00_ASM + 0x14]
+		test	dl, 0x40
+		mov		edx, 0
+		jz		NR11_NoTimeOut
+
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+NR11_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound1TimeOut], edx
+
+		pop		eax
+		pop		edx
+		ret
+
+NR12:
+		//NR12
+		push	edx
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x12], al
+
+		mov		dl, al
+		shr		al, 4
+		mov		byte ptr [ecx + Offset_Sound1Volume], al
+		and		edx, 7
+		shl		edx, 14
+		mov		dword ptr [ecx + Offset_Sound1Envelope], edx
+
+		pop		eax
+		pop		edx
+		ret
+
+NR13:
+		//NR13
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x13], al
+
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x14]
+		and		eax, 0x07FF
+		mov		dword ptr [ecx + Offset_Sound1Frequency], eax
+
+		pop		eax
+		ret
+
 NR14:
 		//NR14
-		/*push	eax
-		push	ebx
-		xor		ebx, ebx
-		test	al, 0x80
-		mov		bl, byte ptr [ecx + FF00_ASM + 0x26]
-		jz		NotNR14On
-		test	bl, 0x80
-		jz		NotNR14On
-
-		and		al, ~0x80
-		or		bl, 1
-		mov		byte ptr [ecx + Offset_Sound1Enabled], 1
-		mov		byte ptr [ecx + FF00_ASM + 0x14], al
-		mov		byte ptr [ecx + FF00_ASM + 0x26], bl
-
-		xor		bl, bl
-
-		test	al, 0x40
-		jz		Sound1_NoTimeOut
-
-		mov		bl, byte ptr [ecx + FF00_ASM + 0x11]
-		and		bl, 0x3F
-		neg		ebx
-		add		ebx, 64
-		shl		ebx, 13
-Sound1_NoTimeOut:
-
-		mov		dword ptr [ecx + Offset_Sound1TimeOut], ebx
-
-		and		eax, 7
-		mov		ah, al
-		mov		al, byte ptr [ecx + FF00_ASM + 0x13]
-		mov		dword ptr [ecx + Offset_Sound1Frequency], eax
-		mov		ah, byte ptr [ecx + FF00_ASM + 0x12]
-		mov		al, ah
-		shr		ah, 4
-		mov		byte ptr [ecx + Offset_Sound1Volume], ah
-		and		eax, 7
-		shl		eax, 14
-		mov		dword ptr [ecx + Offset_Sound1Envelope], eax
-
-		xor		eax, eax
-
-		mov		al, byte ptr [ecx + FF00_ASM + 0x10]
-		test	al, 0x07
-		jz		Sound1_NoSweep
-		and		al, 0x70
-		jz		Sound1_NoSweep
-
-		shl		eax, 9
-Sound1_NoSweep:
-		mov		dword ptr [ecx + Offset_Sound1Sweep], eax
-
-		pop		ebx
-		pop		eax
-
-		ret
-
-NotNR14On:
-		and		bl, ~1
-		mov		byte ptr [ecx + Offset_Sound1Enabled], 0
-		mov		byte ptr [ecx + FF00_ASM + 0x26], bl
-
-		pop		ebx
-		pop		eax
-		ret
-
-
-Sound1Port:
-		push	edx
-		and		edx, 0xFF
-		mov		byte ptr [ecx + FF00_ASM + edx], al
-		pop		edx
-
 		push	eax
-		mov		al, byte ptr [ecx + FF00_ASM + 0x26]
-		test	al, 0x80
-		jz		Sound1_Off
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x14]
+		mov		byte ptr [ecx + FF00_ASM + 0x14], al
 
-		mov		al, byte ptr [ecx + FF00_ASM + 0x14]
-
-		and		eax, 7
-		mov		ah, al
-		mov		al, byte ptr [ecx + FF00_ASM + 0x13]
-		mov		dword ptr [ecx + Offset_Sound1Frequency], eax
-		mov		ah, byte ptr [ecx + FF00_ASM + 0x12]
-		mov		al, ah
-		shr		ah, 4
-		mov		byte ptr [ecx + Offset_Sound1Volume], ah
-		and		eax, 7
-		shl		eax, 14
-		mov		dword ptr [ecx + Offset_Sound1Envelope], eax
-
-		xor		eax, eax
-
-		mov		al, byte ptr [ecx + FF00_ASM + 0x10]
-		test	al, 0x07
-		jz		Sound1_2_NoSweep
-		and		al, 0x70
-		jz		Sound1_2_NoSweep
-
-		shl		eax, 9
-Sound1_2_NoSweep:
-		mov		dword ptr [ecx + Offset_Sound1Sweep], eax
-
-Sound1_Off:
-		pop		eax
-
-		ret*/
 		test	al, 0x80
 		jz		NotNR14On
 
+		mov		byte ptr [ecx + Offset_Sound1Enabled], 1
 		or		byte ptr [ecx + FF00_ASM + 0x26], 0x01
 
-NotNR14On:
-Sound1Port:
 		push	edx
-		and		edx, 0xFF
-		mov		byte ptr [ecx + FF00_ASM + edx], al
-		pop		edx
 
-#ifdef _DEBUG
-		push	eax
-		push	ebx
-		push	ecx
-		push	edx
-#endif //_DEBUG
-		call	Sound1
-#ifdef _DEBUG
+		xor		edx, edx
+		test	al, 0x40
+		jz		NR14_NoTimeOut
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x11]
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+NR14_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound1TimeOut], edx
+
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x13]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound1Frequency], eax
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x12]
+		mov		ah, al
+		shr		ah, 4
+		mov		byte ptr [ecx + Offset_Sound1Volume], ah
+		and		ax, 7
+		shl		eax, 14
+		mov		dword ptr [ecx + Offset_Sound1Envelope], eax
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x10]
+		test	al, 0x07
+		jz		NR14_NoSweep
+		and		eax, 0x70
+		shl		eax, 9
+		mov		dword ptr [ecx + Offset_Sound1Sweep], eax
+
 		pop		edx
-		pop		ecx
-		pop		ebx
 		pop		eax
-#endif //_DEBUG
+		ret
 
+NR14_NoSweep:
+		mov		dword ptr [ecx + Offset_Sound1Sweep], 0
+
+		pop		edx
+		pop		eax
+		ret
+
+NotNR14On:
+		test	al, 0x40
+		jnz		NR14_SetTimeOut
+		mov		dword ptr [ecx + Offset_Sound1TimeOut], 0
+		jmp		NR14_TimeOutSet
+
+NR14_SetTimeOut:
+		test	ah, 0x40
+		jz		NR14_TimeOutSet
+
+		push	edx
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+		mov		dword ptr [ecx + Offset_Sound1TimeOut], edx
+		pop		edx
+
+NR14_TimeOutSet:
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x13]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound1Frequency], eax
+
+		pop		eax
 		ret
 
 
-
-/*#ifdef _DEBUG
-		push	eax
-		push	ebx
-		push	ecx
+NR21:
+		//NR21
 		push	edx
-#endif //_DEBUG*/
-		//call	Sound1
-/*#ifdef _DEBUG
-		pop		edx
-		pop		ecx
-		pop		ebx
-		pop		eax
-#endif //_DEBUG*/
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x16], al
 
-		//ret
+		mov		dl, byte ptr [ecx + FF00_ASM + 0x19]
+		test	dl, 0x40
+		mov		edx, 0
+		jz		NR21_NoTimeOut
+
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+NR21_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound2TimeOut], edx
+
+		pop		eax
+		pop		edx
+		ret
+
+NR22:
+		//NR22
+		push	edx
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x17], al
+
+		mov		dl, al
+		shr		al, 4
+		mov		byte ptr [ecx + Offset_Sound2Volume], al
+		and		edx, 7
+		shl		edx, 14
+		mov		dword ptr [ecx + Offset_Sound2Envelope], edx
+
+		pop		eax
+		pop		edx
+		ret
+
+NR23:
+		//NR23
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x18], al
+
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x19]
+		and		eax, 0x07FF
+		mov		dword ptr [ecx + Offset_Sound2Frequency], eax
+
+		pop		eax
+		ret
 
 NR24:
 		//NR24
+		push	eax
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x19]
+		mov		byte ptr [ecx + FF00_ASM + 0x19], al
+
 		test	al, 0x80
 		jz		NotNR24On
 
+		mov		byte ptr [ecx + Offset_Sound2Enabled], 1
 		or		byte ptr [ecx + FF00_ASM + 0x26], 0x02
 
-NotNR24On:
-Sound2Port:
 		push	edx
-		and		edx, 0xFF
-		mov		byte ptr [ecx + FF00_ASM + edx], al
-		pop		edx
 
-#ifdef _DEBUG
-		push	eax
-		push	ebx
-		push	ecx
-		push	edx
-#endif //_DEBUG
-		call	Sound2
-#ifdef _DEBUG
+		xor		edx, edx
+		test	al, 0x40
+		jz		NR24_NoTimeOut
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x16]
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+NR24_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound2TimeOut], edx
+
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x18]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound2Frequency], eax
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x17]
+		mov		ah, al
+		shr		ah, 4
+		mov		byte ptr [ecx + Offset_Sound2Volume], ah
+		and		ax, 7
+		shl		eax, 14
+		mov		dword ptr [ecx + Offset_Sound2Envelope], eax
+
 		pop		edx
-		pop		ecx
-		pop		ebx
 		pop		eax
-#endif //_DEBUG
+		ret
 
+NotNR24On:
+		test	al, 0x40
+		jnz		NR24_SetTimeOut
+		mov		dword ptr [ecx + Offset_Sound2TimeOut], 0
+		jmp		NR24_TimeOutSet
+
+NR24_SetTimeOut:
+		test	ah, 0x40
+		jz		NR24_TimeOutSet
+
+		push	edx
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+		mov		dword ptr [ecx + Offset_Sound2TimeOut], edx
+		pop		edx
+
+NR24_TimeOutSet:
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x18]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound2Frequency], eax
+
+		pop		eax
+		ret
+
+
+NR30:
+		//NR30
+		test	al, 0x80
+		jz		NotNR30On
+
+		mov		byte ptr [ecx + FF00_ASM + 0x1A], 0xFF
+		or		byte ptr [ecx + FF00_ASM + 0x26], 0x04
+		mov		byte ptr [ecx + Offset_Sound3Enabled], 1
+		ret
+
+NotNR30On:
+		mov		byte ptr [ecx + FF00_ASM + 0x1A], 0x7F
+		and		byte ptr [ecx + FF00_ASM + 0x26], ~0x04
+		mov		byte ptr [ecx + Offset_Sound3Enabled], 0
+		ret
+
+
+NR31:
+		//NR31
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x1B], al
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x1E]
+		test	ah, 0x40
+		jz		NR31_NoTimeOut
+		and		eax, 0xFF
+		neg		eax
+		add		eax, 0x100
+		shl		eax, 13
+		mov		dword ptr [ecx + Offset_Sound3TimeOut], eax
+		pop		eax
+		ret
+
+NR31_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound3TimeOut], 0
+		pop		eax
+		ret
+
+NR32:
+		//NR32
+		mov		byte ptr [ecx + FF00_ASM + 0x1C], al
+		or		byte ptr [ecx + FF00_ASM + 0x1C], 0x9F
+		ret
+
+NR33:
+		//NR33
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x1D], al
+
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x1E]
+		and		eax, 0x07FF
+		mov		dword ptr [ecx + Offset_Sound3Frequency], eax
+
+		pop		eax
 		ret
 
 NR34:
 		//NR34
+		push	eax
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x1E]
+		mov		byte ptr [ecx + FF00_ASM + 0x1E], al
+
 		test	al, 0x80
 		jz		NotNR34On
 
+		mov		byte ptr [ecx + Offset_Sound3Enabled], 1
 		or		byte ptr [ecx + FF00_ASM + 0x26], 0x04
+		mov		byte ptr [ecx + FF00_ASM + 0x1A], 0xFF
+
+		test	al, 0x40
+		mov		eax, 0
+		jz		NR34_NoTimeOut
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x1B]
+		neg		eax
+		add		eax, 0x100
+		shl		eax, 13
+NR34_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound3TimeOut], eax
+
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x1D]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound3Frequency], eax
+
+		pop		eax
+		ret
 
 NotNR34On:
-Sound3Port:
-		push	edx
-		and		edx, 0xFF
-		mov		byte ptr [ecx + FF00_ASM + edx], al
-		pop		edx
+		test	al, 0x40
+		jnz		NR34_SetTimeOut
+		mov		dword ptr [ecx + Offset_Sound3TimeOut], 0
+		jmp		NR34_TimeOutSet
 
-#ifdef _DEBUG
+NR34_SetTimeOut:
+		test	ah, 0x40
+		jz		NR34_TimeOutSet
+
+		and		eax, 0xFF
+		neg		eax
+		add		eax, 0x100
+		shl		eax, 13
+		mov		dword ptr [ecx + Offset_Sound3TimeOut], eax
+
+NR34_TimeOutSet:
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x1D]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound3Frequency], eax
+
+		pop		eax
+		ret
+
+
+NR41:
+		//NR41
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x20], al
+
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x23]
+		test	ah, 0x40
+		jz		NR41_NoTimeOut
+
+		and		eax, 0x3F
+		neg		eax
+		add		eax, 64
+		shl		eax, 13
+		mov		dword ptr [ecx + Offset_Sound4TimeOut], eax
+
+		pop		eax
+		ret
+
+NR41_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound4TimeOut], 0
+		pop		eax
+		ret
+
+NR42:
+		//NR42
+		push	edx
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x21], al
+
+		mov		dl, al
+		shr		al, 4
+		mov		byte ptr [ecx + Offset_Sound4Volume], al
+		and		edx, 7
+		shl		edx, 14
+		mov		dword ptr [ecx + Offset_Sound4Envelope], edx
+
+		pop		eax
+		pop		edx
+		ret
+
+NR43:
+		//NR43
 		push	eax
 		push	ebx
-		push	ecx
 		push	edx
-#endif //_DEBUG
-		call	Sound3
-#ifdef _DEBUG
-		pop		edx
+		push	ecx
+		mov		byte ptr [ecx + FF00_ASM + 0x22], al
+		mov		cl, al
+		xor		edx, edx
+
+		and		eax, 0x07
+		jz		NR43_Multiply
+		mov		ebx, eax
+		mov		eax, 512 * 1024
+		div		ebx
+		xor		edx, edx
+		shr		cl, 4
+		inc		cl
+		shr		eax, cl
+		mov		ebx, eax
+		mov		eax, 2097152
+		div		ebx
+
 		pop		ecx
+		mov		dword ptr [ecx + Offset_Sound4Frequency], eax
+
+		pop		edx
 		pop		ebx
 		pop		eax
-#endif //_DEBUG
+		ret
 
+NR43_Multiply:
+		mov		ebx, 512 * 1024 * 2
+		shr		cl, 4
+		inc		cl
+		shr		ebx, cl
+		mov		eax, 2097152
+		div		ebx
+
+		pop		ecx
+		mov		dword ptr [ecx + Offset_Sound4Frequency], eax
+
+		pop		edx
+		pop		ebx
+		pop		eax
 		ret
 
 NR44:
 		//NR44
+		push	eax
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x23]
+		mov		byte ptr [ecx + FF00_ASM + 0x23], al
+
 		test	al, 0x80
 		jz		NotNR44On
 
+		mov		byte ptr [ecx + Offset_Sound4Enabled], 1
 		or		byte ptr [ecx + FF00_ASM + 0x26], 0x08
 
+		test	al, 0x40
+		mov		eax, 0
+		jz		NR44_NoTimeOut
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x20]
+		and		eax, 0x3F
+		neg		eax
+		add		eax, 64
+		shl		eax, 13
+NR44_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound4TimeOut], eax
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x21]
+		mov		ah, al
+		shr		ah, 4
+		mov		byte ptr [ecx + Offset_Sound4Volume], ah
+		and		eax, 7
+		shl		eax, 14
+		mov		dword ptr [ecx + Offset_Sound4Envelope], eax
+
+		pop		eax
+		ret
+
 NotNR44On:
-Sound4Port:
-		push	edx
-		and		edx, 0xFF
-		mov		byte ptr [ecx + FF00_ASM + edx], al
+		test	al, 0x40
+		jnz		NR44_SetTimeOut
+		mov		dword ptr [ecx + Offset_Sound4TimeOut], 0
+		//jmp		NR44_TimeOutSet
 		pop		edx
-
-#ifdef _DEBUG
-		push	eax
-		push	ebx
-		push	edx
-#endif //_DEBUG
-		push	ecx
-		call	Sound4
-		pop		ecx
-#ifdef _DEBUG
-		pop		edx
-		pop		ebx
-		pop		eax
-#endif //_DEBUG
-
 		ret
 
-/*NR50:
-		//NR50
-		mov		byte ptr [ecx + FF00_ASM + 0x24], al
-#ifdef _DEBUG
-		push	eax
-		push	ebx
-		push	edx
-#endif //_DEBUG
-		push	ecx
-		call	Sound1
-		mov		ecx, dword ptr [esp]
-		call	Sound2
-		mov		ecx, dword ptr [esp]
-		call	Sound3
-		mov		ecx, dword ptr [esp]
-		call	Sound4
-		pop		ecx
-#ifdef _DEBUG
-		pop		edx
-		pop		ebx
-		pop		eax
-#endif //_DEBUG
+NR44_SetTimeOut:
+		test	ah, 0x40
+		jz		NR44_TimeOutSet
 
+		and		eax, 0x3F
+		neg		eax
+		add		eax, 64
+		shl		eax, 13
+		mov		dword ptr [ecx + Offset_Sound4TimeOut], eax
+
+NR44_TimeOutSet:
+		pop		eax
 		ret
 
-NR51:
-		//NR51
-		mov		byte ptr [ecx + FF00_ASM + 0x25], al
-#ifdef _DEBUG
-		push	eax
-		push	ebx
-		push	edx
-#endif //_DEBUG
-		push	ecx
-		call	Sound1
-		mov		ecx, dword ptr [esp]
-		call	Sound2
-		mov		ecx, dword ptr [esp]
-		call	Sound3
-		mov		ecx, dword ptr [esp]
-		call	Sound4
-		pop		ecx
-#ifdef _DEBUG
-		pop		edx
-		pop		ebx
-		pop		eax
-#endif //_DEBUG
-
-		ret*/
 
 NR52:
 		//NR52
-		and		al, 0x80
-		or		byte ptr [ecx + FF00_ASM + 0x26], al
-#ifdef _DEBUG
-		push	eax
-		push	ebx
-		push	edx
-#endif //_DEBUG
-		push	ecx
-		call	Sound1
-		mov		ecx, dword ptr [esp]
-		call	Sound2
-		mov		ecx, dword ptr [esp]
-		call	Sound3
-		mov		ecx, dword ptr [esp]
-		call	Sound4
-		pop		ecx
-#ifdef _DEBUG
-		pop		edx
-		pop		ebx
-		pop		eax
-#endif //_DEBUG
+		test	al, 0x80
+		jz		AllSoundOff
 
+		or		byte ptr [ecx + FF00_ASM + 0x26], 0xF0
+		ret
+
+AllSoundOff:
+		mov		byte ptr [ecx + FF00_ASM + 0x26], 0x70
 		ret
 
 LCDC:
@@ -1053,21 +1352,21 @@ NoOCPDInc:
 
 SVBK:
 		//SVBK
-		push	ebx
-		mov		byte ptr [ecx + FF00_ASM + 0x70], al
-		xor		ebx, ebx
+		push	eax
 		and		al, 7
 		jnz		SVBK_NotZero
 		inc		al
 SVBK_NotZero:
-		mov		bl, al
-		shl		ebx, 12
-		add		ebx, ecx
-		add		ebx, Offset_MEM_CPU
-		mov		dword ptr [ecx + Offset_MEM + 0xD * 4], ebx
+		or		al, 0xF8
+		mov		byte ptr [ecx + FF00_ASM + 0x70], al
+		and		eax, 7
+		shl		eax, 12
+		add		eax, ecx
+		add		eax, Offset_MEM_CPU
+		mov		dword ptr [ecx + Offset_MEM + 0xD * 4], eax
 		//add		ebx, Offset_MemStatus_CPU - Offset_MEM_CPU
 		//mov		dword ptr [ecx + Offset_MemStatus + 0xD * 4], ebx
-		pop		ebx
+		pop		eax
 		ret
 	}
 }
@@ -1120,6 +1419,177 @@ TestIfFixed:*/
 NotIntRAM:
 		cmp		edx, 0xA000
 		jb		NotFixed
+
+		//RTC
+		push	eax
+		mov		ah, byte ptr [ecx + Offset_RTC_Reg]
+		test	ah, 0x80
+		jnz		RTC_NotEnabled
+
+		cmp		ah, 0
+		je		RTC_SEC
+		cmp		ah, 1
+		je		RTC_MIN
+		cmp		ah, 2
+		je		RTC_HRS
+		cmp		ah, 3
+		je		RTC_DAYL
+		cmp		ah, 4
+		je		RTC_DAYH
+
+RTC_Set:
+		pop		eax
+		pop		ebx
+		ret
+
+RTC_SEC:
+		mov		ah, byte ptr [ecx + Offset_SEC]
+		mov		byte ptr [ecx + Offset_SEC], al
+		sub		al, ah
+		je		RTC_Set
+
+		push	esi
+		push	edi
+		mov		esi, 0x989680
+		xor		edi, edi
+		jmp		RTC_RecalcDay0
+
+RTC_MIN:
+		mov		ah, byte ptr [ecx + Offset_MIN]
+		mov		byte ptr [ecx + Offset_MIN], al
+		sub		al, ah
+		je		RTC_Set
+
+		push	esi
+		push	edi
+		mov		esi, 0x23C34600
+		xor		edi, edi
+		jmp		RTC_RecalcDay0
+
+RTC_HRS:
+		mov		ah, byte ptr [ecx + Offset_HRS]
+		mov		byte ptr [ecx + Offset_HRS], al
+		sub		al, ah
+		je		RTC_Set
+
+		push	esi
+		push	edi
+		mov		esi, 0x61C46800
+		mov		edi, 0x8
+		jmp		RTC_RecalcDay0
+
+RTC_DAYL:
+		mov		ah, byte ptr [ecx + Offset_DAYL]
+		mov		byte ptr [ecx + Offset_DAYL], al
+		sub		al, ah
+		je		RTC_Set
+
+		push	esi
+		push	edi
+		mov		esi, 0x2A69C000
+		mov		edi, 0xC9
+		jmp		RTC_RecalcDay0
+
+RTC_DAYH:
+		and		al, 0x81
+		mov		ah, byte ptr [ecx + Offset_DAYH]
+		mov		byte ptr [ecx + Offset_DAYH], al
+		test	ah, 1
+		jnz		RTC_DAYH_Odd
+
+		test	al, 1
+		jz		RTC_Set
+
+		push	ebx
+		push	edx
+		mov		ebx, dword ptr [ecx + Offset_RTC_Day0]
+		mov		edx, dword ptr [ecx + Offset_RTC_Day0 + 4]
+
+		sub		ebx, 0x69C00000
+		sbb		edx, 0xC92A
+
+		mov		dword ptr [ecx + Offset_RTC_Day0], ebx
+		mov		dword ptr [ecx + Offset_RTC_Day0 + 4], edx
+		pop		edx
+		pop		ebx
+
+		jmp		RTC_Set
+
+RTC_DAYH_Odd:
+		test	al, 1
+		jnz		RTC_Set
+
+		push	ebx
+		push	edx
+		mov		ebx, dword ptr [ecx + Offset_RTC_Day0]
+		mov		edx, dword ptr [ecx + Offset_RTC_Day0 + 4]
+
+		add		ebx, 0x69C00000
+		adc		edx, 0xC92A
+
+		mov		dword ptr [ecx + Offset_RTC_Day0], ebx
+		mov		dword ptr [ecx + Offset_RTC_Day0 + 4], edx
+		pop		edx
+		pop		ebx
+
+		jmp		RTC_Set
+
+
+RTC_RecalcDay0:
+		test	al, 0x80
+		jz		RTC_Increase
+
+		neg		al
+
+		push	ebx
+		push	edx
+		mov		ebx, dword ptr [ecx + Offset_RTC_Day0]
+		mov		edx, dword ptr [ecx + Offset_RTC_Day0 + 4]
+
+RTC_More:
+		add		ebx, esi
+		adc		edx, edi
+		dec		al
+		jnz		RTC_More
+
+		mov		dword ptr [ecx + Offset_RTC_Day0], ebx
+		mov		dword ptr [ecx + Offset_RTC_Day0 + 4], edx
+		pop		edx
+		pop		ebx
+
+		pop		edi
+		pop		esi
+		pop		eax
+		pop		ebx
+		ret
+
+RTC_Increase:
+		push	ebx
+		push	edx
+		mov		ebx, dword ptr [ecx + Offset_RTC_Day0]
+		mov		edx, dword ptr [ecx + Offset_RTC_Day0 + 4]
+
+RTC_More_Increase:
+		sub		ebx, esi
+		sbb		edx, edi
+		dec		al
+		jnz		RTC_More_Increase
+
+		mov		dword ptr [ecx + Offset_RTC_Day0], ebx
+		mov		dword ptr [ecx + Offset_RTC_Day0 + 4], edx
+		pop		edx
+		pop		ebx
+
+		pop		edi
+		pop		esi
+		pop		eax
+		pop		ebx
+		ret
+
+
+RTC_NotEnabled:
+		pop		eax
+
 		cmp		dword ptr [ecx + Offset_MemStatus_RAM], 0
 		je		NotFixed
 		push	eax
@@ -1145,7 +1615,7 @@ NotFixed:
 		cmp		edx, 0xD000
 		jb		NoEcho
 		cmp		edx, 0xFE00
-		ja		NoEcho
+		jae		NoEcho
 		cmp		edx, 0xDE00
 		jae		MaybeHighEcho
 
@@ -1176,7 +1646,61 @@ IsRom:
 		cmp		dh, 0x60
 		jb		RamBankSelect
 
-		//Clock latch not implemented
+		//RTC Latch
+		cmp		al, 1
+		jne		NoLatch
+		cmp		byte ptr [ecx + Offset_Latch], 0
+		jne		NoLatch
+
+		push	eax
+		push	ebx
+		push	edx
+		push	esi
+		push	edi
+		push	ecx
+
+		/*sub		esp, 16 //sizeof(SYSTEMTIME)
+
+		push	ecx
+
+		lea		eax, [esp + 4]
+		push	eax
+		call	dword ptr [GetLocalTime]*/
+		call	SetRTCReg
+
+		pop		ecx
+
+		/*mov		al, byte ptr [esp + 12]
+		mov		byte ptr [ecx + Offset_SEC], al
+		mov		al, byte ptr [esp + 10]
+		mov		byte ptr [ecx + Offset_MIN], al
+		mov		al, byte ptr [esp + 8]
+		mov		byte ptr [ecx + Offset_HRS], al
+
+		mov		al, byte ptr [esp + 6]
+		cmp		al, byte ptr [ecx + Offset_RTC_LastDay]
+		je		RTC_NoDayChange
+
+		mov		byte ptr [ecx + Offset_RTC_LastDay], al
+		mov		ax, word ptr [ecx + Offset_DAY]
+		inc		ax
+		and		ah, 0x1
+		or		ah, 0x80
+		mov		word ptr [ecx + Offset_DAY], ax
+
+RTC_NoDayChange:*/
+
+		//add		esp, 16
+
+		pop		edi
+		pop		esi
+		pop		edx
+		pop		ebx
+		pop		eax
+
+NoLatch:
+		mov		byte ptr [ecx + Offset_Latch], al
+
 		ret
 
 RomBankSelect:
@@ -1240,7 +1764,56 @@ RamBankSelect:
 NoRumblePack:
 		and		al, 0x0F
 
-		cmp		al, [ecx + Offset_MaxRamBank]
+		push	eax
+		mov		eax, dword ptr [ecx + Offset_MEM_ROM]
+		mov		ah, byte ptr [eax + 0x0147]
+		cmp		ah, 0x0F
+		jb		NoRTC
+		cmp		ah, 0x10
+		ja		NoRTC
+
+		//pop	eax
+		//push	eax
+		mov		eax, dword ptr [esp]
+
+		test	al, 0x08
+		jz		NoRTC
+
+		and		eax, 0x07
+		cmp		al, 0x04
+		ja		IllegalReg
+
+		push	edi
+		push	ecx
+
+		mov		byte ptr [ecx + Offset_RTC_Reg], al
+		mov		al, byte ptr [ecx + Offset_RTC + eax]
+		mov		ah, al
+		shl		eax, 8
+		mov		al, ah
+		shl		eax, 8
+		mov		al, ah
+
+		lea		edi, [ecx + Offset_MEM_RAM + 0x21000]
+		mov		dword ptr [ecx + Offset_MEM + 0xB * 4], edi
+		sub		edi, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0xA * 4], edi
+
+		mov		ecx, 0x2000 / 4
+		rep		stosd
+
+		pop		ecx
+		pop		edi
+
+IllegalReg:
+		pop		eax
+		ret
+
+NoRTC:
+		pop		eax
+		mov		byte ptr [ecx + Offset_RTC_Reg], 0x80
+
+		cmp		al, byte ptr [ecx + Offset_MaxRamBank]
 		ja		IllegalBank		//return
 
 		push	eax
@@ -1283,26 +1856,48 @@ void __declspec(naked) __fastcall Debug_Port(CGameBoy *pGameBoy, BYTE Addr)
 		//P1
 		cmp		dl, 0x00
 		je		P1
+		cmp		dl, 0x02
+		je		SC
 		cmp		dl, 0x04
 		je		Port_DIV
 		cmp		dl, 0x07
 		je		TAC
 		cmp		dl, 0x10
-		jb		NoPort
+		je		NR10
+		cmp		dl, 0x11
+		je		NR11
+		cmp		dl, 0x12
+		je		NR12
+		cmp		dl, 0x13
+		je		NR13
 		cmp		dl, 0x14
 		je		NR14
-		jb		Sound1Port
 		cmp		dl, 0x16
-		jb		NoPort
+		je		NR21
+		cmp		dl, 0x17
+		je		NR22
+		cmp		dl, 0x18
+		je		NR23
 		cmp		dl, 0x19
 		je		NR24
-		jb		Sound2Port
+		cmp		dl, 0x1A
+		je		NR30
+		cmp		dl, 0x1B
+		je		NR31
+		cmp		dl, 0x1C
+		je		NR32
+		cmp		dl, 0x1D
+		je		NR33
 		cmp		dl, 0x1E
 		je		NR34
-		jb		Sound3Port
+		cmp		dl, 0x20
+		je		NR41
+		cmp		dl, 0x21
+		je		NR42
+		cmp		dl, 0x22
+		je		NR43
 		cmp		dl, 0x23
 		je		NR44
-		jb		Sound4Port
 		cmp		dl, 0x26
 		je		NR52
 		cmp		dl, 0x40
@@ -1391,43 +1986,27 @@ SgbNoReturn:
 		pop		edx
 		ret
 
-		/*//SC - SIO Control
-		cmp		dl, 0x02
-		jne		NotSC
+SC:
+		or		al, 0x7E
+		mov		byte ptr [ecx + FF00_ASM + 0x02], al
 
 		test	al, 0x80
 		jz		NoTransfer
 
-		/*test	al, 0x01
-		jnz		ExternalClock*/
+		test	dword ptr [ecx + Offset_Flags], GB_LINKCABLE
+		jnz		HasLinkCable
 
-/*		push	eax
-		mov		eax, [ecx + Offset_SIOClocks]
-		or		al, [ecx + Offset_SIO]
-		test	eax, eax
-		pop		eax
-		jnz		NoChange
-
-		mov		dword ptr [ecx + Offset_SIOClocks], 0x800
-		mov		byte ptr [ecx + Offset_SIO], 0
-NoChange:
-		pop		ebx
+		test	al, 1
+		jz		NoTransfer
+		mov		dword ptr [ecx + Offset_SerialTicks], 128
 		ret
 
-/*ExternalClock:
-		mov		dword ptr [ecx + Offset_SIOClocks], 0
-		mov		byte ptr [ecx + Offset_SIO], SIO_ACCEPT
-		mov		byte ptr [ecx + Offset_ExitLoop], 1
-		pop		ebx
-		ret*/
+HasLinkCable:
+		or		dword ptr [ecx + Offset_Flags], GB_EXITLOOP
 
-/*NoTransfer:
-		mov		dword ptr [ecx + Offset_SIOClocks], 0
-		mov		byte ptr [ecx + Offset_SIO], 0
-		pop		ebx
+NoTransfer:
 		ret
 
-NotSC:*/
 Port_DIV:
 		//DIV - Divider register
 		mov		byte ptr [ecx + FF00_ASM + 0x04], 0
@@ -1459,153 +2038,580 @@ TAC_1:
 		mov		dword ptr [ecx + Offset_Hz], 512
 		ret
 
+NR10:
+		//NR10
+		mov		byte ptr [ecx + FF00_ASM + 0x10], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F10], MEM_CHANGED
+		test	al, 0x07
+		jz		NR10_NoSweep
+		push	eax
+		and		eax, 0x70
+		shl		eax, 9
+		mov		dword ptr [ecx + Offset_Sound1Sweep], eax
+		pop		eax
+		ret
+NR10_NoSweep:
+		mov		dword ptr [ecx + Offset_Sound1Sweep], 0
+		ret
+
+NR11:
+		//NR11
+		push	edx
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x11], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F11], MEM_CHANGED
+
+		mov		dl, byte ptr [ecx + FF00_ASM + 0x14]
+		test	dl, 0x40
+		mov		edx, 0
+		jz		NR11_NoTimeOut
+
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+NR11_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound1TimeOut], edx
+
+		pop		eax
+		pop		edx
+		ret
+
+NR12:
+		//NR12
+		push	edx
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x12], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F12], MEM_CHANGED
+
+		mov		dl, al
+		shr		al, 4
+		mov		byte ptr [ecx + Offset_Sound1Volume], al
+		and		edx, 7
+		shl		edx, 14
+		mov		dword ptr [ecx + Offset_Sound1Envelope], edx
+
+		pop		eax
+		pop		edx
+		ret
+
+NR13:
+		//NR13
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x13], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F13], MEM_CHANGED
+
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x14]
+		and		eax, 0x07FF
+		mov		dword ptr [ecx + Offset_Sound1Frequency], eax
+
+		pop		eax
+		ret
+
 NR14:
 		//NR14
+		push	eax
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x14]
+		mov		byte ptr [ecx + FF00_ASM + 0x14], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F14], MEM_CHANGED
+
 		test	al, 0x80
 		jz		NotNR14On
 
+		mov		byte ptr [ecx + Offset_Sound1Enabled], 1
 		or		byte ptr [ecx + FF00_ASM + 0x26], 0x01
 		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
 
-NotNR14On:
-Sound1Port:
 		push	edx
-		and		edx, 0xFF
-		mov		byte ptr [ecx + FF00_ASM + edx], al
-		pop		edx
 
-#ifdef _DEBUG
-		push	eax
-		push	ebx
-		push	ecx
-		push	edx
-#endif //_DEBUG
-		call	Sound1
-#ifdef _DEBUG
+		xor		edx, edx
+		test	al, 0x40
+		jz		NR14_NoTimeOut
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x11]
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+NR14_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound1TimeOut], edx
+
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x13]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound1Frequency], eax
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x12]
+		mov		ah, al
+		shr		ah, 4
+		mov		byte ptr [ecx + Offset_Sound1Volume], ah
+		and		ax, 7
+		shl		eax, 14
+		mov		dword ptr [ecx + Offset_Sound1Envelope], eax
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x10]
+		test	al, 0x07
+		jz		NR14_NoSweep
+		and		eax, 0x70
+		shl		eax, 9
+		mov		dword ptr [ecx + Offset_Sound1Sweep], eax
+
 		pop		edx
-		pop		ecx
-		pop		ebx
 		pop		eax
-#endif //_DEBUG
+		ret
 
+NR14_NoSweep:
+		mov		dword ptr [ecx + Offset_Sound1Sweep], 0
+
+		pop		edx
+		pop		eax
+		ret
+
+NotNR14On:
+		test	al, 0x40
+		jnz		NR14_SetTimeOut
+		mov		dword ptr [ecx + Offset_Sound1TimeOut], 0
+		jmp		NR14_TimeOutSet
+
+NR14_SetTimeOut:
+		test	ah, 0x40
+		jz		NR14_TimeOutSet
+
+		push	edx
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+		mov		dword ptr [ecx + Offset_Sound1TimeOut], edx
+		pop		edx
+
+NR14_TimeOutSet:
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x13]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound1Frequency], eax
+
+		pop		eax
+		ret
+
+
+NR21:
+		//NR21
+		push	edx
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x16], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F16], MEM_CHANGED
+
+		mov		dl, byte ptr [ecx + FF00_ASM + 0x19]
+		test	dl, 0x40
+		mov		edx, 0
+		jz		NR21_NoTimeOut
+
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+NR21_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound2TimeOut], edx
+
+		pop		eax
+		pop		edx
+		ret
+
+NR22:
+		//NR22
+		push	edx
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x17], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F17], MEM_CHANGED
+
+		mov		dl, al
+		shr		al, 4
+		mov		byte ptr [ecx + Offset_Sound2Volume], al
+		and		edx, 7
+		shl		edx, 14
+		mov		dword ptr [ecx + Offset_Sound2Envelope], edx
+
+		pop		eax
+		pop		edx
+		ret
+
+NR23:
+		//NR23
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x18], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F18], MEM_CHANGED
+
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x19]
+		and		eax, 0x07FF
+		mov		dword ptr [ecx + Offset_Sound2Frequency], eax
+
+		pop		eax
 		ret
 
 NR24:
 		//NR24
+		push	eax
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x19]
+		mov		byte ptr [ecx + FF00_ASM + 0x19], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F19], MEM_CHANGED
+
 		test	al, 0x80
 		jz		NotNR24On
 
+		mov		byte ptr [ecx + Offset_Sound2Enabled], 1
 		or		byte ptr [ecx + FF00_ASM + 0x26], 0x02
 		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
 
-NotNR24On:
-Sound2Port:
 		push	edx
-		and		edx, 0xFF
-		mov		byte ptr [ecx + FF00_ASM + edx], al
-		pop		edx
 
-#ifdef _DEBUG
-		push	eax
-		push	ebx
-		push	ecx
-		push	edx
-#endif //_DEBUG
-		call	Sound2
-#ifdef _DEBUG
+		xor		edx, edx
+		test	al, 0x40
+		jz		NR24_NoTimeOut
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x16]
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+NR24_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound2TimeOut], edx
+
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x18]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound2Frequency], eax
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x17]
+		mov		ah, al
+		shr		ah, 4
+		mov		byte ptr [ecx + Offset_Sound2Volume], ah
+		and		ax, 7
+		shl		eax, 14
+		mov		dword ptr [ecx + Offset_Sound2Envelope], eax
+
 		pop		edx
-		pop		ecx
-		pop		ebx
 		pop		eax
-#endif //_DEBUG
+		ret
 
+NotNR24On:
+		test	al, 0x40
+		jnz		NR24_SetTimeOut
+		mov		dword ptr [ecx + Offset_Sound2TimeOut], 0
+		jmp		NR24_TimeOutSet
+
+NR24_SetTimeOut:
+		test	ah, 0x40
+		jz		NR24_TimeOutSet
+
+		push	edx
+		and		al, 0x3F
+		mov		edx, 64
+		sub		dl, al
+		shl		edx, 13
+		mov		dword ptr [ecx + Offset_Sound2TimeOut], edx
+		pop		edx
+
+NR24_TimeOutSet:
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x18]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound2Frequency], eax
+
+		pop		eax
+		ret
+
+
+NR30:
+		//NR30
+		test	al, 0x80
+		jz		NotNR30On
+
+		mov		byte ptr [ecx + FF00_ASM + 0x1A], 0xFF
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F1A], MEM_CHANGED
+		or		byte ptr [ecx + FF00_ASM + 0x26], 0x04
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		mov		byte ptr [ecx + Offset_Sound3Enabled], 1
+		ret
+
+NotNR30On:
+		mov		byte ptr [ecx + FF00_ASM + 0x1A], 0x7F
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F1A], MEM_CHANGED
+		and		byte ptr [ecx + FF00_ASM + 0x26], ~0x04
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		mov		byte ptr [ecx + Offset_Sound3Enabled], 0
+		ret
+
+
+NR31:
+		//NR31
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x1B], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F1B], MEM_CHANGED
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x1E]
+		test	ah, 0x40
+		jz		NR31_NoTimeOut
+		and		eax, 0xFF
+		neg		eax
+		add		eax, 0x100
+		shl		eax, 13
+		mov		dword ptr [ecx + Offset_Sound3TimeOut], eax
+		pop		eax
+		ret
+
+NR31_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound3TimeOut], 0
+		pop		eax
+		ret
+
+NR32:
+		//NR32
+		mov		byte ptr [ecx + FF00_ASM + 0x1C], al
+		or		byte ptr [ecx + FF00_ASM + 0x1C], 0x9F
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F1C], MEM_CHANGED
+		ret
+
+NR33:
+		//NR33
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x1D], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F1D], MEM_CHANGED
+
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x1E]
+		and		eax, 0x07FF
+		mov		dword ptr [ecx + Offset_Sound3Frequency], eax
+
+		pop		eax
 		ret
 
 NR34:
 		//NR34
+		push	eax
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x1E]
+		mov		byte ptr [ecx + FF00_ASM + 0x1E], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F1E], MEM_CHANGED
+
 		test	al, 0x80
 		jz		NotNR34On
 
+		mov		byte ptr [ecx + Offset_Sound3Enabled], 1
 		or		byte ptr [ecx + FF00_ASM + 0x26], 0x04
 		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		mov		byte ptr [ecx + FF00_ASM + 0x1A], 0xFF
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F1A], MEM_CHANGED
+
+		test	al, 0x40
+		mov		eax, 0
+		jz		NR34_NoTimeOut
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x1B]
+		neg		eax
+		add		eax, 0x100
+		shl		eax, 13
+NR34_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound3TimeOut], eax
+
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x1D]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound3Frequency], eax
+
+		pop		eax
+		ret
 
 NotNR34On:
-Sound3Port:
-		push	edx
-		and		edx, 0xFF
-		mov		byte ptr [ecx + FF00_ASM + edx], al
-		pop		edx
+		test	al, 0x40
+		jnz		NR34_SetTimeOut
+		mov		dword ptr [ecx + Offset_Sound3TimeOut], 0
+		jmp		NR34_TimeOutSet
 
-#ifdef _DEBUG
+NR34_SetTimeOut:
+		test	ah, 0x40
+		jz		NR34_TimeOutSet
+
+		and		eax, 0xFF
+		neg		eax
+		add		eax, 0x100
+		shl		eax, 13
+		mov		dword ptr [ecx + Offset_Sound3TimeOut], eax
+
+NR34_TimeOutSet:
+		xor		eax, eax
+
+		mov		ax, word ptr [ecx + FF00_ASM + 0x1D]
+		and		ah, 0x07
+		mov		dword ptr [ecx + Offset_Sound3Frequency], eax
+
+		pop		eax
+		ret
+
+
+NR41:
+		//NR41
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x20], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F20], MEM_CHANGED
+
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x23]
+		test	ah, 0x40
+		jz		NR41_NoTimeOut
+
+		and		eax, 0x3F
+		neg		eax
+		add		eax, 64
+		shl		eax, 13
+		mov		dword ptr [ecx + Offset_Sound4TimeOut], eax
+
+		pop		eax
+		ret
+
+NR41_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound4TimeOut], 0
+		pop		eax
+		ret
+
+NR42:
+		//NR42
+		push	edx
+		push	eax
+		mov		byte ptr [ecx + FF00_ASM + 0x21], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F21], MEM_CHANGED
+
+		mov		dl, al
+		shr		al, 4
+		mov		byte ptr [ecx + Offset_Sound4Volume], al
+		and		edx, 7
+		shl		edx, 14
+		mov		dword ptr [ecx + Offset_Sound4Envelope], edx
+
+		pop		eax
+		pop		edx
+		ret
+
+NR43:
+		//NR43
 		push	eax
 		push	ebx
-		push	ecx
 		push	edx
-#endif //_DEBUG
-		call	Sound3
-#ifdef _DEBUG
-		pop		edx
+		push	ecx
+		mov		byte ptr [ecx + FF00_ASM + 0x22], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F22], MEM_CHANGED
+		mov		cl, al
+		xor		edx, edx
+
+		and		eax, 0x07
+		jz		NR43_Multiply
+		mov		ebx, eax
+		mov		eax, 512 * 1024
+		div		ebx
+		xor		edx, edx
+		shr		cl, 4
+		inc		cl
+		shr		eax, cl
+		mov		ebx, eax
+		mov		eax, 2097152
+		div		ebx
+
 		pop		ecx
+		mov		dword ptr [ecx + Offset_Sound4Frequency], eax
+
+		pop		edx
 		pop		ebx
 		pop		eax
-#endif //_DEBUG
+		ret
 
+NR43_Multiply:
+		mov		ebx, 512 * 1024 * 2
+		shr		cl, 4
+		inc		cl
+		shr		ebx, cl
+		mov		eax, 2097152
+		div		ebx
+
+		pop		ecx
+		mov		dword ptr [ecx + Offset_Sound4Frequency], eax
+
+		pop		edx
+		pop		ebx
+		pop		eax
 		ret
 
 NR44:
 		//NR44
+		push	eax
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x23]
+		mov		byte ptr [ecx + FF00_ASM + 0x23], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F23], MEM_CHANGED
+
 		test	al, 0x80
 		jz		NotNR44On
 
+		mov		byte ptr [ecx + Offset_Sound4Enabled], 1
 		or		byte ptr [ecx + FF00_ASM + 0x26], 0x08
 		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
 
-NotNR44On:
-Sound4Port:
-		push	edx
-		and		edx, 0xFF
-		mov		byte ptr [ecx + FF00_ASM + edx], al
-		pop		edx
+		test	al, 0x40
+		mov		eax, 0
+		jz		NR44_NoTimeOut
 
-#ifdef _DEBUG
-		push	eax
-		push	ebx
-		push	edx
-#endif //_DEBUG
-		push	ecx
-		call	Sound4
-		pop		ecx
-#ifdef _DEBUG
-		pop		edx
-		pop		ebx
+		mov		al, byte ptr [ecx + FF00_ASM + 0x20]
+		and		eax, 0x3F
+		neg		eax
+		add		eax, 64
+		shl		eax, 13
+NR44_NoTimeOut:
+		mov		dword ptr [ecx + Offset_Sound4TimeOut], eax
+
+		mov		al, byte ptr [ecx + FF00_ASM + 0x21]
+		mov		ah, al
+		shr		ah, 4
+		mov		byte ptr [ecx + Offset_Sound4Volume], ah
+		and		eax, 7
+		shl		eax, 14
+		mov		dword ptr [ecx + Offset_Sound4Envelope], eax
+
 		pop		eax
-#endif //_DEBUG
-
 		ret
+
+NotNR44On:
+		test	al, 0x40
+		jnz		NR44_SetTimeOut
+		mov		dword ptr [ecx + Offset_Sound4TimeOut], 0
+		pop		edx
+		ret
+
+NR44_SetTimeOut:
+		test	ah, 0x40
+		jz		NR44_TimeOutSet
+
+		and		eax, 0x3F
+		neg		eax
+		add		eax, 64
+		shl		eax, 13
+		mov		dword ptr [ecx + Offset_Sound4TimeOut], eax
+
+NR44_TimeOutSet:
+		pop		eax
+		ret
+
 
 NR52:
 		//NR52
-		mov		byte ptr [ecx + FF00_ASM + 0x26], al
-#ifdef _DEBUG
-		push	eax
-		push	ebx
-		push	edx
-#endif //_DEBUG
-		push	ecx
-		call	Sound1
-		mov		ecx, dword ptr [esp]
-		call	Sound2
-		mov		ecx, dword ptr [esp]
-		call	Sound3
-		mov		ecx, dword ptr [esp]
-		call	Sound4
-		pop		ecx
-#ifdef _DEBUG
-		pop		edx
-		pop		ebx
-		pop		eax
-#endif //_DEBUG
+		test	al, 0x80
+		jz		AllSoundOff
 
+		or		byte ptr [ecx + FF00_ASM + 0x26], 0xF0
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		ret
+
+AllSoundOff:
+		mov		byte ptr [ecx + FF00_ASM + 0x26], 0x70
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
 		ret
 
 LCDC:
@@ -1863,21 +2869,21 @@ NoOCPDInc:
 
 SVBK:
 		//SVBK
-		push	ebx
-		mov		byte ptr [ecx + FF00_ASM + 0x70], al
-		xor		ebx, ebx
+		push	eax
 		and		al, 7
 		jnz		SVBK_NotZero
 		inc		al
 SVBK_NotZero:
-		mov		bl, al
-		shl		ebx, 12
-		add		ebx, ecx
-		add		ebx, Offset_MEM_CPU
-		mov		dword ptr [ecx + Offset_MEM + 0xD * 4], ebx
-		add		ebx, Offset_MemStatus_CPU - Offset_MEM_CPU
-		mov		dword ptr [ecx + Offset_MemStatus + 0xD * 4], ebx
-		pop		ebx
+		or		al, 0xF8
+		mov		byte ptr [ecx + FF00_ASM + 0x70], al
+		and		eax, 7
+		shl		eax, 12
+		add		eax, ecx
+		add		eax, Offset_MEM_CPU
+		mov		dword ptr [ecx + Offset_MEM + 0xD * 4], eax
+		add		eax, Offset_MemStatus_CPU - Offset_MEM_CPU
+		mov		dword ptr [ecx + Offset_MemStatus + 0xD * 4], eax
+		pop		eax
 		ret
 	}
 }
@@ -1930,6 +2936,177 @@ TestIfFixed:*/
 NotIntRAM:
 		cmp		edx, 0xA000
 		jb		NotFixed
+
+		//RTC
+		push	eax
+		mov		ah, byte ptr [ecx + Offset_RTC_Reg]
+		test	ah, 0x80
+		jnz		RTC_NotEnabled
+
+		cmp		ah, 0
+		je		RTC_SEC
+		cmp		ah, 1
+		je		RTC_MIN
+		cmp		ah, 2
+		je		RTC_HRS
+		cmp		ah, 3
+		je		RTC_DAYL
+		cmp		ah, 4
+		je		RTC_DAYH
+
+RTC_Set:
+		pop		eax
+		pop		ebx
+		ret
+
+RTC_SEC:
+		mov		ah, byte ptr [ecx + Offset_SEC]
+		mov		byte ptr [ecx + Offset_SEC], al
+		sub		al, ah
+		je		RTC_Set
+
+		push	esi
+		push	edi
+		mov		esi, 0x989680
+		xor		edi, edi
+		jmp		RTC_RecalcDay0
+
+RTC_MIN:
+		mov		ah, byte ptr [ecx + Offset_MIN]
+		mov		byte ptr [ecx + Offset_MIN], al
+		sub		al, ah
+		je		RTC_Set
+
+		push	esi
+		push	edi
+		mov		esi, 0x23C34600
+		xor		edi, edi
+		jmp		RTC_RecalcDay0
+
+RTC_HRS:
+		mov		ah, byte ptr [ecx + Offset_HRS]
+		mov		byte ptr [ecx + Offset_HRS], al
+		sub		al, ah
+		je		RTC_Set
+
+		push	esi
+		push	edi
+		mov		esi, 0x61C46800
+		mov		edi, 0x8
+		jmp		RTC_RecalcDay0
+
+RTC_DAYL:
+		mov		ah, byte ptr [ecx + Offset_DAYL]
+		mov		byte ptr [ecx + Offset_DAYL], al
+		sub		al, ah
+		je		RTC_Set
+
+		push	esi
+		push	edi
+		mov		esi, 0x2A69C000
+		mov		edi, 0xC9
+		jmp		RTC_RecalcDay0
+
+RTC_DAYH:
+		and		al, 0x81
+		mov		ah, byte ptr [ecx + Offset_DAYH]
+		mov		byte ptr [ecx + Offset_DAYH], al
+		test	ah, 1
+		jnz		RTC_DAYH_Odd
+
+		test	al, 1
+		jz		RTC_Set
+
+		push	ebx
+		push	edx
+		mov		ebx, dword ptr [ecx + Offset_RTC_Day0]
+		mov		edx, dword ptr [ecx + Offset_RTC_Day0 + 4]
+
+		sub		ebx, 0x69C00000
+		sbb		edx, 0xC92A
+
+		mov		dword ptr [ecx + Offset_RTC_Day0], ebx
+		mov		dword ptr [ecx + Offset_RTC_Day0 + 4], edx
+		pop		edx
+		pop		ebx
+
+		jmp		RTC_Set
+
+RTC_DAYH_Odd:
+		test	al, 1
+		jnz		RTC_Set
+
+		push	ebx
+		push	edx
+		mov		ebx, dword ptr [ecx + Offset_RTC_Day0]
+		mov		edx, dword ptr [ecx + Offset_RTC_Day0 + 4]
+
+		add		ebx, 0x69C00000
+		adc		edx, 0xC92A
+
+		mov		dword ptr [ecx + Offset_RTC_Day0], ebx
+		mov		dword ptr [ecx + Offset_RTC_Day0 + 4], edx
+		pop		edx
+		pop		ebx
+
+		jmp		RTC_Set
+
+
+RTC_RecalcDay0:
+		test	al, 0x80
+		jz		RTC_Increase
+
+		neg		al
+
+		push	ebx
+		push	edx
+		mov		ebx, dword ptr [ecx + Offset_RTC_Day0]
+		mov		edx, dword ptr [ecx + Offset_RTC_Day0 + 4]
+
+RTC_More:
+		add		ebx, esi
+		adc		edx, edi
+		dec		al
+		jnz		RTC_More
+
+		mov		dword ptr [ecx + Offset_RTC_Day0], ebx
+		mov		dword ptr [ecx + Offset_RTC_Day0 + 4], edx
+		pop		edx
+		pop		ebx
+
+		pop		edi
+		pop		esi
+		pop		eax
+		pop		ebx
+		ret
+
+RTC_Increase:
+		push	ebx
+		push	edx
+		mov		ebx, dword ptr [ecx + Offset_RTC_Day0]
+		mov		edx, dword ptr [ecx + Offset_RTC_Day0 + 4]
+
+RTC_More_Increase:
+		sub		ebx, esi
+		sbb		edx, edi
+		dec		al
+		jnz		RTC_More_Increase
+
+		mov		dword ptr [ecx + Offset_RTC_Day0], ebx
+		mov		dword ptr [ecx + Offset_RTC_Day0 + 4], edx
+		pop		edx
+		pop		ebx
+
+		pop		edi
+		pop		esi
+		pop		eax
+		pop		ebx
+		ret
+
+
+RTC_NotEnabled:
+		pop		eax
+
 		cmp		dword ptr [ecx + Offset_MemStatus_RAM], 0
 		je		NotFixed
 		push	eax
@@ -1955,7 +3132,7 @@ NotFixed:
 		cmp		edx, 0xD000
 		jb		NoEcho
 		cmp		edx, 0xFE00
-		ja		NoEcho
+		jae		NoEcho
 		cmp		edx, 0xDE00
 		jae		MaybeHighEcho
 
@@ -2120,7 +3297,7 @@ void __declspec(naked) __fastcall OpCode_Undefined(CGameBoy *GB, DWORD PC)
 	__asm
 	{
 		call	ReadMem
-		or		byte ptr [ecx + Offset_Flags], GB_INVALIDOPCODE | GB_EXITLOOPDIRECTLY
+		or		byte ptr [ecx + Offset_Flags], GB_ERROR | GB_INVALIDOPCODE | GB_EXITLOOPDIRECTLY
 		ret
 	}
 }
@@ -4749,15 +5926,6 @@ void __fastcall HaltError(CGameBoy *pGameBoy)
 	char		szBuffer[0x100];
 
 
-	SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)pGameBoy->hGBWnd, 0);
-	if (!hDisAsm)
-	{
-		SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
-	}
-	else
-	{
-		SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hDisAsm, 0);
-	}
 	MessageBox(hMsgParent, String(IDS_EMU_HALTQUIRK), "Game Lad", MB_ICONWARNING | MB_OK);
 	pGameBoy->Stop();
 	pGameBoy->Flags |= GB_ERROR | GB_EXITLOOPDIRECTLY;
@@ -4780,7 +5948,7 @@ void __declspec(naked) __fastcall OpCode_HALT(CGameBoy *GB, DWORD PC)
 		ret
 
 Halt_NotEI:
-		test	ebx, GB_ROM_COLOR
+		test	ebx, GB_COLOR
 		jnz		Halt_GBC
 		call	ReadMem
 		test	al, al
@@ -12392,8 +13560,6 @@ void __declspec(naked) __fastcall Debug_OpCode_BIT_0_HL(CGameBoy *GB, DWORD PC)
 		mov		edx, [ecx + Offset_Reg_HL]
 		call	CheckReadAccess
 		jc		AccessDenied
-		call	CheckWriteAccess
-		jc		AccessDenied
 		mov		bl, [ecx + Offset_Reg_F]
 		and		bl, Flag_C
 		or		bl, Flag_H
@@ -12574,8 +13740,6 @@ void __declspec(naked) __fastcall Debug_OpCode_BIT_1_HL(CGameBoy *GB, DWORD PC)
 	{
 		mov		edx, [ecx + Offset_Reg_HL]
 		call	CheckReadAccess
-		jc		AccessDenied
-		call	CheckWriteAccess
 		jc		AccessDenied
 		mov		bl, [ecx + Offset_Reg_F]
 		and		bl, Flag_C
@@ -12758,8 +13922,6 @@ void __declspec(naked) __fastcall Debug_OpCode_BIT_2_HL(CGameBoy *GB, DWORD PC)
 		mov		edx, [ecx + Offset_Reg_HL]
 		call	CheckReadAccess
 		jc		AccessDenied
-		call	CheckWriteAccess
-		jc		AccessDenied
 		mov		bl, [ecx + Offset_Reg_F]
 		and		bl, Flag_C
 		or		bl, Flag_H
@@ -12940,8 +14102,6 @@ void __declspec(naked) __fastcall Debug_OpCode_BIT_3_HL(CGameBoy *GB, DWORD PC)
 	{
 		mov		edx, [ecx + Offset_Reg_HL]
 		call	CheckReadAccess
-		jc		AccessDenied
-		call	CheckWriteAccess
 		jc		AccessDenied
 		mov		bl, [ecx + Offset_Reg_F]
 		and		bl, Flag_C
@@ -13124,8 +14284,6 @@ void __declspec(naked) __fastcall Debug_OpCode_BIT_4_HL(CGameBoy *GB, DWORD PC)
 		mov		edx, [ecx + Offset_Reg_HL]
 		call	CheckReadAccess
 		jc		AccessDenied
-		call	CheckWriteAccess
-		jc		AccessDenied
 		mov		bl, [ecx + Offset_Reg_F]
 		and		bl, Flag_C
 		or		bl, Flag_H
@@ -13306,8 +14464,6 @@ void __declspec(naked) __fastcall Debug_OpCode_BIT_5_HL(CGameBoy *GB, DWORD PC)
 	{
 		mov		edx, [ecx + Offset_Reg_HL]
 		call	CheckReadAccess
-		jc		AccessDenied
-		call	CheckWriteAccess
 		jc		AccessDenied
 		mov		bl, [ecx + Offset_Reg_F]
 		and		bl, Flag_C
@@ -13490,8 +14646,6 @@ void __declspec(naked) __fastcall Debug_OpCode_BIT_6_HL(CGameBoy *GB, DWORD PC)
 		mov		edx, [ecx + Offset_Reg_HL]
 		call	CheckReadAccess
 		jc		AccessDenied
-		call	CheckWriteAccess
-		jc		AccessDenied
 		mov		bl, [ecx + Offset_Reg_F]
 		and		bl, Flag_C
 		or		bl, Flag_H
@@ -13672,8 +14826,6 @@ void __declspec(naked) __fastcall Debug_OpCode_BIT_7_HL(CGameBoy *GB, DWORD PC)
 	{
 		mov		edx, [ecx + Offset_Reg_HL]
 		call	CheckReadAccess
-		jc		AccessDenied
-		call	CheckWriteAccess
 		jc		AccessDenied
 		mov		bl, [ecx + Offset_Reg_F]
 		and		bl, Flag_C

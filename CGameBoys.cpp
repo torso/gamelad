@@ -7,6 +7,7 @@
 #include	"CGameBoys.h"
 #include	"Debugger.h"
 #include	"Input.h"
+//#include	"Network.h"
 
 
 
@@ -60,9 +61,22 @@ CGameBoy *CGameBoys::NewGameBoy(char *pszROMFilename, char *pszStateFilename, ch
 	GAMEBOYITEM		*pGameBoyItem;
 
 
+	LOG("CGameBoys::NewGameBoy(\"");
+	LOG(pszROMFilename);
+	LOG("\", \"");
+	LOG(pszStateFilename);
+	LOG("\", \"");
+	LOG(pszBatteryFilename);
+	LOG("\", ");
+	LOG(ultoa(Flags, NumBuffer, 16));
+	LOG(", ");
+	LOG(ultoa(AutoStart, NumBuffer, 16));
+	LOG(")\n");
+
 	if (!(pGameBoyItem = new GAMEBOYITEM))
 	{
 		DisplayErrorMessage(ERROR_OUTOFMEMORY);
+		LOG("CGameBoys::NewGameBoy: NULL");
 		return NULL;
 	}
 
@@ -70,12 +84,14 @@ CGameBoy *CGameBoys::NewGameBoy(char *pszROMFilename, char *pszStateFilename, ch
 	{
 		delete pGameBoyItem;
 		DisplayErrorMessage(ERROR_OUTOFMEMORY);
+		LOG("CGameBoys::NewGameBoy: NULL");
 		return NULL;
 	}
 	if (pGameBoyItem->pGameBoy->Init(pszROMFilename, pszStateFilename, pszBatteryFilename))
 	{
 		delete pGameBoyItem->pGameBoy;
 		delete pGameBoyItem;
+		LOG("CGameBoys::NewGameBoy: NULL");
 		return NULL;
 	}
 
@@ -88,16 +104,18 @@ CGameBoy *CGameBoys::NewGameBoy(char *pszROMFilename, char *pszStateFilename, ch
 
 	if (AutoStart == AUTOSTART_DEBUG)
 	{
-		SendMessage(hWnd, WM_COMMAND, ID_EMULATION_STARTDEBUG, 0);
+		m_pActiveGameBoy->StartDebug();
 	}
 	if (AutoStart == AUTOSTART_EXECUTE)
 	{
-		SendMessage(hWnd, WM_COMMAND, ID_EMULATION_EXECUTE, 0);
+		m_pActiveGameBoy->Execute();
 	}
 
 	LeaveCriticalSection(&csGameBoy);
 
 	PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
+	LOG("CGameBoys::NewGameBoy: ");
+	LOG(ultoa((int)pGameBoyItem->pGameBoy, NumBuffer, 16));
 	return pGameBoyItem->pGameBoy;
 }
 
@@ -263,20 +281,30 @@ CGameBoy *CGameBoys::GetPlayer2(BOOL AddRef)
 
 	if (pGameBoy = m_pActiveGameBoy)
 	{
-		hWin = pGameBoy->hGBWnd;
-		while (hWin = GetNextWindow(hWin, GW_HWNDNEXT))
+		/*if (pGameBoy->dwNetworkLinkCableNo = InitNetworkLinkCable())
 		{
-			pGameBoy = (CGameBoy *)GetWindowLong(hWin, GWL_USERDATA);
-			if (GameBoyExists(pGameBoy))
-			{
-				if (AddRef)
-				{
-					pGameBoy->AddRef();
-				}
-				break;
-			}
-			pGameBoy = NULL;
+			pGameBoy = (CGameBoy *)INVALID_HANDLE_VALUE;
 		}
+		else
+		{*/
+			if (Settings.LinkCable)
+			{
+				hWin = pGameBoy->hGBWnd;
+				while (hWin = GetNextWindow(hWin, GW_HWNDNEXT))
+				{
+					pGameBoy = (CGameBoy *)GetWindowLong(hWin, GWL_USERDATA);
+					if (GameBoyExists(pGameBoy))
+					{
+						if (AddRef)
+						{
+							pGameBoy->AddRef();
+						}
+						break;
+					}
+					pGameBoy = NULL;
+				}
+			}
+		//}
 	}
 
 	LeaveCriticalSection(&csGameBoy);
@@ -353,7 +381,7 @@ void CGameBoys::UpdateKeys(CGameBoy *pGameBoy)
 	}
 	LeaveCriticalSection(&csGameBoy);
 
-	if (GetForegroundWindow() == hWnd)
+	if (GetForegroundWindow() == hWnd || GetForegroundWindow() == pGameBoy->hGfxWnd)
 	{
 		//Read keyboard
 		if (Keys[dwPlayerNo].Up)

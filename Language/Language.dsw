@@ -3,6 +3,18 @@ Microsoft Developer Studio Workspace File, Format Version 6.00
 
 ###############################################################################
 
+Project: "Bosnian"=".\Bosnian\Bosnian.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "Czech"=".\Czech\Czech.dsp" - Package Owner=<4>
 
 Package=<5>
@@ -28,6 +40,18 @@ Package=<4>
 ###############################################################################
 
 Project: "French"=".\French\French.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "German"=".\German\German.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{

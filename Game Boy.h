@@ -1,5 +1,6 @@
 #include	"CList\\CList.h"
 #include	"Sound.h"
+#include	"Gfx.h"
 
 
 
@@ -40,6 +41,15 @@ struct CHEATDATA
 
 
 
+enum
+{
+	TERMINATING_FALSE = 0,
+	TERMINATING_STOP,
+	TERMINATING_PAUSE
+};
+
+
+
 #define		GB_COLOR				0x00000001
 //#define		GB_SUPER			0x00000002
 #define		GB_ROM_COLOR			0x00000004
@@ -55,6 +65,7 @@ struct CHEATDATA
 #define		GB_HASRUMBLEPACK		0x00200000
 #define		GB_RUMBLE				0x00400000
 #define		GB_SERIALBIT			0x00800000
+#define		GB_LINKCABLE			0x01000000
 #define		GB_ERROR				0x10000000
 #define		GB_DEBUGRUNINFO			0x20000000
 #define		GB_DEBUGINFO			0x40000000
@@ -102,74 +113,89 @@ struct CHEATDATA
 #define		Offset_MEM_CPU			0x60
 #define		Offset_MEM_ROM			0x009060
 #define		Offset_MEM_RAM			0x009064
-#define		Offset_MEM_VRAM			0x029064
+#define		Offset_MEM_VRAM			0x02B064
 
-#define		Offset_MemStatus		0x02D064
-#define		Offset_MemStatus_CPU	0x02D0A4
-#define		Offset_MemStatus_ROM	0x0360A4
-#define		Offset_MemStatus_RAM	0x0360A8
-#define		Offset_MemStatus_VRAM	0x0360AC
+#define		Offset_MemStatus		0x02F064
+#define		Offset_MemStatus_CPU	0x02F0A4
+#define		Offset_MemStatus_ROM	0x0380A4
+#define		Offset_MemStatus_RAM	0x0380A8
+#define		Offset_MemStatus_VRAM	0x0380AC
 
-#define		Offset_BGP				0x03A0AC //0x40
-#define		Offset_OBP				0x03A0EC //0x40
+#define		Offset_BGP				0x03C0AC //0x40
+#define		Offset_OBP				0x03C0EC //0x40
 
-#define		Offset_DirectionKeys	0x03A12C //1
-#define		Offset_Buttons			0x03A12D //1
-#define		Offset_LCD_Ticks		0x03A12E //1
-#define		Offset_DIV_Ticks		0x03A12F //1
-#define		Offset_TIMA_Ticks		0x03A130 //4
-#define		Offset_Hz				0x03A134 //4
+#define		Offset_DirectionKeys	0x03C12C //1
+#define		Offset_Buttons			0x03C12D //1
+#define		Offset_LCD_Ticks		0x03C12E //1
+#define		Offset_DIV_Ticks		0x03C12F //1
+#define		Offset_TIMA_Ticks		0x03C130 //4
+#define		Offset_Hz				0x03C134 //4
 
-#define		Offset_nCycles			0x03A138 //4
+#define		Offset_nCycles			0x03C138 //4
 
-#define		Offset_pGBBitmap		0x03A13C //4
+#define		Offset_pGBBitmap		0x03C13C //4
 
-#define		Offset_WindowY			0x03A140 //1
-#define		Offset_WindowY2			0x03A141 //1
+#define		Offset_WindowY2			0x03C140 //1
 
 //#define		Offset_DrawLineMask		0x03A142 //1
 
-#define		Offset_SoundTicks		0x03A143 //1
-#define		Offset_Sound1Enabled	0x03A144 //1
-#define		Offset_Sound2Enabled	0x03A145 //1
-#define		Offset_Sound3Enabled	0x03A146 //1
-#define		Offset_Sound4Enabled	0x03A147 //1
-#define		Offset_Sound1Stage		0x03A148 //1
-#define		Offset_Sound2Stage		0x03A149 //1
-#define		Offset_Sound3Stage		0x03A14A //1
-#define		Offset_Sound4Bit		0x03A14B //1
-#define		Offset_Sound1Volume		0x03A14C //1
-#define		Offset_Sound2Volume		0x03A14D //1
-#define		Offset_Sound4Volume		0x03A14E //1
-#define		Offset_SoundL			0x03A150 //4
-#define		Offset_SoundR			0x03A154 //4
-#define		Offset_Sound1Ticks		0x03A158 //4
-#define		Offset_Sound1TimeOut	0x03A15C //4
-#define		Offset_Sound1Frequency	0x03A160 //4
-#define		Offset_Sound1Envelope	0x03A164 //4
-#define		Offset_Sound1Sweep		0x03A168 //4
-#define		Offset_Sound2Ticks		0x03A16C //4
-#define		Offset_Sound2TimeOut	0x03A170 //4
-#define		Offset_Sound2Frequency	0x03A174 //4
-#define		Offset_Sound2Envelope	0x03A178 //4
-#define		Offset_Sound3Ticks		0x03A17C //4
-#define		Offset_Sound3TimeOut	0x03A180 //4
-#define		Offset_Sound3Frequency	0x03A184 //4
-#define		Offset_Sound4Ticks		0x03A188 //4
-#define		Offset_Sound4TimeOut	0x03A18C //4
-#define		Offset_Sound4Frequency	0x03A190 //4
-#define		Offset_Sound4Envelope	0x03A194 //4
-#define		Offset_FastFwd			0x03A198 //1
-#define		Offset_FramesToSkip		0x03A199 //1
-#define		Offset_FrameSkip		0x03A19A //1
-#define		Offset_pAVISoundBuffer	0x03A19C //4
-#define		Offset_dwAVISoundPos	0x03A1A0 //4
-#define		Offset_pPalette			0x03A1A4 //4
-#define		Offset_SoundBuffer		0x03A1A8
-/*#define		Offset_SerialOutput		0x03A198 //4
-#define		Offset_SerialInput		0x03A199 //1
-#define		Offset_SerialByte		0x03A19A //1
-#define		Offset_SerialTicks		0x03A19B //1*/
+#define		Offset_SoundTicks		0x03C141 //1
+#define		Offset_Sound1Enabled	0x03C142 //1
+#define		Offset_Sound2Enabled	0x03C143 //1
+#define		Offset_Sound3Enabled	0x03C144 //1
+#define		Offset_Sound4Enabled	0x03C145 //1
+#define		Offset_Sound1Stage		0x03C146 //1
+#define		Offset_Sound2Stage		0x03C147 //1
+#define		Offset_Sound3Stage		0x03C148 //1
+#define		Offset_Sound4Bit		0x03C149 //1
+#define		Offset_Sound1Volume		0x03C14A //1
+#define		Offset_Sound2Volume		0x03C14B //1
+#define		Offset_Sound4Volume		0x03C14C //1
+#define		Offset_SoundL			0x03C150 //4
+#define		Offset_SoundR			0x03C154 //4
+#define		Offset_Sound1Ticks		0x03C158 //4
+#define		Offset_Sound1TimeOut	0x03C15C //4
+#define		Offset_Sound1Frequency	0x03C160 //4
+#define		Offset_Sound1Envelope	0x03C164 //4
+#define		Offset_Sound1Sweep		0x03C168 //4
+#define		Offset_Sound2Ticks		0x03C16C //4
+#define		Offset_Sound2TimeOut	0x03C170 //4
+#define		Offset_Sound2Frequency	0x03C174 //4
+#define		Offset_Sound2Envelope	0x03C178 //4
+#define		Offset_Sound3Ticks		0x03C17C //4
+#define		Offset_Sound3TimeOut	0x03C180 //4
+#define		Offset_Sound3Frequency	0x03C184 //4
+#define		Offset_Sound4Ticks		0x03C188 //4
+#define		Offset_Sound4TimeOut	0x03C18C //4
+#define		Offset_Sound4Frequency	0x03C190 //4
+#define		Offset_Sound4Envelope	0x03C194 //4
+#define		Offset_FastFwd			0x03C198 //1
+#define		Offset_FramesToSkip		0x03C199 //1
+#define		Offset_FrameSkip		0x03C19A //1
+#define		Offset_pAVISoundBuffer	0x03C19C //4
+#define		Offset_dwAVISoundPos	0x03C1A0 //4
+#define		Offset_pPalette			0x03C1A4 //4
+
+#define		Offset_RTC				0x03C1A8
+#define		Offset_SEC				0x03C1A8 //1
+#define		Offset_MIN				0x03C1A9 //1
+#define		Offset_HRS				0x03C1AA //1
+#define		Offset_DAY				Offset_DAYL
+#define		Offset_DAYL				0x03C1AB //1
+#define		Offset_DAYH				0x03C1AC //1
+#define		Offset_Latch			0x03C1AD //1
+#define		Offset_RTC_Reg			0x03C1AE //1
+#define		Offset_RTC_Day0			0x03C1B0 //8
+
+#define		Offset_SerialInput		0x03C1B8 //1
+#define		Offset_SerialBit		0x03C1B9 //1
+#define		Offset_SerialTicks		0x03C1BC //4
+#define		Offset_LinkGameBoy		0x03C1C0 //4
+#define		Offset_dwNetworkLinkCableNo	0x03C1C4 //4
+
+#define		Offset_Terminating		0x03C1C8 //1
+
+#define		Offset_SoundBuffer		0x03C1CC
 
 
 #define		FF00_C(Offset)			MEM_CPU[0x8F00 + Offset]
@@ -246,7 +272,7 @@ public:
 	BYTE			*MEM[0x10];
 	BYTE			MEM_CPU[0x9000];
 	BYTE			*MEM_ROM;
-	BYTE			MEM_RAM[0x020000];
+	BYTE			MEM_RAM[0x022000];
 	BYTE			MEM_VRAM[0x4000];
 
 	BYTE			*MemStatus[0x10];
@@ -270,9 +296,9 @@ public:
 
 	WORD			*pGBBitmap;
 
-	BYTE			WindowY, WindowY2;
+	BYTE			WindowY2;
 
-	BYTE			DrawLineMask; //not used
+	//BYTE			DrawLineMask;
 
 
 	BYTE			SoundTicks;
@@ -296,11 +322,20 @@ public:
 
 	WORD			*pPalette;
 
-	SOUNDBUFFER		SoundBuffer;
+	BYTE			RTC_SEC, RTC_MIN, RTC_HRS;
+	BYTE			RTC_DAYL, RTC_DAYH;
+#define				RTC_DAY		(*(WORD *)&RTC_DAYL)
+	BYTE			RTC_Latch, RTC_Reg;
+	FILETIME		RTC_Day0;
 
 	BYTE			SerialInput, SerialBit;
 	DWORD			SerialTicks;
 	CGameBoy		*pLinkGameBoy;
+	DWORD			dwNetworkLinkCableNo;
+
+	BYTE			Terminating;
+
+	SOUNDBUFFER		SoundBuffer;
 
 	int				JoyLeft, JoyRight, JoyUp, JoyDown;
 	BYTE			AutoButtonDown;
@@ -308,11 +343,12 @@ public:
 	BYTE			StateSlot;
 
 
+	IDirect3DDevice8	*m_pd3dd;
+	HWND			hGfxWnd;
+
 	HWND			hGBWnd;
 	HDC				hGBDC;
 	HBITMAP			hGBBitmap, hOldBitmap;
-
-	DWORD			WndZ;
 
 
 #ifdef	CDEBUGINFO_H
@@ -326,8 +362,6 @@ public:
 
 
 private:
-	BOOL			Terminating;
-
 	DWORD			RefCount;
 
 	HANDLE			hThread;
@@ -339,11 +373,10 @@ private:
 	BYTE			Emulating;
 
 	LARGE_INTEGER	LastTimerCount;
-	LONGLONG		DelayTime;
+	BOOL			SkipNextFrame;
+	char			FramesSkipped;
 
 	CList			*m_pCheatList;
-
-	BYTE			LastEmulationType;
 
 	HWND			m_hSearchCheatWnd;
 	HWND			m_hSize, m_hNewSearch, m_hValue, m_hDec;
@@ -414,15 +447,16 @@ public:
 	BOOL			StartDebug();
 	BOOL			Step(EMULATIONINFO *pEmulationInfo);
 	void			Resume();
+	void			Pause();
 	void			Stop();
 
 	void			SetFrameSkip(int nFrameSkip);
 
 	BOOL			SaveState();
-	BOOL			SaveState(char *pszFilename, BOOL AlreadyStopped);
+	BOOL			SaveState(char *pszFilename);
 	BOOL			SaveStateAs();
 	BOOL			LoadState();
-	BOOL			LoadState(char *pszFilename, BOOL AlreadyStopped, BOOL QuickLoad);
+	BOOL			LoadState(char *pszFilename, BOOL QuickLoad);
 	BOOL			LoadStateAs();
 	void			SetStateSlot(int nSlot);
 	int				GetStateSlot();
@@ -448,7 +482,7 @@ public:
 enum GameBoyMessages
 {
 	WM_APP_STEP = WM_APP_FIRSTFREEMESSAGE,
-	WM_APP_RESUME
+	//WM_APP_RESUME
 };
 
 
@@ -457,8 +491,4 @@ GAME_BOY_CPP	BYTE		ZeroStatus[0x1000];
 
 extern BYTE					RomSize(BYTE Byte148);
 extern void __fastcall		SoundUpdate(CGameBoy *GB);
-extern void __fastcall		Sound1(CGameBoy *GB);
-extern void __fastcall		Sound2(CGameBoy *GB);
-extern void __fastcall		Sound3(CGameBoy *GB);
-extern void __fastcall		Sound4(CGameBoy *GB);
 

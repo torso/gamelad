@@ -527,6 +527,22 @@ BEGIN
     IDS_SEARCHCHEAT_CURRENTVALUE "Nuvarande"
     IDS_SEARCHCHEAT_ENTERNUMBER "Skriv ett giltigt värde"
     IDS_SEARCHCHEAT_NOSELECTION "Inga adresser markerade"
+    IDS_OPTIONS_GRAPHIC     "Grafik"
+    IDS_GRAPHIC_INITIALZOOM "Standard-zoom"
+    IDS_GRAPHIC_USEDIRECTX  "Använd DirectX"
+    IDS_GRAPHIC_FULLSCREEN_FRAME "Helskärm"
+    IDS_GRAPHIC_FS_RESOLUTION "Upplösning"
+    IDS_GRAPHIC_FS_FITTOSCREEN "Anpassa till skärm"
+    IDS_GRAPHIC_FS_FIT_GBSCREEN "10:9 (Game Boy)"
+    IDS_GRAPHIC_FS_ZOOM     "Zooma till"
+    IDS_VIEW_FRAMESKIP_AUTO_MENU "&Auto"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_FRAMESKIP_AUTO "Väljer automatiskt bildrutehopp"
+    IDS_STATUS_SELECTFRAMESKIPAUTO "Bildrutehopp inställd på automatisk"
+    IDS_GRAPHIC_MANUALFRAMESKIP "Manuellt bildrutehopp"
 END
 
 #endif    // Swedish resources

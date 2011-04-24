@@ -1,0 +1,573 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Neutral resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
+#ifdef _WIN32
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_OPEN           "Otvori jednu Game Boy Rom File"
+    IDS_FILE_CLOSE          "Zatvori aktivni  Game Boy prozor"
+    IDS_FILE_SAVESTATE      "Špara mjesto gdje si u igri na uzetom mjesto"
+    IDS_FILE_LOADSTATE      "Otvori nesto sto si prije åparo na otom mjestu"
+    IDS_FILE_SAVESTATEAS    "Špara mjesto od aktivnog Game Boya u jedan  \nfile"
+    IDS_FILE_LOADSTATEAS    "Otvori a saved state from a file"
+    IDS_FILE_STATESLOT_0    "Uzme mjesto 0 za åparanje"
+    IDS_FILE_STATESLOT_1    "Uzme mjesto 1 za åparanje"
+    IDS_FILE_STATESLOT_2    "Uzme mjesto 2 za åparanje"
+    IDS_FILE_STATESLOT_3    "Uzme mjesto 3 za åparanje"
+    IDS_FILE_STATESLOT_4    "Uzme mjesto 4 za åparanje"
+    IDS_FILE_STATESLOT_5    "Uzme mjesto 5 za åparanje"
+    IDS_FILE_STATESLOT_6    "Uzme mjesto 6 za åparanje"
+    IDS_FILE_STATESLOT_7    "Uzme mjesto 7 za åparanje"
+    IDS_FILE_STATESLOT_8    "Uzme mjesto 8 za åparanje"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_STATESLOT_9    "Uzme mjesto 9 za åparanje"
+    IDS_FILE_SAVEBATTERY    "Špara RAM baterije"
+    IDS_FILE_LOADBATTERY    "Otvori RAM baterije"
+    IDS_FILE_SAVEBATTERYAS  "Špara RAM baterije sa drugim imenom"
+    IDS_FILE_CLEARBATTERY   "Skloni baterijski RAM"
+    IDS_FILE_EXIT           "Zatvori Game Lad"
+    IDS_EDIT_GOTO           "Premjesti do specificnog mjesta"
+    IDS_VIEW_DISASSEMBLY    "Aktivira disassembly prozor"
+    IDS_VIEW_MEMORY         "Aktivira memory prozor"
+    IDS_VIEW_REGISTERS      "Aktivira registre prozor"
+    IDS_VIEW_HARDWARE       "Aktivira hardware prozor"
+    IDS_VIEW_PALETTES       "Aktivira palet prozor"
+    IDS_VIEW_TILEMAP        "Aktivira tile map prozor"
+    IDS_VIEW_TILES          "Aktivira tile prozor"
+    IDS_VIEW_STATUSBAR      "Pokazuje ili sakriva status bar"
+    IDS_VIEW_ZOOM_100       "Poveca prozor do 100%"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_ZOOM_200       "Poveca prozpr do 200%"
+    IDS_VIEW_ZOOM_300       "Poveca prozor do 300%"
+    IDS_VIEW_ZOOM_400       "Poveca Prozor do 400%"
+    IDS_VIEW_FRAMESKIP_0    "Stavi frame skip na 0 "
+    IDS_VIEW_FRAMESKIP_1    "Stavi frame skip na 1 "
+    IDS_VIEW_FRAMESKIP_2    "Stavi frame skip na 2 "
+    IDS_VIEW_FRAMESKIP_3    "Stavi frame skip na 3 "
+    IDS_VIEW_FRAMESKIP_4    "Stavi frame skip na 4 "
+    IDS_VIEW_FRAMESKIP_5    "Stavi frame skip na 5 "
+    IDS_VIEW_FRAMESKIP_6    "Stavi frame skip na 6 "
+    IDS_VIEW_FRAMESKIP_7    "Stavi frame skip na 7 "
+    IDS_VIEW_FRAMESKIP_8    "Stavi frame skip na 8 "
+    IDS_VIEW_FRAMESKIP_9    "Stavi frame skip na 9 "
+    IDS_MEMORY_ROM          "Pokaze specificnu ROM banku"
+    IDS_MEMORY_VBK_BANK0    "Pokaze VRAM bank 0"
+    IDS_MEMORY_VBK_BANK1    "Pokaze VRAM bank 1"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MEMORY_RAM_BANK0    "Pokaze RAM bank 0 "
+    IDS_MEMORY_RAM_BANK1    "Pokaze RAM bank 1 "
+    IDS_MEMORY_RAM_BANK2    "Pokaze RAM bank 2 "
+    IDS_MEMORY_RAM_BANK3    "Pokaze RAM bank 3 "
+    IDS_MEMORY_RAM_BANK4    "Pokaze RAM bank 4 "
+    IDS_MEMORY_RAM_BANK5    "Pokaze RAM bank 5 "
+    IDS_MEMORY_RAM_BANK6    "Pokaze RAM bank 6 "
+    IDS_MEMORY_RAM_BANK7    "Pokaze RAM bank 7 "
+    IDS_MEMORY_RAM_BANK8    "Pokaze RAM bank 8 "
+    IDS_MEMORY_RAM_BANK9    "Pokaze RAM bank 9 "
+    IDS_MEMORY_RAM_BANK10   "Pokaze RAM bank 10 "
+    IDS_MEMORY_RAM_BANK11   "Pokaze RAM bank 11 "
+    IDS_MEMORY_RAM_BANK12   "Pokaze RAM bank 12 "
+    IDS_MEMORY_RAM_BANK13   "Pokaze RAM bank 13 "
+    IDS_MEMORY_RAM_BANK14   "Pokaze RAM bank 14 "
+    IDS_MEMORY_RAM_BANK15   "Pokaze RAM bank 15 "
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MEMORY_SVBK_BANK1   "Pokaze internalni RAM bank 1 "
+    IDS_MEMORY_SVBK_BANK2   "Pokaze internalni RAM bank 2 "
+    IDS_MEMORY_SVBK_BANK3   "Pokaze internalni RAM bank 3 "
+    IDS_MEMORY_SVBK_BANK4   "Pokaze internalni RAM bank 4 "
+    IDS_MEMORY_SVBK_BANK5   "Pokaze internalni RAM bank 5 "
+    IDS_MEMORY_SVBK_BANK6   "Pokaze internalni RAM bank 6 "
+    IDS_MEMORY_SVBK_BANK7   "Pokaze internalni RAM bank 7 "
+    IDS_EMULATION_STARTDEBUG "Starta debug"
+    IDS_EMULATION_EXECUTE   "Exekvira program bez debug opozorenja"
+    IDS_EMULATION_STOP      "Zaustavi emulaciu"
+    IDS_EMULATION_STEPINTO  "Prede u drugi statment"
+    IDS_EMULATION_STEPOVER  "Prede preko drugog statmenta"
+    IDS_EMULATION_STEPOUT   "Steps out of the current function"
+    IDS_EMULATION_RUNTOCURSOR "Otvori program do reda gdje je mis"
+    IDS_EMULATION_SETNEXTSTATEMENT "Stavi program mjerac do reda gdje je mis"
+    IDS_EMULATION_TOGGLEBREAKPOINT "Stavi ili skloni jedan breakpoint"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMULATION_RESET     "Resetira program"
+    IDS_TOOLS_OPTIONS       "Promjeni konfiguraciu"
+    IDS_TOOLS_SOUNDENABLED  "Ukluci zvuk"
+    IDS_WINDOW_NEXT         "Aktivira drugi prozor"
+    IDS_WINDOW_PREVIOUS     "Aktivira prosli prozor"
+    IDS_WINDOW_CASCADE      "Pomjeri prozore verticalno, jedan preko drugog"
+    IDS_WINDOW_TILEHORIZONTALLY 
+                            "Pomjeri prozore horizontalno, ne jedan preko  \ndrugog"
+    IDS_WINDOW_TILEVERTICALLY 
+                            "Pomjeri prozore verticalno, ne jedan preko  \ndrugog"
+    IDS_HELP_ABOUT          "Pokaze  program informaciu i copyright"
+    IDS_ABOUT_TITLE         "O Game Lad"
+    IDS_ABOUT_WRITTENBY     "Napisan od $"
+    IDS_TRANSLATOR_NAME     "[mailto:zajebant_@hotmail.com?subjekt=Yo;Denis Lovic]"
+    IDS_FILE_MENU           "&Meni"
+    IDS_FILE_OPEN_MENU      "&Otvori Rom...\tCtrl+O"
+    IDS_FILE_CLOSE_MENU     "&Zatvori\tCtrl+F4"
+    IDS_FILE_SAVESTATE_MENU "&Šparaj mjesto\tF2"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_LOADSTATE_MENU "&Otvori mjesto\tF3"
+    IDS_FILE_SAVESTATEAS_MENU "Šparaj mjesto &Ko...\tShift+F2"
+    IDS_FILE_LOADSTATEAS_MENU "O&tvori mjesto...\tShift+F3"
+    IDS_FILE_STATESLOT_MENU "&Mjesto Broj"
+    IDS_FILE_STATESLOT_0_MENU "&0 $\tF4,0"
+    IDS_FILE_STATESLOT_1_MENU "&1 $\tF4,1"
+    IDS_FILE_STATESLOT_2_MENU "&2 $\tF4,2"
+    IDS_FILE_STATESLOT_3_MENU "&3 $\tF4,3"
+    IDS_FILE_STATESLOT_4_MENU "&4 $\tF4,4"
+    IDS_FILE_STATESLOT_5_MENU "&5 $\tF4,5"
+    IDS_FILE_STATESLOT_6_MENU "&6 $\tF4,6"
+    IDS_FILE_STATESLOT_7_MENU "&7 $\tF4,7"
+    IDS_FILE_STATESLOT_8_MENU "&8 $\tF4,8"
+    IDS_FILE_STATESLOT_9_MENU "&9 $\tF4,9"
+    IDS_FILE_SAVEBATTERY_MENU "Š&paraj baterijski Ram\tCtrl+S"
+    IDS_FILE_LOADBATTERY_MENU "Otvori &baterjski Ram..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_SAVEBATTERYAS_MENU "Schp&ara baterijski Ram ko..."
+    IDS_FILE_CLEARBATTERY_MENU "&Skloni baterijski Ram"
+    IDS_FILE_EXIT_MENU      "&Zatvori Program"
+    IDS_EDIT_MENU           "&Dotjerat"
+    IDS_EDIT_GOTO_MENU      "&Idi do...\tCtrl+G"
+    IDS_VIEW_MENU           "Po&kazi"
+    IDS_VIEW_DISASSEMBLY_MENU "&Disassembly\tAlt+8"
+    IDS_VIEW_MEMORY_MENU    "&Memorija\tAlt+6"
+    IDS_VIEW_REGISTERS_MENU "&Registrija\tAlt+5"
+    IDS_VIEW_HARDWARE_MENU  "&Hardware"
+    IDS_VIEW_PALETTES_MENU  "P&alete"
+    IDS_VIEW_TILEMAP_MENU   "T&ile Map"
+    IDS_VIEW_TILES_MENU     "&Tiles"
+    IDS_VIEW_STATUSBAR_MENU "Stat&us bar"
+    IDS_VIEW_ZOOM_MENU      "Po&vechaj"
+    IDS_VIEW_ZOOM_100_MENU  "&100%"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_ZOOM_200_MENU  "&200%"
+    IDS_VIEW_ZOOM_300_MENU  "&300%"
+    IDS_VIEW_ZOOM_400_MENU  "&400%"
+    IDS_VIEW_FRAMESKIP_MENU "&Frame Skip"
+    IDS_VIEW_FRAMESKIP_0_MENU "&0"
+    IDS_VIEW_FRAMESKIP_1_MENU "&1"
+    IDS_VIEW_FRAMESKIP_2_MENU "&2"
+    IDS_VIEW_FRAMESKIP_3_MENU "&3"
+    IDS_VIEW_FRAMESKIP_4_MENU "&4"
+    IDS_VIEW_FRAMESKIP_5_MENU "&5"
+    IDS_VIEW_FRAMESKIP_6_MENU "&6"
+    IDS_VIEW_FRAMESKIP_7_MENU "&7"
+    IDS_VIEW_FRAMESKIP_8_MENU "&8"
+    IDS_VIEW_FRAMESKIP_9_MENU "&9"
+    IDS_VIEW_BANK_MENU      "&Bank"
+    IDS_VIEW_BANK_ROM_MENU  "&ROM..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_BANK_VBK_MENU  "&VBK"
+    IDS_VIEW_BANK_VBK_0_MENU "Bank &0"
+    IDS_VIEW_BANK_VBK_1_MENU "Bank &1"
+    IDS_VIEW_BANK_RAM_MENU  "R&AM"
+    IDS_VIEW_BANK_RAM_0_MENU "Bank &0"
+    IDS_VIEW_BANK_RAM_1_MENU "Bank &1"
+    IDS_VIEW_BANK_RAM_2_MENU "Bank &2"
+    IDS_VIEW_BANK_RAM_3_MENU "Bank &3"
+    IDS_VIEW_BANK_RAM_4_MENU "Bank &4"
+    IDS_VIEW_BANK_RAM_5_MENU "Bank &5"
+    IDS_VIEW_BANK_RAM_6_MENU "Bank &6"
+    IDS_VIEW_BANK_RAM_7_MENU "Bank &7"
+    IDS_VIEW_BANK_RAM_8_MENU "Bank &8"
+    IDS_VIEW_BANK_RAM_9_MENU "Bank &9"
+    IDS_VIEW_BANK_RAM_10_MENU "Bank &10"
+    IDS_VIEW_BANK_RAM_11_MENU "Bank &11"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_BANK_RAM_12_MENU "Bank &12"
+    IDS_VIEW_BANK_RAM_13_MENU "Bank &13"
+    IDS_VIEW_BANK_RAM_14_MENU "Bank &14"
+    IDS_VIEW_BANK_RAM_15_MENU "Bank &15"
+    IDS_VIEW_BANK_SVBK_MENU "&SVBK"
+    IDS_VIEW_BANK_SVBK_1_MENU "Bank &1"
+    IDS_VIEW_BANK_SVBK_2_MENU "Bank &2"
+    IDS_VIEW_BANK_SVBK_3_MENU "Bank &3"
+    IDS_VIEW_BANK_SVBK_4_MENU "Bank &4"
+    IDS_VIEW_BANK_SVBK_5_MENU "Bank &5"
+    IDS_VIEW_BANK_SVBK_6_MENU "Bank &6"
+    IDS_VIEW_BANK_SVBK_7_MENU "Bank &7"
+    IDS_EMULATION_MENU      "E&mulacija"
+    IDS_EMULATION_STARTDEBUG_MENU "Startaj &Debug\tF5"
+    IDS_EMULATION_EXECUTE_MENU "&Exekvira\tCtrl+F5"
+    IDS_EMULATION_STOP_MENU "&Zaustavi\tEsc"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMULATION_STEPINTO_MENU "Skochi &U\tF11"
+    IDS_EMULATION_STEPOVER_MENU "Skochi &Preko\tF10"
+    IDS_EMULATION_STEPOUT_MENU "Skoci &Iz\tShift+F11"
+    IDS_EMULATION_RUNTOCURSOR_MENU "Exekviraj do &Misa\tCtrl+F10"
+    IDS_EMULATION_SETNEXTSTATEMENT_MENU 
+                            "Stavi &Drugi  \nStatement\tCtrl+Shift+F10"
+    IDS_EMULATION_TOGGLEBREAKPOINT_MENU 
+                            "&Markiraj/odMarkiraj  \nBreakpoint\tF9"
+    IDS_EMULATION_RESET_MENU "&Resetiraj"
+    IDS_TOOLS_MENU          "&Alati"
+    IDS_TOOLS_OPTIONS_MENU  "&Konfiguracia..."
+    IDS_TOOLS_SOUNDENABLED_MENU "&Zvuk Ukljucit"
+    IDS_WINDOW_MENU         "&Prozor"
+    IDS_WINDOW_NEXT_MENU    "&Drugi"
+    IDS_WINDOW_PREVIOUS_MENU "&Prošli"
+    IDS_WINDOW_CASCADE_MENU "&Cascada"
+    IDS_WINDOW_TILEHORIZONTALLY_MENU "Premjesti &Horizontalno"
+    IDS_WINDOW_TILEVERTICALLY_MENU "&Premjesti Vertikalno"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_HELP_MENU           "&Pomoc"
+    IDS_HELP_ABOUT_MENU     "&O"
+    IDS_STATUS_READY        "Gotov"
+    IDS_STATUS_ENTERSLOTNUMBER "Upiši broj od sparano mjesto"
+    IDS_OPEN_TITLE          "Titla: $"
+    IDS_OPEN_LOADBATTERY    "Otvori bateriju"
+    IDS_STOPPED             "Zaustavit"
+    IDS_STARTDEBUG          "Pocni Debug"
+    IDS_EXECUTE             "Exekviraj"
+    IDS_VK_APPS             "Applikacia"
+    IDS_VK_BACK             "Backspace"
+    IDS_VK_CONTROL          "Control"
+    IDS_VK_DELETE           "Delete"
+    IDS_VK_DOWN             "Strela Dole"
+    IDS_VK_END              "End"
+    IDS_VK_RETURN           "Enter"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VK_HOME             "Home"
+    IDS_VK_INSERT           "Insert"
+    IDS_VK_LEFT             "Strela Ljevo"
+    IDS_VK_NUMLOCK          "Num Lock"
+    IDS_VK_NUMPAD0          "Numpad 0"
+    IDS_VK_NUMPAD1          "Numpad 1"
+    IDS_VK_NUMPAD2          "Numpad 2"
+    IDS_VK_NUMPAD3          "Numpad 3"
+    IDS_VK_NUMPAD4          "Numpad 4"
+    IDS_VK_NUMPAD5          "Numpad 5"
+    IDS_VK_NUMPAD6          "Numpad 6"
+    IDS_VK_NUMPAD7          "Numpad 7"
+    IDS_VK_NUMPAD8          "Numpad 8"
+    IDS_VK_NUMPAD9          "Numpad 9"
+    IDS_VK_ADD              "Numpad Plus"
+    IDS_VK_DECIMAL          "Numpad Decimal"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VK_DIVIDE           "Numpad Podjeljeno"
+    IDS_VK_MULTIPLY         "Numpad Puta"
+    IDS_VK_SUBTRACT         "Numpad Minus"
+    IDS_VK_NEXT             "Page Down"
+    IDS_VK_PRIOR            "Page Up"
+    IDS_VK_PAUSE            "Pause"
+    IDS_VK_RIGHT            "Strela Desno"
+    IDS_VK_SHIFT            "Shift"
+    IDS_VK_SPACE            "Space"
+    IDS_VK_TAB              "Tab"
+    IDS_VK_UP               "Strela Gore"
+    IDS_YES                 "Da"
+    IDS_NO                  "Ne"
+    IDS_PROMPT              "Prompta"
+    IDS_OPTIONS_KEYS        "Dugmadi"
+    IDS_OPTIONS_KEYS_UP     "Gore"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_OPTIONS_KEYS_DOWN   "Dole"
+    IDS_OPTIONS_KEYS_LEFT   "Ljevo"
+    IDS_OPTIONS_KEYS_RIGHT  "Desno"
+    IDS_OPTIONS_KEYS_A      "A"
+    IDS_OPTIONS_KEYS_B      "B"
+    IDS_OPTIONS_KEYS_START  "Start"
+    IDS_OPTIONS_KEYS_SELECT "Select"
+    IDS_OPTIONS_KEYS_FASTFORWARD "Brzo napred"
+    IDS_OPTIONS_GENERAL     "Generalno"
+    IDS_FILEASSOC_FRAME     "Ascoiraj fileove sa Game Lad"
+    IDS_FILEASSOC_GB        "Game Boy ROM fileove (.gb i .gbc)"
+    IDS_FILEASSOC_GLS       "Game Lad åparanja mjesta (.gls)"
+    IDS_SAVE_FRAME          "Šparaj"
+    IDS_SAVE_LOADBATTERY    "Otvori bateriju ako moguce"
+    IDS_SAVE_LOADSTATE      "Otvori zadnje åparano mjesto"
+    IDS_SAVE_SAVEBATTERY    "Šparaj bateriju na zatvorenje"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_SAVE_SAVESTATE      "Šparaj mjesto ns zatvorenje"
+    IDS_MISC_FRAME          "Obocno"
+    IDS_MISC_FRAMESKIP      "Obicini frame skip"
+    IDS_MISC_HARDWARE       "Hardware za emulirati"
+    IDS_MISC_AUTOSTART      "Sadašnje mjesto od jedne otvorene ROM"
+    IDS_OPTIONS_LANGUAGE    "Jezik"
+    IDS_OPTIONS             "Konfiguracija"
+    IDS_OPEN_GBROM          "Game Boy ROMi (*.gb; *.gbc)"
+    IDS_OPEN_ALLFILES       "Sve Fileove (*.*)"
+    IDS_OPEN_BATTERY        "Game Boy Baterijski RAM (*.sav)"
+    IDS_OPEN_SAVESTATE      "Game Lad åparana mjesta (*.gls)"
+    IDS_WND_REGISTERS       "Registri"
+    IDS_WND_DISASSEMBLY     "Disassembly"
+    IDS_WND_MEMORY          "Memorija"
+    IDS_WND_TILES           "Tiles"
+    IDS_WND_TILEMAP         "Tile Map"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_WND_PALETTES        "Palete"
+    IDS_WND_HARDWARE        "Hardware"
+    IDS_OPEN                "Otvori"
+    IDS_SAVEAS              "Šparaj ko"
+    IDS_STATUS_LOADED       "$ otvoren"
+    IDS_STATUS_SAVED        "$ schparan"
+    IDS_STATUS_NOTFOUND     "$ ne naden"
+    IDS_STATUS_READERROR    "Greska u citanju $"
+    IDS_STATUS_WRITEERROR   "Greska u pisanju $"
+    IDS_PROMPT_SAVESTATE    "Šparati mjesto?"
+    IDS_PROMPT_SAVEBATTERY  "Šparati bateriju?"
+    IDS_STATUS_ROMNOTFOUND  "ROM file ne naden"
+    IDS_STATUS_ROMSIZEDIFFER "File ne matcha rom header."
+    IDS_STATUS_SELECTSTATESLOT "Mjesto broj $ uzet"
+    IDS_STATUS_SELECTFRAMESKIP "Frame skip stavit na $"
+    IDS_EMU_INVALIDOPCODE   "Pogresni operatni kod"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMU_READACCESSDENIED "Citajni akses trazit"
+    IDS_EMU_WRITEACCESSDENIED "Pisanji akses zabranjit"
+    IDS_EMU_EXECUTEACCESSDENIED "Exekviranji akses zabranjiti"
+    IDS_EMU_WRITEACCESSDENIED_INT 
+                            "Pisanji akses trazit za stack pointer, prekid  \nnemoze se upotrjebiti"
+    IDS_EMU_HALTQUIRK       "Stani quirk"
+    IDS_NOAUDIO             "Nema audio device nenadzen."
+    IDS_OPENAUDIOERROR      "Nije mogo otvoriti audio device."
+    IDS_HIGHERVERSIONREQUIRED "$ ili vise je trebano."
+    IDS_TOOLS_CHEAT_MENU    "&Kod(za igre)..."
+    IDS_TOOLS_CHEAT         "Upiši kodove"
+    IDS_CHEAT_TITLE         "Kodovi"
+    IDS_CHEAT_ADDCHEAT      "Dodaj Ime Koda"
+    IDS_CHEAT_ADDCODE       "Dodaj Kod"
+    IDS_CHEAT_INVALID       "Pogresni Kod"
+    IDS_CHEAT_GAMEGENIE     "Game Genie Kod"
+    IDS_CHEAT_GAMESHARK     "Game Shark Kod"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_CHEAT_INEFFECTIVE   "Kod inefektivan"
+    IDS_FILE_SAVESNAPSHOTAS_MENU "åparaj sliku..."
+    IDS_FILE_SAVESNAPSHOTAS "Špara åpara sadasnju sliko u jedan filefile"
+    IDS_FILE_SAVEVIDEOAS_MENU "Šparaj V&ideo..."
+    IDS_FILE_SAVEVIDEOAS    "Špara output ko jedan video file"
+    IDS_WND_TILEMAP_XFLIP   "X-Flip"
+    IDS_WND_TILEMAP_YFLIP   "Y-Flip"
+    IDS_WND_TILEMAP_PRIORITY "Prioritet"
+    IDS_WND_TILEMAP_BACKGROUNDENABLED "Pozadina"
+    IDS_WND_TILEMAP_WINDOWENABLED "Prozor"
+    IDS_WND_PALETTES_BACKGROUND "Pozadina"
+    IDS_WND_PALETTES_SPRITE "Sprite"
+    IDS_WND_HARDWARE_ROMSIZE "ROM velcina:"
+    IDS_WND_HARDWARE_RAMSIZE "RAM velcina:"
+    IDS_WND_REGISTERS_HBLANK "H-Blank"
+    IDS_WND_REGISTERS_VBLANK "V-Blank"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_WND_REGISTERS_OAMSEARCH "OAM"
+    IDS_WND_REGISTERS_LCDTRANSFER "LCD"
+    IDS_FILE_MERGECHEATS_MENU "&Sastavi Kodove..."
+    IDS_FILE_MERGECHEATS    "Otvori kodove od jedan file i doda ji do kod  \nliste"
+    IDS_OPTIONS_FILE        "Meni"
+    IDS_OPEN_LOADSTATE      "Otvori zadnje njesto"
+    IDS_OPEN_CHEATXML       "Kod fileovi (*.xml)"
+    IDS_ENTERADDRESS        "Upiši adresu"
+    IDS_ENTERROMBANKNO      "Upiši ROM bank"
+    IDS_OPTIONS_LANGUAGE_TRANSLATEDBY "Prevoðen od: $"
+    IDS_OPEN_AVI            "Video za Windows (*.avi)"
+    IDS_OPEN_BITMAP         "Bitmap (*.bmp)"
+    IDS_TOOLS_LINKCABLE_MENU "&Link kabel"
+    IDS_TOOLS_LINKCABLE     "Linka dva Game Boya zajedno"
+    IDS_OPTIONS_KEYS_PLAYER "Igrach $"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS "Šparaj  šemu ko..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_OPTIONS_KEYS_DELETESCHEME "Skloni Šemu"
+    IDS_OPTIONS_KEYS_JOYSTICK_NONE "(Nikakvi)"
+    IDS_OPTIONS_KEYS_JOYSTICK_ANALOG "Analog"
+    IDS_OPTIONS_KEYS_NORMAL "Normalni"
+    IDS_OPTIONS_KEYS_AUTOFIRE "Autodugme"
+    IDS_OPTIONS_KEYS_KEYBOARD "Keyboard"
+    IDS_OPTIONS_KEYS_JOYSTICK "Joystick"
+    IDS_OPTIONS_KEYS_NOKEY  "(Nikakav)"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS_TITLE "Šparaj šemu ko"
+    IDS_OPTIONS_KEYS_SAVESCHEME_NONAME "Upiši  ime za save šemu"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS_CANNOTREPLACE 
+                            "Nemoze prešparatio ovu  \nšemu."
+    IDS_FILE_STATESLOT_EMPTY "Prazno"
+    IDS_OPTIONS_KEYS_DIRECTION "Strane"
+    IDS_OPTIONS_KEYS_DIRECTION_XY "X/Y ramena"
+    IDS_OPTIONS_KEYS_DIRECTION_ENABLED "Ukljuchito"
+    IDS_TOOLS_SEARCHCHEAT_MENU "T&razi kod..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_TOOLS_SEARCHCHEAT   "Trazi Game Shark kodove"
+    IDS_SEARCHCHEAT_TITLE   "Trazi kod"
+    IDS_SEARCHCHEAT_BYTE    "Byte"
+    IDS_SEARCHCHEAT_WORD    "Rijech"
+    IDS_SEARCHCHEAT_DWORD   "DRijech"
+    IDS_SEARCHCHEAT_NEWSEARCH "Trazi ponovo"
+    IDS_SEARCHCHEAT_HEXADECIMAL "Hexadecimal"
+    IDS_SEARCHCHEAT_DECIMAL "Decimal"
+    IDS_SEARCHCHEAT_RELATIVEVALUE "Upisani vrijednost"
+    IDS_SEARCHCHEAT_RELATIVELAST "Zadnja vrijednost"
+    IDS_SEARCHCHEAT_EQUAL   "Jednako"
+    IDS_SEARCHCHEAT_NOTEQUAL "Ne jednako"
+    IDS_SEARCHCHEAT_LESSEQUAL "Manje ili jednako"
+    IDS_SEARCHCHEAT_MOREEQUAL "Više ili jednako"
+    IDS_SEARCHCHEAT_LESS    "Manje"
+    IDS_SEARCHCHEAT_MORE    "Više"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_SEARCHCHEAT_CHEATNAME "Ime koda"
+    IDS_SEARCHCHEAT_ADDCHEAT "Dodaj kod"
+    IDS_SEARCHCHEAT_ADDRESS "Adresa"
+    IDS_SEARCHCHEAT_LASTVALUE "Zadnji"
+    IDS_SEARCHCHEAT_CURRENTVALUE "Sadašnji"
+    IDS_SEARCHCHEAT_ENTERNUMBER "Upisi jedan tacni broj"
+    IDS_SEARCHCHEAT_NOSELECTION "Nikakve adrese usete"
+    IDS_OPTIONS_GRAPHIC     "Graphic"
+    IDS_GRAPHIC_INITIALZOOM "Initial zoom"
+    IDS_GRAPHIC_USEDIRECTX  "Use DirectX"
+    IDS_GRAPHIC_FULLSCREEN_FRAME "Fullscreen"
+    IDS_GRAPHIC_FS_RESOLUTION "Resolution"
+    IDS_GRAPHIC_FS_FITTOSCREEN "Fit to screen"
+    IDS_GRAPHIC_FS_FIT_GBSCREEN "10:9 (Game Boy)"
+    IDS_GRAPHIC_FS_ZOOM     "Zoom to"
+    IDS_VIEW_FRAMESKIP_AUTO_MENU "&Auto"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_FRAMESKIP_AUTO "Sets frame skip to automatic"
+    IDS_STATUS_SELECTFRAMESKIPAUTO "Frame skip set to automatic"
+    IDS_GRAPHIC_MANUALFRAMESKIP "Manual default frame skip"
+END
+
+#endif    // Neutral resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Swedish resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_SVE)
+#ifdef _WIN32
+LANGUAGE LANG_SWEDISH, SUBLANG_DEFAULT
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Swedish resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

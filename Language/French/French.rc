@@ -151,9 +151,9 @@ END
 
 STRINGTABLE DISCARDABLE 
 BEGIN
-    IDS_FILE_LOADSTATE_MENU "&Charge l'état\tF3"
-    IDS_FILE_SAVESTATEAS_MENU "En&registre l'état sous...\tShift+F2"
-    IDS_FILE_LOADSTATEAS_MENU "Char&ge un état...\tShift+F3"
+    IDS_FILE_LOADSTATE_MENU "&Charger l'état\tF3"
+    IDS_FILE_SAVESTATEAS_MENU "En&registrer l'état sous...\tShift+F2"
+    IDS_FILE_LOADSTATEAS_MENU "Char&ger un état...\tShift+F3"
     IDS_FILE_STATESLOT_MENU "Em&placement d'état"
     IDS_FILE_STATESLOT_0_MENU "&0 $\tF4,0"
     IDS_FILE_STATESLOT_1_MENU "&1 $\tF4,1"
@@ -165,14 +165,14 @@ BEGIN
     IDS_FILE_STATESLOT_7_MENU "&7 $\tF4,7"
     IDS_FILE_STATESLOT_8_MENU "&8 $\tF4,8"
     IDS_FILE_STATESLOT_9_MENU "&9 $\tF4,9"
-    IDS_FILE_SAVEBATTERY_MENU "Enregi&stre Ram non-volatile\tCtrl+S"
-    IDS_FILE_LOADBATTERY_MENU "C&harge Ram non-volatile..."
+    IDS_FILE_SAVEBATTERY_MENU "Enregi&strer Ram non-volatile\tCtrl+S"
+    IDS_FILE_LOADBATTERY_MENU "C&harger Ram non-volatile..."
 END
 
 STRINGTABLE DISCARDABLE 
 BEGIN
-    IDS_FILE_SAVEBATTERYAS_MENU "Enreg&istre Ram non-volatile sous..."
-    IDS_FILE_CLEARBATTERY_MENU "Eff&ace Ram non-volatile"
+    IDS_FILE_SAVEBATTERYAS_MENU "Enreg&istrer Ram non-volatile sous..."
+    IDS_FILE_CLEARBATTERY_MENU "Eff&acer Ram non-volatile"
     IDS_FILE_EXIT_MENU      "&Quitter"
     IDS_EDIT_MENU           "&Edition"
     IDS_EDIT_GOTO_MENU      "&Aller à...\tCtrl+G"
@@ -278,7 +278,7 @@ BEGIN
     IDS_STATUS_READY        "Prêt"
     IDS_STATUS_ENTERSLOTNUMBER "Entrez le numéro d'un emplacement d'état"
     IDS_OPEN_TITLE          "Titre: $"
-    IDS_OPEN_LOADBATTERY    "Charger si possible la Ram non-volatile"
+    IDS_OPEN_LOADBATTERY    "Charger la Ram non-volatile si possible"
     IDS_STOPPED             "Arrêt"
     IDS_STARTDEBUG          "Débogage"
     IDS_EXECUTE             "Exécution"
@@ -445,63 +445,81 @@ BEGIN
     IDS_ENTERADDRESS        "Entrez une adresse"
     IDS_ENTERROMBANKNO      "Entrez une banque ROM"
     IDS_OPTIONS_LANGUAGE_TRANSLATEDBY "Traduit par: $"
-    IDS_OPEN_AVI            "Video for Windows (*.avi)"
+    IDS_OPEN_AVI            "Video pour Windows (*.avi)"
     IDS_OPEN_BITMAP         "Bitmap (*.bmp)"
-    IDS_TOOLS_LINKCABLE_MENU "&Link cable"
-    IDS_TOOLS_LINKCABLE     "Links two Game Boys together"
-    IDS_OPTIONS_KEYS_PLAYER "Player $"
-    IDS_OPTIONS_KEYS_SAVESCHEMEAS "Save Scheme As..."
+    IDS_TOOLS_LINKCABLE_MENU "Cable &Link"
+    IDS_TOOLS_LINKCABLE     "Relie deux Game Boy ensemble"
+    IDS_OPTIONS_KEYS_PLAYER "Joueur $"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS "Enregistrer configuration sous..."
 END
 
 STRINGTABLE DISCARDABLE 
 BEGIN
-    IDS_OPTIONS_KEYS_DELETESCHEME "Delete Scheme"
-    IDS_OPTIONS_KEYS_JOYSTICK_NONE "(None)"
-    IDS_OPTIONS_KEYS_JOYSTICK_ANALOG "Analog"
+    IDS_OPTIONS_KEYS_DELETESCHEME "Effacer configuration"
+    IDS_OPTIONS_KEYS_JOYSTICK_NONE "(Aucun)"
+    IDS_OPTIONS_KEYS_JOYSTICK_ANALOG "Analogique"
     IDS_OPTIONS_KEYS_NORMAL "Normal"
     IDS_OPTIONS_KEYS_AUTOFIRE "Autofire"
-    IDS_OPTIONS_KEYS_KEYBOARD "Keyboard"
+    IDS_OPTIONS_KEYS_KEYBOARD "Clavier"
     IDS_OPTIONS_KEYS_JOYSTICK "Joystick"
-    IDS_OPTIONS_KEYS_NOKEY  "(None)"
-    IDS_OPTIONS_KEYS_SAVESCHEMEAS_TITLE "Save Scheme As"
-    IDS_OPTIONS_KEYS_SAVESCHEME_NONAME "Enter a name to save the scheme as"
-    IDS_OPTIONS_KEYS_SAVESCHEMEAS_CANNOTREPLACE "Cannot replace this scheme."
-    IDS_FILE_STATESLOT_EMPTY "Empty"
-    IDS_OPTIONS_KEYS_DIRECTION "Direction Pad"
-    IDS_OPTIONS_KEYS_DIRECTION_XY "X/Y axes"
-    IDS_OPTIONS_KEYS_DIRECTION_ENABLED "Enabled"
-    IDS_TOOLS_SEARCHCHEAT_MENU "S&earch cheat..."
+    IDS_OPTIONS_KEYS_NOKEY  "(Aucun)"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS_TITLE "Enregistrer configuration sous"
+    IDS_OPTIONS_KEYS_SAVESCHEME_NONAME 
+                            "Entrer un nom pour enregistrer la configuration"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS_CANNOTREPLACE 
+                            "Impossible de remplacer cette configuration."
+    IDS_FILE_STATESLOT_EMPTY "Vide"
+    IDS_OPTIONS_KEYS_DIRECTION "Touches de Direction"
+    IDS_OPTIONS_KEYS_DIRECTION_XY "Axes X/Y"
+    IDS_OPTIONS_KEYS_DIRECTION_ENABLED "Activé"
+    IDS_TOOLS_SEARCHCHEAT_MENU "Rech&ercher cheat..."
 END
 
 STRINGTABLE DISCARDABLE 
 BEGIN
-    IDS_TOOLS_SEARCHCHEAT   "Searches for Game Shark codes"
-    IDS_SEARCHCHEAT_TITLE   "Search cheat"
-    IDS_SEARCHCHEAT_BYTE    "Byte"
-    IDS_SEARCHCHEAT_WORD    "Word"
-    IDS_SEARCHCHEAT_DWORD   "Dword"
-    IDS_SEARCHCHEAT_NEWSEARCH "New search"
-    IDS_SEARCHCHEAT_HEXADECIMAL "Hexadecimal"
-    IDS_SEARCHCHEAT_DECIMAL "Decimal"
-    IDS_SEARCHCHEAT_RELATIVEVALUE "Entered value"
-    IDS_SEARCHCHEAT_RELATIVELAST "Last value"
-    IDS_SEARCHCHEAT_EQUAL   "Equal"
-    IDS_SEARCHCHEAT_NOTEQUAL "Not equal"
-    IDS_SEARCHCHEAT_LESSEQUAL "Less or equal"
-    IDS_SEARCHCHEAT_MOREEQUAL "More or equal"
-    IDS_SEARCHCHEAT_LESS    "Less"
-    IDS_SEARCHCHEAT_MORE    "More"
+    IDS_TOOLS_SEARCHCHEAT   "Rechercher des codes Game Shark"
+    IDS_SEARCHCHEAT_TITLE   "Rechercher cheat"
+    IDS_SEARCHCHEAT_BYTE    "Octet"
+    IDS_SEARCHCHEAT_WORD    "Mot"
+    IDS_SEARCHCHEAT_DWORD   "Long"
+    IDS_SEARCHCHEAT_NEWSEARCH "Nouvelle recherche"
+    IDS_SEARCHCHEAT_HEXADECIMAL "Hexadécimal"
+    IDS_SEARCHCHEAT_DECIMAL "Décimal"
+    IDS_SEARCHCHEAT_RELATIVEVALUE "Valeur entrée"
+    IDS_SEARCHCHEAT_RELATIVELAST "Dernière valeur"
+    IDS_SEARCHCHEAT_EQUAL   "Egal"
+    IDS_SEARCHCHEAT_NOTEQUAL "Différent"
+    IDS_SEARCHCHEAT_LESSEQUAL "Inférieur ou égal"
+    IDS_SEARCHCHEAT_MOREEQUAL "Supérieur ou égal"
+    IDS_SEARCHCHEAT_LESS    "Inferieur"
+    IDS_SEARCHCHEAT_MORE    "Supérieur"
 END
 
 STRINGTABLE DISCARDABLE 
 BEGIN
-    IDS_SEARCHCHEAT_CHEATNAME "Cheat name"
-    IDS_SEARCHCHEAT_ADDCHEAT "Add cheat"
-    IDS_SEARCHCHEAT_ADDRESS "Address"
-    IDS_SEARCHCHEAT_LASTVALUE "Last"
-    IDS_SEARCHCHEAT_CURRENTVALUE "Current"
-    IDS_SEARCHCHEAT_ENTERNUMBER "Enter a valid number"
-    IDS_SEARCHCHEAT_NOSELECTION "No addresses selected"
+    IDS_SEARCHCHEAT_CHEATNAME "Nom du cheat"
+    IDS_SEARCHCHEAT_ADDCHEAT "Ajouter cheat"
+    IDS_SEARCHCHEAT_ADDRESS "Addresse"
+    IDS_SEARCHCHEAT_LASTVALUE "Dernier"
+    IDS_SEARCHCHEAT_CURRENTVALUE "Courrant"
+    IDS_SEARCHCHEAT_ENTERNUMBER "Entrez un nombre valide"
+    IDS_SEARCHCHEAT_NOSELECTION "Pas d'adresse sélectionnée"
+    IDS_OPTIONS_GRAPHIC     "Graphic"
+    IDS_GRAPHIC_INITIALZOOM "Initial zoom"
+    IDS_GRAPHIC_USEDIRECTX  "Use DirectX"
+    IDS_GRAPHIC_FULLSCREEN_FRAME "Fullscreen"
+    IDS_GRAPHIC_FS_RESOLUTION "Resolution"
+    IDS_GRAPHIC_FS_FITTOSCREEN "Fit to screen"
+    IDS_GRAPHIC_FS_FIT_GBSCREEN "10:9 (Game Boy)"
+    IDS_GRAPHIC_FS_ZOOM     "Zoom to"
+    IDS_VIEW_FRAMESKIP_AUTO_MENU "&Auto"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_FRAMESKIP_AUTO "Sets frame skip to automatic"
+    IDS_STATUS_SELECTFRAMESKIPAUTO "Frame skip set to automatic"
+    IDS_GRAPHIC_MANUALFRAMESKIP "Manual default frame skip"
 END
 
 #endif    // French (France) resources

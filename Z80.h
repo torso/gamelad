@@ -5,4 +5,5 @@ extern DWORD __fastcall	ReadMem(CGameBoy *pGameBoy, DWORD Addr);
 extern BYTE __fastcall	RetrieveAccess(CGameBoy *pGameBoy, DWORD Addr);
 extern void __fastcall	SetAccess(CGameBoy *pGameBoy, DWORD Addr, BYTE Access);
 extern BOOL __fastcall	CheckWriteAccessWord(CGameBoy *pGameBoy, DWORD Addr);
+extern void __fastcall	SetRTCReg(CGameBoy *pGameBoy);
 

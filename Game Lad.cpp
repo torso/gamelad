@@ -11,18 +11,12 @@
 #include	"Debugger.h"
 #include	"Error.h"
 #include	"Input.h"
+#include	"Gfx.h"
+//#include	"Network.h"
 
 
 
 //#define		DEBUGCOMMANDS
-
-
-
-#define		GAME_LAD_RELEASENO				5
-#define		VERSION_MAJOR					1
-#define		VERSION_MINOR					31
-
-#define		REQUIRED_DX_DLL_RELEASENO		0
 
 
 
@@ -129,6 +123,7 @@ struct MENUHELPSTRINGS
 	ID_VIEW_ZOOM_200,				IDS_VIEW_ZOOM_200,
 	ID_VIEW_ZOOM_300,				IDS_VIEW_ZOOM_300,
 	ID_VIEW_ZOOM_400,				IDS_VIEW_ZOOM_400,
+	ID_VIEW_FRAMESKIP_AUTO,			IDS_VIEW_FRAMESKIP_AUTO,
 	ID_VIEW_FRAMESKIP_0,			IDS_VIEW_FRAMESKIP_0,
 	ID_VIEW_FRAMESKIP_1,			IDS_VIEW_FRAMESKIP_1,
 	ID_VIEW_FRAMESKIP_2,			IDS_VIEW_FRAMESKIP_2,
@@ -176,7 +171,8 @@ struct MENUHELPSTRINGS
 	ID_EMULATION_TOGGLEBREAKPOINT,	IDS_EMULATION_TOGGLEBREAKPOINT,
 	ID_EMULATION_RESET,				IDS_EMULATION_RESET,
 	ID_TOOLS_OPTIONS,				IDS_TOOLS_OPTIONS,
-	ID_TOOLS_LINKCABLE,				IDS_TOOLS_LINKCABLE,
+	ID_TOOLS_LINKCABLE_LOCAL,		IDS_TOOLS_LINKCABLE,
+	//ID_TOOLS_LINKCABLE_NETWORK,		IDS_TOOLS_LINKCABLE_NETWORK,
 	ID_TOOLS_SOUNDENABLED,			IDS_TOOLS_SOUNDENABLED,
 	ID_TOOLS_CHEAT,					IDS_TOOLS_CHEAT,
 	ID_TOOLS_SEARCHCHEAT,			IDS_TOOLS_SEARCHCHEAT,
@@ -354,6 +350,12 @@ char			szStringFilename[MAX_PATH] = "";
 
 char *LoadString(UINT uID, char *pszBuffer, int nBufferMax)
 {
+	if (!uID)
+	{
+		pszBuffer[0] = '\0';
+		return pszBuffer;
+	}
+
 	if (!hStringInstance)
 	{
 		LoadString(hInstance, uID, pszBuffer, nBufferMax);
@@ -436,6 +438,13 @@ char *CopyString(char *pszDest, char *pszSrc, DWORD dwLength)
 	mii.fMask = MIIM_ID | MIIM_TYPE;			\
 	mii.fType = MFT_STRING;
 
+#define		SEPARATOR2()						\
+	mii.fMask = MIIM_TYPE;						\
+	mii.fType = MFT_SEPARATOR;					\
+	InsertMenuItem(hSubMenu2, 0, true, &mii);	\
+	mii.fMask = MIIM_ID | MIIM_TYPE;			\
+	mii.fType = MFT_STRING;
+
 #define		SUBMENU(uString)					\
 	mii.fMask = MIIM_SUBMENU | MIIM_TYPE;		\
 	mii.fType = MFT_STRING;						\
@@ -513,7 +522,11 @@ HMENU CreateMenus(HMENU hMainMenu, HMENU hPopupMenu)
 	MENUITEM(ID_TOOLS_SEARCHCHEAT, IDS_TOOLS_SEARCHCHEAT_MENU);
 	MENUITEM(ID_TOOLS_CHEAT, IDS_TOOLS_CHEAT_MENU);
 	MENUITEM(ID_TOOLS_SOUNDENABLED, IDS_TOOLS_SOUNDENABLED_MENU);
-	MENUITEM(ID_TOOLS_LINKCABLE, IDS_TOOLS_LINKCABLE_MENU);
+	/*hSubMenu2 = CreateMenu();
+	MENUITEM2(ID_TOOLS_LINKCABLE_NETWORK, IDS_TOOLS_LINKCABLE_NETWORK_MENU);
+	MENUITEM2(ID_TOOLS_LINKCABLE_LOCAL, IDS_TOOLS_LINKCABLE_LOCAL_MENU);
+	SUBMENU2(IDS_TOOLS_LINKCABLE_MENU);*/
+	MENUITEM(ID_TOOLS_LINKCABLE_LOCAL, IDS_TOOLS_LINKCABLE_MENU);
 	MENUITEM(ID_TOOLS_OPTIONS, IDS_TOOLS_OPTIONS_MENU);
 	SUBMENU(IDS_TOOLS_MENU);
 
@@ -566,6 +579,8 @@ HMENU CreateMenus(HMENU hMainMenu, HMENU hPopupMenu)
 	MENUITEM2(ID_VIEW_FRAMESKIP_2, IDS_VIEW_FRAMESKIP_2_MENU);
 	MENUITEM2(ID_VIEW_FRAMESKIP_1, IDS_VIEW_FRAMESKIP_1_MENU);
 	MENUITEM2(ID_VIEW_FRAMESKIP_0, IDS_VIEW_FRAMESKIP_0_MENU);
+	SEPARATOR2();
+	MENUITEM2(ID_VIEW_FRAMESKIP_AUTO, IDS_VIEW_FRAMESKIP_AUTO_MENU);
 	SUBMENU2(IDS_VIEW_FRAMESKIP_MENU);
 	hSubMenu2 = CreateMenu();
 	MENUITEM2(ID_VIEW_ZOOM_400, IDS_VIEW_ZOOM_400_MENU);
@@ -627,6 +642,11 @@ HMENU CreateMenus(HMENU hMainMenu, HMENU hPopupMenu)
 
 
 	hMenu = hPopupMenu;
+
+	//Cheat dialog, TreeView menu
+	hSubMenu = CreateMenu();
+	MENUITEM(ID_EDIT_GOTO, IDS_EDIT_GOTO_MENU);
+	SUBMENU(NULL);
 
 	//Disassembly menu
 	hSubMenu = CreateMenu();
@@ -795,12 +815,13 @@ BOOL CreateKey(char *szKey, char *szData)
 		return false;
 	}
 	ValueSize = sizeof(szOldData);
-	if (!RegQueryValueEx(hKey, "", NULL, &ValueType, (BYTE *)&szOldData, &ValueSize))
+	if (!RegQueryValueEx(hKey, NULL, NULL, &ValueType, (BYTE *)&szOldData, &ValueSize))
 	{
 		if (ValueType == REG_SZ)
 		{
 			if (!strcmp(szData, szOldData))
 			{
+				RegCloseKey(hKey);
 				return false;
 			}
 		}
@@ -814,6 +835,41 @@ BOOL CreateKey(char *szKey, char *szData)
 
 	return true;
 }
+
+
+
+/*BOOL CreateKey(HKEY hKey, char *szKey, char *szData)
+{
+	HKEY	hKey2;
+	DWORD	dw, ValueType, ValueSize;
+	char	szOldData[MAX_PATH + 4];
+
+
+	if (RegCreateKeyEx(hKey, szKey, 0, "REG_SZ", REG_OPTION_NON_VOLATILE, KEY_EXECUTE | KEY_WRITE, NULL, &hKey2, &dw))
+	{
+		return false;
+	}
+	ValueSize = sizeof(szOldData);
+	if (!RegQueryValueEx(hKey2, NULL, NULL, &ValueType, (BYTE *)&szOldData, &ValueSize))
+	{
+		if (ValueType == REG_SZ)
+		{
+			if (!strcmp(szData, szOldData))
+			{
+				RegCloseKey(hKey2);
+				return false;
+			}
+		}
+	}
+	if (RegSetValueEx(hKey2, NULL, 0, REG_SZ, (BYTE *)szData, strlen(szData) + 1))
+	{
+		RegCloseKey(hKey2);
+		return false;
+	}
+	RegCloseKey(hKey2);
+
+	return true;
+}*/
 
 
 
@@ -877,6 +933,52 @@ void RegisterGlsFileType()
 		SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
 	}
 }
+
+
+
+/*void RegisterIpsFileType()
+{
+	char	szFilename[MAX_PATH + 4];
+	char	szBuffer[0x100];
+	BOOL	Change;
+	HKEY	hKey;
+	DWORD	dw;
+
+
+	if (RegCreateKeyEx(HKEY_CLASSES_ROOT, ".ips", 0, "REG_SZ", REG_OPTION_NON_VOLATILE, KEY_EXECUTE | KEY_SET_VALUE, NULL, &hKey, &dw))
+	{
+		return;
+	}
+	dw = sizeof(szBuffer);
+	if (RegQueryValueEx(hKey, NULL, 0, NULL, (BYTE *)&szBuffer, &dw))
+	{
+		RegCloseKey(hKey);
+		return;
+	}
+	if (dw != REG_SZ || !szBuffer[0])
+	{
+		strcpy(szBuffer, "IPS-Patch");
+		RegSetValueEx(hKey, NULL, 0, REG_SZ, (BYTE *)&szBuffer, strlen(szBuffer) + 1);
+	}
+	RegCloseKey(hKey);
+
+
+	GetModuleFileName(NULL, (char *)&szFilename[1], MAX_PATH);
+	szFilename[0] = '\"';
+	strcat(szFilename, "\" /ips:\"%1\"");
+
+	Change = false;
+	if (RegCreateKeyEx(HKEY_CLASSES_ROOT, szBuffer, 0, "REG_SZ", REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, &dw))
+	{
+		return;
+	}
+	//Change |= CreateKey(".ips", "IPS-Patch");
+	//Change |= CreateKey("IPS-Patch", "IPS-Patch");
+	Change |= CreateKey(hKey, "shell", "Apply");
+	Change |= CreateKey(hKey, "shell\\Apply", "");
+	Change |= CreateKey(hKey, "shell\\Apply\\command", szFilename);
+	SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+}*/
 
 
 
@@ -1079,6 +1181,49 @@ HDDEDATA CALLBACK DdeCallback(UINT uType, UINT uFmt, HCONV hconv, HSZ hsz1, HSZ 
 	}
 
 	return NULL;
+}
+
+
+
+LRESULT CALLBACK GraphicWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	case WM_ACTIVATE:
+		if (LOWORD(wParam) != WA_INACTIVE)
+		{
+			if (lpdidJoysticks[0])
+			{
+				lpdidJoysticks[0]->SetCooperativeLevel(hWin, DISCL_FOREGROUND | DISCL_EXCLUSIVE);
+			}
+			if (lpdidJoysticks[1])
+			{
+				lpdidJoysticks[1]->SetCooperativeLevel(hWin, DISCL_FOREGROUND | DISCL_EXCLUSIVE);
+			}
+		}
+		else
+		{
+			if (lpdidJoysticks[0])
+			{
+				lpdidJoysticks[0]->SetCooperativeLevel(hWnd, DISCL_FOREGROUND | DISCL_EXCLUSIVE);
+			}
+			if (lpdidJoysticks[1])
+			{
+				lpdidJoysticks[1]->SetCooperativeLevel(hWnd, DISCL_FOREGROUND | DISCL_EXCLUSIVE);
+			}
+		}
+		break;
+
+	case WM_DESTROY:
+		ShowWindow(hWnd, SW_SHOW);
+		return 0;
+
+	case WM_CREATE:
+		ShowWindow(hWnd, SW_HIDE);
+		return 0;
+	}
+
+	return DefWindowProc(hWin, uMsg, wParam, lParam);
 }
 
 
@@ -1436,6 +1581,25 @@ UINT CALLBACK OFNHookProc(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lParam)
 
 	SetWindowLong(GetParent(hdlg), DWL_MSGRESULT, 0);
 	return 0;
+}
+
+
+
+void InitOptionDialog(HWND hWin)
+{
+	char			szBuffer[0x100];
+	TCITEM			tci;
+
+
+	tci.mask = TCIF_TEXT;
+	tci.pszText = String(IDS_OPTIONS_KEYS);
+	TabCtrl_SetItem(PropSheet_GetTabControl(GetParent(hWin)), 0, &tci);
+	tci.pszText = String(IDS_OPTIONS_FILE);
+	TabCtrl_SetItem(PropSheet_GetTabControl(GetParent(hWin)), 1, &tci);
+	tci.pszText = String(IDS_OPTIONS_GENERAL);
+	TabCtrl_SetItem(PropSheet_GetTabControl(GetParent(hWin)), 2, &tci);
+	tci.pszText = String(IDS_OPTIONS_GRAPHIC);
+	TabCtrl_SetItem(PropSheet_GetTabControl(GetParent(hWin)), 3, &tci);
 }
 
 
@@ -2183,6 +2347,8 @@ BOOL CALLBACK KeyOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		break;
 
 	case WM_INITDIALOG:
+		InitOptionDialog(hWin);
+
 		CopyMemory((void *)&TempKeys[0], &Keys[0], sizeof(KEYS));
 		CopyMemory((void *)&TempKeys[1], &AutoFireKeys[0], sizeof(KEYS));
 		CopyMemory((void *)&TempKeys[2], &Keys[1], sizeof(KEYS));
@@ -2301,6 +2467,8 @@ BOOL CALLBACK KeyOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 			RefreshKeys(hWin, true);
 
+			LastOptionPage = OPTIONPAGE_KEYS;
+
 			return true;
 		}
 	}
@@ -2418,6 +2586,8 @@ BOOL CALLBACK FileOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 			SendDlgItemMessage(hWin, IDC_AUTOSTART, CB_ADDSTRING, 0, (LPARAM)String(IDS_STARTDEBUG));
 			SendDlgItemMessage(hWin, IDC_AUTOSTART, CB_ADDSTRING, 0, (LPARAM)String(IDS_EXECUTE));
 			SendDlgItemMessage(hWin, IDC_AUTOSTART, CB_SETCURSEL, dwSelection, 0);
+
+			LastOptionPage = OPTIONPAGE_FILE;
 			return true;
 		}
 		break;
@@ -2429,6 +2599,8 @@ BOOL CALLBACK FileOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 		break;*/
 
 	case WM_INITDIALOG:
+		InitOptionDialog(hWin);
+
 		SendDlgItemMessage(hWin, IDC_REGISTERGBROM, BM_SETCHECK, Settings.GbFile ? BST_CHECKED : BST_UNCHECKED, 0);
 		SendDlgItemMessage(hWin, IDC_REGISTERSAVESTATE, BM_SETCHECK, Settings.GlsFile ? BST_CHECKED : BST_UNCHECKED, 0);
 
@@ -2444,8 +2616,8 @@ BOOL CALLBACK FileOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 		SendDlgItemMessage(hWin, IDC_SAVESTATE, CB_ADDSTRING, 0, (LPARAM)String(IDS_PROMPT));
 		SendDlgItemMessage(hWin, IDC_SAVESTATE, CB_SETCURSEL, Settings.SaveState, 0);
 
-		SendDlgItemMessage(hWin, IDC_GBTYPE, CB_ADDSTRING, 0, (long)"Game Boy");
-		SendDlgItemMessage(hWin, IDC_GBTYPE, CB_ADDSTRING, 0, (long)"Game Boy Color");
+		SendDlgItemMessage(hWin, IDC_GBTYPE, CB_ADDSTRING, 0, (LPARAM)"Game Boy");
+		SendDlgItemMessage(hWin, IDC_GBTYPE, CB_ADDSTRING, 0, (LPARAM)"Game Boy Color");
 		SendDlgItemMessage(hWin, IDC_GBTYPE, CB_SETCURSEL, Settings.GBType == GB_COLOR ? 1 : 0, 0);
 
 		SendDlgItemMessage(hWin, IDC_AUTOSTART, CB_ADDSTRING, 0, (LPARAM)String(IDS_STOPPED));
@@ -2506,42 +2678,10 @@ BOOL CALLBACK GeneralOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 				SetWindowText(GetDlgItem(hWin, IDC_TRANSLATOR), LoadString(IDS_OPTIONS_LANGUAGE_TRANSLATEDBY, szBuffer2, sizeof(szBuffer2), szBuffer));
 			}
 			return true;
-
-		case IDC_FRAMESKIP:
-			if (HIWORD(wParam) == EN_CHANGE)
-			{
-				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
-			}
-			return true;
 		}
 		break;
 
 	case WM_NOTIFY:
-		if (wParam == IDC_FRAMESKIPSPIN)
-		{
-			if (((NMUPDOWN *)lParam)->hdr.code == UDN_DELTAPOS)
-			{
-				SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_GETTEXT, sizeof(NumBuffer), (LPARAM)&NumBuffer);
-				if (atoi(NumBuffer) - ((NMUPDOWN *)lParam)->iDelta < 0)
-				{
-					SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)&"0");
-				}
-				else
-				{
-					if (atoi(NumBuffer) - ((NMUPDOWN *)lParam)->iDelta > 9)
-					{
-						SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)&"9");
-					}
-					else
-					{
-						SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)itoa(atoi(NumBuffer) - ((NMUPDOWN *)lParam)->iDelta, NumBuffer, 10));
-					}
-				}
-				SetWindowLong(hWin, DWL_MSGRESULT, false);
-				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
-			}
-			return true;
-		}
 		switch (((NMHDR *)lParam)->code)
 		{
 		case PSN_APPLY:
@@ -2575,16 +2715,13 @@ BOOL CALLBACK GeneralOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 			TabCtrl_SetItem(PropSheet_GetTabControl(GetParent(hWin)), 1, &tci);
 			tci.pszText = String(IDS_OPTIONS_GENERAL);
 			TabCtrl_SetItem(PropSheet_GetTabControl(GetParent(hWin)), 2, &tci);
-
-			SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_GETTEXT, sizeof(NumBuffer), (LPARAM)&NumBuffer);
-			Settings.FrameSkip = atoi(NumBuffer) < 0 ? 0 : atoi(NumBuffer) > 9 ? 9 : atoi(NumBuffer);
+			tci.pszText = szBuffer;//String(IDS_OPTIONS_GRAPHIC);
+			TabCtrl_SetItem(PropSheet_GetTabControl(GetParent(hWin)), 3, &tci);
 
 			//return true;
 
 		case PSN_SETACTIVE:
 			SetWindowText(GetDlgItem(hWin, IDC_LANGUAGE), String(IDS_OPTIONS_LANGUAGE));
-			SetWindowText(GetDlgItem(hWin, IDC_MISC_FRAME), String(IDS_MISC_FRAME));
-			SetWindowText(GetDlgItem(hWin, IDC_FRAMESKIP_STATIC), String(IDS_MISC_FRAMESKIP));
 
 			pszFilename = (char *)SendDlgItemMessage(hWin, IDC_LANGUAGELIST, CB_GETITEMDATA, SendDlgItemMessage(hWin, IDC_LANGUAGELIST, CB_GETCURSEL, 0, 0), 0);
 			hTempInstance = NULL;
@@ -2598,11 +2735,18 @@ BOOL CALLBACK GeneralOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 				FreeLibrary(hTempInstance);
 			}
 			SetWindowText(GetDlgItem(hWin, IDC_TRANSLATOR), LoadString(IDS_OPTIONS_LANGUAGE_TRANSLATEDBY, szBuffer2, sizeof(szBuffer2), szBuffer));
+
+			if (((NMHDR *)lParam)->code == PSN_SETACTIVE)
+			{
+				LastOptionPage = OPTIONPAGE_GENERAL;
+			}
 			return true;
 		}
 		break;
 
 	case WM_INITDIALOG:
+		InitOptionDialog(hWin);
+
 		SendDlgItemMessage(hWin, IDC_LANGUAGELIST, CB_ADDSTRING, 0, (LPARAM)"English (Default)");
 		SendDlgItemMessage(hWin, IDC_LANGUAGELIST, CB_SETCURSEL, 0, 0);
 		GetModuleFileName(hInstance, szFilename, sizeof(szFilename));
@@ -2639,8 +2783,6 @@ BOOL CALLBACK GeneralOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 
 		pStaticWndProc = (WNDPROC)SetWindowLong(GetDlgItem(hWin, IDC_TRANSLATOR), GWL_WNDPROC, (long)LinkWndProc);
 
-		SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)itoa(Settings.FrameSkip, NumBuffer, 10));
-
 		hMsgParent = GetParent(hWin);
 		break;
 
@@ -2650,6 +2792,340 @@ BOOL CALLBACK GeneralOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 			delete (void *)SendDlgItemMessage(hWin, IDC_LANGUAGELIST, CB_GETITEMDATA, 0, 0);
 			SendDlgItemMessage(hWin, IDC_LANGUAGELIST, CB_DELETESTRING, 0, 0);
 		}
+		break;
+	}
+
+	return false;
+}
+
+
+
+void EnumScreenModes(HWND hWin)
+{
+	DWORD					dwPos, dwAdapter, dw, dw2, dwBpp;
+	char					szBuffer[0x100], szBuffer2[0x100], *pszBuffer2;
+	D3DDISPLAYMODE			d3ddm;
+
+
+	dwAdapter = SendDlgItemMessage(hWin, IDC_DIRECTXDRIVER, CB_GETITEMDATA, SendDlgItemMessage(hWin, IDC_DIRECTXDRIVER, CB_GETCURSEL, 0, 0), 0);
+	for (dw = 0; !FAILED(pd3d->EnumAdapterModes(dwAdapter, dw, &d3ddm)); dw++)
+	{
+		ultoa(d3ddm.Width, szBuffer, 10);
+		strcat(szBuffer, "x");
+		ultoa(d3ddm.Height, szBuffer + strlen(szBuffer), 10);
+		switch (d3ddm.Format)
+		{
+		case D3DFMT_R5G6B5:
+		case D3DFMT_X1R5G5B5:
+			strcat(szBuffer, "x16");
+			dwBpp = 16;
+			break;
+		case D3DFMT_X8R8G8B8:
+		case D3DFMT_A8R8G8B8:
+			strcat(szBuffer, "x32");
+			dwBpp = 32;
+			break;
+		default:
+			continue;
+		}
+		if (d3ddm.RefreshRate)
+		{
+			strcat(szBuffer, "x");
+			ultoa(d3ddm.RefreshRate, szBuffer + strlen(szBuffer), 10);
+		}
+
+#define		CMPGFXMODE(n)							\
+			*strchr(pszBuffer2, 'x') = '\0';		\
+			dw2 = atoi(pszBuffer2);					\
+			if (dw2 < n)							\
+			{										\
+				break;								\
+			}										\
+			if (dw2 > n)							\
+			{										\
+				continue;							\
+			}										\
+			pszBuffer2 += strlen(pszBuffer2) + 1;
+
+		for (dwPos = SendDlgItemMessage(hWin, IDC_FS_RESOLUTION, CB_GETCOUNT, 0, 0); dwPos != 0; dwPos--)
+		{
+			SendDlgItemMessage(hWin, IDC_FS_RESOLUTION, CB_GETLBTEXT, dwPos - 1, (LPARAM)szBuffer2);
+			pszBuffer2 = szBuffer2;
+			CMPGFXMODE(d3ddm.Width);
+			CMPGFXMODE(d3ddm.Height);
+			if (strchr(pszBuffer2, 'x'))
+			{
+				CMPGFXMODE(dwBpp);
+				strcat(pszBuffer2, "x");
+				CMPGFXMODE(d3ddm.RefreshRate);
+			}
+			else
+			{
+				strcat(pszBuffer2, "x");
+				CMPGFXMODE(dwBpp);
+			}
+		}
+
+		SendDlgItemMessage(hWin, IDC_FS_RESOLUTION, CB_INSERTSTRING, dwPos, (LPARAM)szBuffer);
+		SendDlgItemMessage(hWin, IDC_FS_RESOLUTION, CB_SETITEMDATA, dwPos, dw);
+
+		if (Settings.FullscreenX == d3ddm.Width && Settings.FullscreenY == d3ddm.Height &&
+			(D3DFORMAT)Settings.FullscreenBpp == d3ddm.Format &&
+			(Settings.FullscreenRefreshRate == d3ddm.RefreshRate || Settings.FullscreenRefreshRate == 0))
+		{
+			SendDlgItemMessage(hWin, IDC_FS_RESOLUTION, CB_SETCURSEL, dwPos, 0);
+		}
+	}
+}
+
+
+
+BOOL CALLBACK GraphicOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	DWORD					dwPos, dwAdapter, dw;
+	char					szBuffer[0x100];
+	D3DADAPTER_IDENTIFIER8	d3dai;
+	D3DDISPLAYMODE			d3ddm;
+
+
+	switch (uMsg)
+	{
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDC_ZOOM:
+			if (HIWORD(wParam) == CBN_SELCHANGE)
+			{
+				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			}
+			return true;
+
+		case IDC_MANUALFRAMESKIP:
+			SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			if (SendDlgItemMessage(hWin, IDC_MANUALFRAMESKIP, BM_GETCHECK, 0, 0) == BST_CHECKED)
+			{
+				EnableWindow(GetDlgItem(hWin, IDC_FRAMESKIP), true);
+				EnableWindow(GetDlgItem(hWin, IDC_FRAMESKIPSPIN), true);
+			}
+			else
+			{
+				EnableWindow(GetDlgItem(hWin, IDC_FRAMESKIP), false);
+				EnableWindow(GetDlgItem(hWin, IDC_FRAMESKIPSPIN), false);
+			}
+			return true;
+
+		case IDC_FRAMESKIP:
+			if (HIWORD(wParam) == EN_CHANGE)
+			{
+				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			}
+			return true;
+
+		case IDC_USEDIRECTX:
+			SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			if (SendDlgItemMessage(hWin, IDC_USEDIRECTX, BM_GETCHECK, 0, 0) == BST_CHECKED)
+			{
+				if (InitGfx(NULL))
+				{
+					EnableWindow(GetDlgItem(hWin, IDC_DIRECTXDRIVER), true);
+				}
+			}
+			else
+			{
+				EnableWindow(GetDlgItem(hWin, IDC_DIRECTXDRIVER), false);
+			}
+			return true;
+
+		case IDC_DIRECTXDRIVER:
+			if (HIWORD(wParam) == CBN_SELCHANGE)
+			{
+				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+
+				EnumScreenModes(hWin);
+			}
+			return true;
+
+		case IDC_FS_RESOLUTION:
+			if (HIWORD(wParam) == CBN_SELCHANGE)
+			{
+				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			}
+			return true;
+
+		case IDC_FS_FITTOSCREEN:
+			SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			EnableWindow(GetDlgItem(hWin, IDC_FS_FIT_GBSCREEN), true);
+			EnableWindow(GetDlgItem(hWin, IDC_FS_ZOOM), false);
+			return true;
+
+		case IDC_FS_ZOOM_RADIO:
+			SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			EnableWindow(GetDlgItem(hWin, IDC_FS_FIT_GBSCREEN), false);
+			EnableWindow(GetDlgItem(hWin, IDC_FS_ZOOM), true);
+			return true;
+
+		case IDC_FS_FIT_GBSCREEN:
+			SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			return true;
+
+		case IDC_FS_ZOOM:
+			if (HIWORD(wParam) == CBN_SELCHANGE)
+			{
+				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			}
+			return true;
+		}
+		break;
+
+	case WM_NOTIFY:
+		if (wParam == IDC_FRAMESKIPSPIN)
+		{
+			if (((NMUPDOWN *)lParam)->hdr.code == UDN_DELTAPOS)
+			{
+				SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_GETTEXT, sizeof(NumBuffer), (LPARAM)&NumBuffer);
+				if (atoi(NumBuffer) - ((NMUPDOWN *)lParam)->iDelta < 0)
+				{
+					SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)&"0");
+				}
+				else
+				{
+					if (atoi(NumBuffer) - ((NMUPDOWN *)lParam)->iDelta > 9)
+					{
+						SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)&"9");
+					}
+					else
+					{
+						SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)itoa(atoi(NumBuffer) - ((NMUPDOWN *)lParam)->iDelta, NumBuffer, 10));
+					}
+				}
+				SetWindowLong(hWin, DWL_MSGRESULT, false);
+				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			}
+			return true;
+		}
+		switch (((NMHDR *)lParam)->code)
+		{
+		case PSN_APPLY:
+			Settings.Zoom = SendDlgItemMessage(hWin, IDC_ZOOM, CB_GETCURSEL, 0, 0) + 1;
+
+			Settings.FrameSkipAuto = SendDlgItemMessage(hWin, IDC_MANUALFRAMESKIP, BM_GETCHECK, 0, 0) == BST_CHECKED ? false : true;
+			SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_GETTEXT, sizeof(NumBuffer), (LPARAM)&NumBuffer);
+			Settings.FrameSkip = atoi(NumBuffer) < 0 ? 0 : atoi(NumBuffer) > 9 ? 9 : atoi(NumBuffer);
+
+			Settings.Direct3D = SendDlgItemMessage(hWin, IDC_USEDIRECTX, BM_GETCHECK, 0, 0) == BST_CHECKED;
+			if (Settings.Direct3D)
+			{
+				dwAdapter = SendDlgItemMessage(hWin, IDC_DIRECTXDRIVER, CB_GETITEMDATA, SendDlgItemMessage(hWin, IDC_DIRECTXDRIVER, CB_GETCURSEL, 0, 0), 0);
+				pd3d->GetAdapterIdentifier(dwAdapter, D3DENUM_NO_WHQL_LEVEL, &d3dai);
+				memcpy(&Settings.Direct3DDeviceGuid, &d3dai.DeviceIdentifier, sizeof(GUID));
+				if ((dw = SendDlgItemMessage(hWin, IDC_FS_RESOLUTION, CB_GETITEMDATA, SendDlgItemMessage(hWin, IDC_FS_RESOLUTION, CB_GETCURSEL, 0, 0), 0)) != CB_ERR)
+				{
+					pd3d->EnumAdapterModes(dwAdapter, dw, &d3ddm);
+					Settings.FullscreenX = d3ddm.Width;
+					Settings.FullscreenY = d3ddm.Height;
+					Settings.FullscreenBpp = d3ddm.Format;
+					Settings.FullscreenRefreshRate = d3ddm.RefreshRate;
+				}
+			}
+
+			if (SendDlgItemMessage(hWin, IDC_FS_FITTOSCREEN, BM_GETCHECK, 0, 0) == BST_CHECKED)
+			{
+				Settings.Fullscreen = FULLSCREEN_FIT;
+			}
+			if (SendDlgItemMessage(hWin, IDC_FS_ZOOM_RADIO, BM_GETCHECK, 0, 0) == BST_CHECKED)
+			{
+				Settings.Fullscreen = FULLSCREEN_ZOOM;
+			}
+			Settings.Fullscreen10_9 = SendDlgItemMessage(hWin, IDC_FS_FIT_GBSCREEN, BM_GETCHECK, 0, 0) == BST_CHECKED;
+			Settings.FullscreenZoom = SendDlgItemMessage(hWin, IDC_FS_ZOOM, CB_GETCURSEL, 0, 0) + 1;
+			return true;
+
+		case PSN_SETACTIVE:
+			SetWindowText(GetDlgItem(hWin, IDC_MISC_FRAME), String(IDS_MISC_FRAME));
+			SetWindowText(GetDlgItem(hWin, IDC_INITIALZOOM_STATIC), String(IDS_GRAPHIC_INITIALZOOM));
+			SetWindowText(GetDlgItem(hWin, IDC_MANUALFRAMESKIP), String(IDS_GRAPHIC_MANUALFRAMESKIP));
+			SetWindowText(GetDlgItem(hWin, IDC_USEDIRECTX), String(IDS_GRAPHIC_USEDIRECTX));
+			SetWindowText(GetDlgItem(hWin, IDC_FULLSCREEN_FRAME), String(IDS_GRAPHIC_FULLSCREEN_FRAME));
+			SetWindowText(GetDlgItem(hWin, IDC_FS_RESOLUTION_STATIC), String(IDS_GRAPHIC_FS_RESOLUTION));
+			SetWindowText(GetDlgItem(hWin, IDC_FS_FITTOSCREEN), String(IDS_GRAPHIC_FS_FITTOSCREEN));
+			SetWindowText(GetDlgItem(hWin, IDC_FS_FIT_GBSCREEN), String(IDS_GRAPHIC_FS_FIT_GBSCREEN));
+			SetWindowText(GetDlgItem(hWin, IDC_FS_ZOOM_RADIO), String(IDS_GRAPHIC_FS_ZOOM));
+			LastOptionPage = OPTIONPAGE_GFX;
+			return true;
+		}
+		break;
+
+	case WM_INITDIALOG:
+		InitOptionDialog(hWin);
+
+		if (Settings.FrameSkipAuto)
+		{
+			SendDlgItemMessage(hWin, IDC_MANUALFRAMESKIP, BM_SETCHECK, BST_UNCHECKED, 0);
+			EnableWindow(GetDlgItem(hWin, IDC_FRAMESKIP), false);
+			EnableWindow(GetDlgItem(hWin, IDC_FRAMESKIPSPIN), false);
+		}
+		else
+		{
+			SendDlgItemMessage(hWin, IDC_MANUALFRAMESKIP, BM_SETCHECK, BST_CHECKED, 0);
+			EnableWindow(GetDlgItem(hWin, IDC_FRAMESKIP), true);
+			EnableWindow(GetDlgItem(hWin, IDC_FRAMESKIPSPIN), true);
+		}
+		SendDlgItemMessage(hWin, IDC_FRAMESKIP, WM_SETTEXT, 0, (LPARAM)itoa(Settings.FrameSkip, NumBuffer, 10));
+
+		SendDlgItemMessage(hWin, IDC_USEDIRECTX, BM_SETCHECK, Settings.Direct3D ? BST_CHECKED : BST_UNCHECKED, 0);
+		if (!Settings.Direct3D)
+		{
+			EnableWindow(GetDlgItem(hWin, IDC_DIRECTXDRIVER), false);
+		}
+
+		if (InitGfx(NULL))
+		{
+			for (dwAdapter = 0; !FAILED(pd3d->GetAdapterIdentifier(dwAdapter, D3DENUM_NO_WHQL_LEVEL, &d3dai)); dwAdapter++)
+			{
+				dwPos = SendDlgItemMessage(hWin, IDC_DIRECTXDRIVER, CB_ADDSTRING, 0, (LPARAM)d3dai.Description);
+				SendDlgItemMessage(hWin, IDC_DIRECTXDRIVER, CB_SETITEMDATA, dwPos, dwAdapter);
+				if (!memcmp(&d3dai.DeviceIdentifier, &Settings.Direct3DDeviceGuid, sizeof(GUID)))
+				{
+					SendDlgItemMessage(hWin, IDC_DIRECTXDRIVER, CB_SETCURSEL, dwPos, 0);
+				}
+			}
+			if (SendDlgItemMessage(hWin, IDC_DIRECTXDRIVER, CB_GETCURSEL, 0, 0) == CB_ERR)
+			{
+				SendDlgItemMessage(hWin, IDC_DIRECTXDRIVER, CB_SETCURSEL, 0, 0);
+			}
+			EnumScreenModes(hWin);
+		}
+		else
+		{
+			EnableWindow(GetDlgItem(hWin, IDC_USEDIRECTX), false);
+		}
+
+		switch (Settings.Fullscreen)
+		{
+		case FULLSCREEN_FIT:
+			SendDlgItemMessage(hWin, IDC_FS_FITTOSCREEN, BM_SETCHECK, BST_CHECKED, 0);
+			EnableWindow(GetDlgItem(hWin, IDC_FS_ZOOM), false);
+			break;
+		case FULLSCREEN_ZOOM:
+			SendDlgItemMessage(hWin, IDC_FS_ZOOM_RADIO, BM_SETCHECK, BST_CHECKED, 0);
+			EnableWindow(GetDlgItem(hWin, IDC_FS_FIT_GBSCREEN), false);
+			break;
+		}
+		SendDlgItemMessage(hWin, IDC_FS_FIT_GBSCREEN, BM_SETCHECK, Settings.Fullscreen10_9 ? BST_CHECKED : BST_UNCHECKED, 0);
+
+		SendDlgItemMessage(hWin, IDC_ZOOM, CB_ADDSTRING, 0, (LPARAM)"100%");
+		SendDlgItemMessage(hWin, IDC_ZOOM, CB_ADDSTRING, 0, (LPARAM)"200%");
+		SendDlgItemMessage(hWin, IDC_ZOOM, CB_ADDSTRING, 0, (LPARAM)"300%");
+		SendDlgItemMessage(hWin, IDC_ZOOM, CB_ADDSTRING, 0, (LPARAM)"400%");
+		SendDlgItemMessage(hWin, IDC_ZOOM, CB_SETCURSEL, Settings.Zoom - 1, 0);
+
+		SendDlgItemMessage(hWin, IDC_FS_ZOOM, CB_ADDSTRING, 0, (LPARAM)"100%");
+		SendDlgItemMessage(hWin, IDC_FS_ZOOM, CB_ADDSTRING, 0, (LPARAM)"200%");
+		SendDlgItemMessage(hWin, IDC_FS_ZOOM, CB_ADDSTRING, 0, (LPARAM)"300%");
+		SendDlgItemMessage(hWin, IDC_FS_ZOOM, CB_ADDSTRING, 0, (LPARAM)"400%");
+		SendDlgItemMessage(hWin, IDC_FS_ZOOM, CB_SETCURSEL, Settings.FullscreenZoom - 1, 0);
+
+		hMsgParent = GetParent(hWin);
 		break;
 	}
 
@@ -2730,12 +3206,12 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CLIENTCREATESTRUCT	ccs;
 	OPENFILENAME		of;
-	char				Filename[MAX_PATH], szBuffer[0x100], szBuffer2[0x100], szBuffer3[0x100], szBuffer4[0x100];
+	char				Filename[MAX_PATH], szBuffer[0x100], szBuffer2[0x100];
 	DWORD				ItemNo, dw, dw2;
 	CGameBoy			*pGameBoy;
 	MENUITEMINFO		mii;
 	HWND				hTempWnd;
-	PROPSHEETPAGE		psp[3];
+	PROPSHEETPAGE		psp[4];
 	PROPSHEETHEADER		psh;
 	RECT				rct;
 
@@ -2812,6 +3288,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 #endif //DEBUGCOMMANDS
 
 		case ID_FILE_OPEN:
+			LOG("WndProc(WM_COMMAND, ID_FILE_OPEN)\n");
 			ZeroMemory(&of, sizeof(of));
 			of.lStructSize = sizeof(of);
 			of.hwndOwner = hWin;
@@ -2829,13 +3306,19 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			of.lpstrFile = Filename;
 			of.nMaxFile = sizeof(Filename);
 			of.lpstrTitle = String(IDS_OPEN);
+			of.lpstrInitialDir = Settings.szRomDir;
 			of.Flags = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_FILEMUSTEXIST | OFN_ENABLEHOOK | OFN_EXPLORER | OFN_ENABLESIZING;
 			of.lpfnHook = OFNHookProc;
 			Filename[0] = 0;
+
+			LOGFUNCTION("GetOpenFileName");
 			if (!GetOpenFileName(&of))
 			{
+				LOGERROR;
 				return 0;
 			}
+			LOGSUCCESS;
+			CopyString(Settings.szRomDir, Filename, of.nFileOffset);
 			if (!*(Filename + strlen(Filename) + 1))
 			{
 				//One file selected
@@ -2857,6 +3340,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					GameBoys.NewGameBoy(Filename, LoadState ? "" : NULL, LoadBattery ? "" : NULL, GBType, AutoStart);
 				}
 			}
+			LOG("WndProc(WM_COMMAND, ID_FILE_OPEN): 0\n");
 			return 0;
 
 		case ID_FILE_CLOSE:
@@ -2977,7 +3461,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case ID_FILE_LOADBATTERY:
 			if (pGameBoy = GameBoys.GetActive(true))
 			{
-				pGameBoy->Stop();
+				pGameBoy->Pause();
 				if (!pGameBoy->SaveBattery(true, false))
 				{
 					ZeroMemory(&of, sizeof(of));
@@ -2998,7 +3482,14 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					of.nMaxFile = sizeof(Filename);
 					of.lpstrTitle = LoadString(IDS_OPEN, szBuffer2, sizeof(szBuffer2));
 					of.Flags = OFN_HIDEREADONLY | OFN_FILEMUSTEXIST;
-					of.lpfnHook = OFNHookProc;
+					if (Settings.Battery_UseRomDir)
+					{
+						of.lpstrInitialDir = Settings.szRomDir;
+					}
+					else
+					{
+						of.lpstrInitialDir = Settings.szBatteryDir;
+					}
 					pGameBoy->GetBatteryFilename(Filename);
 					if (GetOpenFileName(&of))
 					{
@@ -3013,7 +3504,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case ID_FILE_SAVEBATTERY:
 			if (pGameBoy = GameBoys.GetActive(true))
 			{
-				pGameBoy->Stop();
+				pGameBoy->Pause();
 				pGameBoy->SaveBattery(false, false);
 				pGameBoy->Resume();
 				pGameBoy->Release();
@@ -3023,7 +3514,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case ID_FILE_SAVEBATTERYAS:
 			if (pGameBoy = GameBoys.GetActive(true))
 			{
-				pGameBoy->Stop();
+				pGameBoy->Pause();
 				pGameBoy->SaveBattery(false, true);
 				pGameBoy->Resume();
 				pGameBoy->Release();
@@ -3033,7 +3524,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case ID_FILE_CLEARBATTERY:
 			if (pGameBoy = GameBoys.GetActive(true))
 			{
-				pGameBoy->Stop();
+				pGameBoy->Pause();
 				if (!pGameBoy->SaveBattery(true, false))
 				{
 					pGameBoy->LoadBattery(NULL);
@@ -3079,8 +3570,10 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			of.lpstrTitle = LoadString(IDS_OPEN, szBuffer2, sizeof(szBuffer2));
 			of.Flags = OFN_HIDEREADONLY | OFN_FILEMUSTEXIST;
 			Filename[0] = '\0';
+			of.lpstrInitialDir = Settings.szCheatDir;
 			if (GetOpenFileName(&of))
 			{
+				CopyString(Settings.szCheatDir, Filename, of.nFileOffset);
 				Cheats.MergeFile(of.lpstrFile);
 			}
 			return 0;
@@ -3206,6 +3699,23 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SendMessage(hWin, WM_SIZE, 0, (rct.bottom << 16) | (rct.right & 0xFFFF));
 			return 0;
 
+		case ID_VIEW_FULLSCREEN:
+			if (pGameBoy = GameBoys.GetActive(true))
+			{
+				if (pGameBoy->m_pd3dd)
+				{
+					if (!ToggleFullscreen(&pGameBoy->m_pd3dd, &pGameBoy->hGfxWnd))
+					{
+						if (!pGameBoy->m_pd3dd)
+						{
+							InitGfx(&pGameBoy->m_pd3dd);
+						}
+					}
+				}
+				pGameBoy->Release();
+			}
+			return 0;
+
 		case ID_VIEW_ZOOM_100:
 		case ID_VIEW_ZOOM_200:
 		case ID_VIEW_ZOOM_300:
@@ -3216,6 +3726,13 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			}
 			return 0;
 
+		case ID_VIEW_FRAMESKIP_AUTO:
+			if (pGameBoy = GameBoys.GetActive(true))
+			{
+				pGameBoy->SetFrameSkip(-1);
+				pGameBoy->Release();
+			}
+			return 0;
 		case ID_VIEW_FRAMESKIP_0:
 			if (pGameBoy = GameBoys.GetActive(true))
 			{
@@ -3358,7 +3875,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case ID_EMULATION_RESET:
 			if (pGameBoy = GameBoys.GetActive(true))
 			{
-				pGameBoy->Stop();
+				pGameBoy->Pause();
 				pGameBoy->Reset();
 				pGameBoy->Resume();
 				pGameBoy->Release();
@@ -3368,31 +3885,33 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case ID_TOOLS_OPTIONS:
 			CloseInput();
 			InitInput();
-			psp[0].dwSize = sizeof(psp[0]);
-			psp[0].dwFlags = PSP_USETITLE;
+			psp[0].dwSize = sizeof(PROPSHEETPAGE);
+			psp[0].dwFlags = 0;
 			psp[0].hInstance = hInstance;
 			psp[0].pszTemplate = MAKEINTRESOURCE(IDD_OPTIONS_KEYS);
-			psp[0].pszTitle = LoadString(IDS_OPTIONS_KEYS, szBuffer2, sizeof(szBuffer2));
 			psp[0].pfnDlgProc = KeyOptionsDlgProc;
-			psp[1].dwSize = sizeof(psp[1]);
-			psp[1].dwFlags = PSP_USETITLE;
+			psp[1].dwSize = sizeof(PROPSHEETPAGE);
+			psp[1].dwFlags = 0;
 			psp[1].hInstance = hInstance;
 			psp[1].pszTemplate = MAKEINTRESOURCE(IDD_OPTIONS_FILE);
-			psp[1].pszTitle = LoadString(IDS_OPTIONS_FILE, szBuffer3, sizeof(szBuffer3));
 			psp[1].pfnDlgProc = FileOptionsDlgProc;
-			psp[2].dwSize = sizeof(psp[2]);
-			psp[2].dwFlags = PSP_USETITLE;
+			psp[2].dwSize = sizeof(PROPSHEETPAGE);
+			psp[2].dwFlags = 0;
 			psp[2].hInstance = hInstance;
 			psp[2].pszTemplate = MAKEINTRESOURCE(IDD_OPTIONS_GENERAL);
-			psp[2].pszTitle = LoadString(IDS_OPTIONS_GENERAL, szBuffer4, sizeof(szBuffer4));
 			psp[2].pfnDlgProc = GeneralOptionsDlgProc;
+			psp[3].dwSize = sizeof(PROPSHEETPAGE);
+			psp[3].dwFlags = 0;
+			psp[3].hInstance = hInstance;
+			psp[3].pszTemplate = MAKEINTRESOURCE(IDD_OPTIONS_GRAPHIC);
+			psp[3].pfnDlgProc = GraphicOptionsDlgProc;
 			psh.dwSize = sizeof(psh);
 			psh.dwFlags = PSH_PROPSHEETPAGE;
 			psh.hwndParent = hWin;
 			psh.hInstance = hInstance;
 			psh.pszCaption = String(IDS_OPTIONS);
-			psh.nPages = 3;
-			psh.nStartPage = 0;
+			psh.nPages = 4;
+			psh.nStartPage = LastOptionPage;
 			psh.ppsp = psp;
 			PropertySheet(&psh);
 			hMsgParent = hWnd;
@@ -3405,7 +3924,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			InitInputDevice(JoyGuid[1], &JoyGuid[0], 1);
 			return 0;
 
-		case ID_TOOLS_LINKCABLE:
+		case ID_TOOLS_LINKCABLE_LOCAL:
 			if (Settings.LinkCable)
 			{
 				Settings.LinkCable = false;
@@ -3413,6 +3932,20 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			else
 			{
 				Settings.LinkCable = true;
+			}
+			return 0;
+
+		case ID_TOOLS_LINKCABLE_NETWORK:
+			if (!hNetworkWnd)
+			{
+				if (!(hNetworkWnd = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW, "Network", NULL, WS_VISIBLE | WS_CAPTION | WS_BORDER, 300, 0, 400, 400, /*Tiles.x, Tiles.y, Tiles.Width, Tiles.Height,*/ hClientWnd, NULL, hInstance, NULL)))
+				{
+					DisplayErrorMessage();
+				}
+			}
+			else
+			{
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hNetworkWnd, 0);
 			}
 			return 0;
 
@@ -3506,6 +4039,38 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			InvalidateRect(hHardware, NULL, true);
 		}
+		return 0;
+
+	case WM_APP_INITGFX:
+		if (Settings.Direct3D)
+		{
+			if (!((CGameBoy *)lParam)->m_pd3dd)
+			{
+				InitGfx(&((CGameBoy *)lParam)->m_pd3dd);
+			}
+		}
+		return 0;
+
+	case WM_APP_RELEASEGFX:
+		EnterCriticalSection(&csGraphic);
+		if (((CGameBoy *)lParam)->m_pd3dd)
+		{
+			((CGameBoy *)lParam)->m_pd3dd->Release();
+			((CGameBoy *)lParam)->m_pd3dd = NULL;
+		}
+		if (((CGameBoy *)lParam)->hGfxWnd)
+		{
+			DestroyWindow(((CGameBoy *)lParam)->hGfxWnd);
+			((CGameBoy *)lParam)->hGfxWnd = NULL;
+		}
+		//ShowWindow(hWnd, SW_SHOW);
+		/*if (((CGameBoy *)lParam)->Fullscreen)
+		{
+			SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) & ~WS_EX_TOPMOST);
+		}*/
+		//InvalidateRect(hWnd, NULL, true);
+		//PostMessage(hWnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+		LeaveCriticalSection(&csGraphic);
 		return 0;
 
 	case WM_MENUSELECT:
@@ -3640,6 +4205,11 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			mii.fMask = MIIM_TYPE | MIIM_STATE;
 			mii.dwTypeData = szBuffer;
+			mii.cch = sizeof(szBuffer);
+			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_AUTO, false, &mii);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = pGameBoy->FrameSkip == 0xFF ? MFS_CHECKED : MFS_UNCHECKED;
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_AUTO, false, &mii);
 			mii.cch = sizeof(szBuffer);
 			GetMenuItemInfo((HMENU)wParam, ID_VIEW_FRAMESKIP_0, false, &mii);
 			mii.fType = MFT_RADIOCHECK;
@@ -3780,7 +4350,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		SetMenuItemInfo((HMENU)wParam, ID_VIEW_STATUSBAR, false, &mii);
 
 		mii.fState = MFS_ENABLED | (Settings.LinkCable ? MFS_CHECKED : MFS_UNCHECKED);
-		SetMenuItemInfo((HMENU)wParam, ID_TOOLS_LINKCABLE, false, &mii);
+		SetMenuItemInfo((HMENU)wParam, ID_TOOLS_LINKCABLE_LOCAL, false, &mii);
 
 		if (pGameBoy)
 		{
@@ -4198,6 +4768,30 @@ BOOL SaveWindowSettings(HKEY hKey, char *pszWindowName, WINDOWSETTINGS *pWindowS
 		}																				\
 	}
 
+#define		LoadStringSetting(szSetting, szDest)											\
+	ValueSize = sizeof(szDest);																\
+	if (!RegQueryValueEx(hKey, szSetting, NULL, &ValueType, (BYTE *)&szDest, &ValueSize))	\
+	{																						\
+		if (ValueType != REG_SZ)															\
+		{																					\
+			szStringFilename[0] = '\0';														\
+		}																					\
+	}
+
+#define		LoadGuid(szSetting, Guid)														\
+		ValueSize = sizeof(GUID);															\
+		if (!RegQueryValueEx(hKey, szSetting, NULL, &ValueType, (BYTE *)&Guid, &ValueSize))	\
+		{																					\
+			if (ValueType != REG_BINARY || ValueSize != sizeof(GUID))						\
+			{																				\
+				ZeroMemory(&Guid, sizeof(GUID));											\
+			}																				\
+		}																					\
+		else																				\
+		{																					\
+			ZeroMemory(&Guid, sizeof(GUID));												\
+		}
+
 BOOL LoadCustomSettings()
 {
 	HKEY		hKey, hKey2;
@@ -4212,17 +4806,42 @@ BOOL LoadCustomSettings()
 	Settings.AutoLoadState = false;
 	Settings.SaveBattery = SAVEBATTERY_PROMPT;
 	Settings.SaveState = SAVESTATE_NO;
-	Settings.FrameSkip = 0;
 	Settings.GBType = GB_COLOR;
 	Settings.AutoStart = 0;
 	Settings.SoundEnabled = true;
 	Settings.LinkCable = false;
+	//Settings.NetworkLinkCable = true;
+
+	Settings.Direct3D = true;
+	Settings.FrameSkip = 0;
+	Settings.FrameSkipAuto = true;
+	Settings.Zoom = 1;
+	ZeroMemory(&Settings.Direct3DDeviceGuid, sizeof(GUID));
+	Settings.Fullscreen = false;
+	Settings.Fullscreen10_9 = true;
+	Settings.FullscreenZoom = 1;
+	Settings.FullscreenX = 640;
+	Settings.FullscreenY = 480;
+	Settings.FullscreenBpp = D3DFMT_UNKNOWN;
+	Settings.FullscreenRefreshRate = 0;
+
+	Settings.State_UseRomDir = true;
+	Settings.Battery_UseRomDir = true;
+	Settings.szRomDir[0] = '\0';
+	Settings.szStateDir[0] = '\0';
+	Settings.szBatteryDir[0] = '\0';
+	Settings.szCheatDir[0] = '\0';
+	Settings.szSendFileDir[0] = '\0';
 
 	JoyIsAnalog[0] = false;
 	JoyIsAnalog[1] = false;
 	ZeroMemory(&DirectionEnabled, sizeof(DirectionEnabled));
 	DirectionEnabled[0][0] = true;
 	DirectionEnabled[1][0] = true;
+
+	/*ZeroMemory(&ServiceProviderGuid, sizeof(GUID));
+	ValueSize = sizeof(szPlayerName);
+	GetUserName(szPlayerName, &ValueSize);*/
 
 	if (!RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad\\Settings", 0, KEY_EXECUTE, &hKey))
 	{
@@ -4232,29 +4851,63 @@ BOOL LoadCustomSettings()
 		LoadSetting("AutoLoadState", {Settings.AutoLoadState = Value ? true : false;});
 		LoadSetting("SaveBattery", {Settings.SaveBattery = (BYTE)Value & (SAVEBATTERY_NO | SAVEBATTERY_ALWAYS | SAVEBATTERY_PROMPT);});
 		LoadSetting("SaveState", {Settings.SaveState = (BYTE)Value & (SAVESTATE_NO | SAVESTATE_ALWAYS | SAVESTATE_PROMPT);});
-		LoadSetting("FrameSkip", {Settings.FrameSkip = Value >= 9 ? 9 : (BYTE)Value;});
 		LoadSetting("GameBoyType", {Settings.GBType = (BYTE)Value & GB_COLOR;});
 		LoadSetting("AutoStart", {Settings.AutoStart = (BYTE)Value & (AUTOSTART_DEBUG | AUTOSTART_EXECUTE);});
 		LoadSetting("SoundEnabled", {Settings.SoundEnabled = Value ? true : false;});
 		LoadSetting("LinkCable", {Settings.LinkCable = Value ? true : false;});
-		ValueSize = sizeof(szStringFilename);
-		if (!RegQueryValueEx(hKey, "Language", NULL, &ValueType, (BYTE *)&szStringFilename, &ValueSize))
+		//LoadSetting("NetworkLinkCable", {Settings.NetworkLinkCable = Value ? true : false;});
+
+		LoadSetting("Direct3D", {Settings.Direct3D = Value ? true : false;});
+		LoadGuid("Direct3DDevice", Settings.Direct3DDeviceGuid);
+		LoadSetting("FrameSkip", {Settings.FrameSkip = Value >= 9 ? 9 : (BYTE)Value;});
+		LoadSetting("FrameSkipAuto", {Settings.FrameSkipAuto = Value ? true : false;});
+		LoadSetting("Zoom", {Settings.Zoom = Value > 0 ? (BYTE)Value : 1;});
+		LoadSetting("Fullscreen", {Settings.Fullscreen = Value > 2 ? 2 : (BYTE)Value;});
+		LoadSetting("FullscreenGBScreen", {Settings.Fullscreen10_9 = Value ? true : false;});
+		LoadSetting("FullscreenZoom", {Settings.FullscreenZoom = Value > 0 ? (BYTE)Value : 1;});
+		LoadSetting("FullscreenX", {Settings.FullscreenX = Value;});
+		LoadSetting("FullscreenY", {Settings.FullscreenY = Value;});
+		LoadSetting("FullscreenBpp", {Settings.FullscreenBpp = Value;});
+		LoadSetting("FullscreenRefreshRate", {Settings.FullscreenRefreshRate = Value;});
+
+		LoadStringSetting("Language", szStringFilename);
+		if (szStringFilename[0])
 		{
-			if (ValueType == REG_SZ)
-			{
-				if (szStringFilename[0])
-				{
-					if (!(hStringInstance = LoadLibrary(szStringFilename)))
-					{
-						szStringFilename[0] = '\0';
-					}
-				}
-			}
-			else
+			if (!(hStringInstance = LoadLibrary(szStringFilename)))
 			{
 				szStringFilename[0] = '\0';
 			}
 		}
+
+		LoadSetting("State_UseROMDir", {Settings.State_UseRomDir = Value ? true : false;});
+		LoadSetting("Battery_UseROMDir", {Settings.Battery_UseRomDir = Value ? true : false;});
+		LoadStringSetting("ROMPath", Settings.szRomDir);
+		LoadStringSetting("StatePath", Settings.szStateDir);
+		LoadStringSetting("BatteryPath", Settings.szBatteryDir);
+
+		/*ValueSize = sizeof(ServiceProviderGuid);
+		if (!RegQueryValueEx(hKey, "ServiceProviderGuid", NULL, &ValueType, (BYTE *)&ServiceProviderGuid, &ValueSize))
+		{
+			if (ValueType != REG_BINARY || ValueSize != sizeof(ServiceProviderGuid))
+			{
+				ZeroMemory(&ServiceProviderGuid, sizeof(ServiceProviderGuid));
+			}
+		}
+		else
+		{
+			ZeroMemory(&ServiceProviderGuid, sizeof(ServiceProviderGuid));
+		}
+
+		ValueSize = sizeof(szPlayerName);
+		if (!RegQueryValueEx(hKey, "PlayerName", NULL, &ValueType, (BYTE *)&szPlayerName, &ValueSize))
+		{
+			if (ValueType != REG_SZ)
+			{
+				ValueSize = sizeof(szPlayerName);
+				GetUserName(szPlayerName, &ValueSize);
+			}
+		}*/
+
 		RegCloseKey(hKey);
 	}
 
@@ -4661,6 +5314,22 @@ void DeleteAllSubKeys(HKEY hKey, char *pszKey)
 		return;																					\
 	}
 
+#define		SaveStringSetting(szString, szSetting)														\
+	if (dwErrCode = RegSetValueEx(hKey, szSetting, 0, REG_SZ, (BYTE *)&szString, strlen(szString) + 1))	\
+	{																									\
+		RegCloseKey(hKey);																				\
+		DisplayErrorMessage(dwErrCode);																	\
+		return;																							\
+	}
+
+#define		SaveGuid(Guid, szSetting)															\
+	if (dwErrCode = RegSetValueEx(hKey, szSetting, 0, REG_BINARY, (BYTE *)&Guid, sizeof(GUID)))	\
+	{																							\
+		RegCloseKey(hKey);																		\
+		DisplayErrorMessage(dwErrCode);															\
+		return;																					\
+	}
+
 void SaveCustomSettings()
 {
 	HKEY		hKey, hKey2;
@@ -4679,17 +5348,41 @@ void SaveCustomSettings()
 	SaveSetting(Settings.AutoLoadState, "AutoLoadState");
 	SaveSetting(Settings.SaveBattery, "SaveBattery");
 	SaveSetting(Settings.SaveState, "SaveState");
-	SaveSetting(Settings.FrameSkip, "FrameSkip");
 	SaveSetting(Settings.GBType, "GameBoyType");
 	SaveSetting(Settings.AutoStart, "AutoStart");
 	SaveSetting(Settings.SoundEnabled, "SoundEnabled");
 	SaveSetting(Settings.LinkCable, "LinkCable");
-	if (dwErrCode = RegSetValueEx(hKey, "Language", 0, REG_SZ, (BYTE *)&szStringFilename, strlen(szStringFilename) + 1))
+	//SaveSetting(Settings.NetworkLinkCable, "NetworkLinkCable");
+
+	SaveSetting(Settings.Direct3D, "Direct3D");
+	SaveGuid(Settings.Direct3DDeviceGuid, "Direct3DDevice");
+	SaveSetting(Settings.FrameSkip, "FrameSkip");
+	SaveSetting(Settings.FrameSkipAuto, "FrameSkipAuto");
+	SaveSetting(Settings.Zoom, "Zoom");
+	SaveSetting(Settings.Fullscreen, "Fullscreen");
+	SaveSetting(Settings.Fullscreen10_9, "FullscreenGBScreen");
+	SaveSetting(Settings.FullscreenZoom, "FullscreenZoom");
+	SaveSetting(Settings.FullscreenX, "FullscreenX");
+	SaveSetting(Settings.FullscreenY, "FullscreenY");
+	SaveSetting(Settings.FullscreenBpp, "FullscreenBpp");
+	SaveSetting(Settings.FullscreenRefreshRate, "FullscreenRefreshRate");
+
+	SaveStringSetting(szStringFilename, "Language");
+
+	SaveSetting(Settings.State_UseRomDir, "State_UseROMDir");
+	SaveSetting(Settings.Battery_UseRomDir, "Battery_UseROMDir");
+	SaveStringSetting(Settings.szRomDir, "ROMPath");
+	SaveStringSetting(Settings.szStateDir, "StatePath");
+	SaveStringSetting(Settings.szBatteryDir, "BatteryPath");
+
+	/*if (dwErrCode = RegSetValueEx(hKey, "ServiceProviderGuid", 0, REG_BINARY, (BYTE *)&ServiceProviderGuid, sizeof(ServiceProviderGuid)))
 	{
 		RegCloseKey(hKey);
 		DisplayErrorMessage(dwErrCode);
 		return;
 	}
+	SaveStringSetting(szPlayerName, "PlayerName");*/
+
 	RegCloseKey(hKey);
 
 	if (dwErrCode = RegCreateKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad\\Settings\\Player1", 0, "REG_DWORD", REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, &dw))
@@ -4921,9 +5614,6 @@ void SaveCustomSettings()
 	SaveSetting(StatusBarAppearance, "StatusBarAppearance");
 
 	RegCloseKey(hKey);
-
-
-	Cheats.Save();
 }
 
 
@@ -4997,6 +5687,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	{
 		return 1;
 	}
+	strcpy(Settings.szCheatDir, Settings.szRomDir);
+	strcpy(Settings.szSendFileDir, Settings.szRomDir);
 
 
 	//Set Game Lad specific keys in the system registry
@@ -5037,6 +5729,24 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 		delete pKeySchemes;
 		return 1;
 	}
+	//Fullscreen graphic window
+	wc.lpfnWndProc = GraphicWndProc;
+	wc.lpszClassName = "Graphic";
+	if (!RegisterClass(&wc))
+	{
+		DisplayErrorMessage();
+		delete pKeySchemes;
+		return 1;
+	}
+	/*//Network window
+	wc.lpfnWndProc = NetworkWndProc;
+	wc.lpszClassName = "Network";
+	if (!RegisterClass(&wc))
+	{
+		DisplayErrorMessage();
+		delete pKeySchemes;
+		return 1;
+	}*/
 	//Game Boy window
 	wc.lpfnWndProc = GameBoyWndProc;
 	wc.hbrBackground = NULL;
@@ -5104,6 +5814,13 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	}
 
 
+	InitializeCriticalSection(&csSound);
+	InitializeCriticalSection(&csGameBoy);
+	InitializeCriticalSection(&csTerminate);
+	InitializeCriticalSection(&csGraphic);
+	InitializeCriticalSection(&csNetwork);
+
+
 	//See if a path to a file has been sent on the command line
 	if (lpCmdLine[0])
 	{
@@ -5141,9 +5858,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	}
 
 
-	InitializeCriticalSection(&csSound);
-	InitializeCriticalSection(&csGameBoy);
-	InitializeCriticalSection(&csTerminate);
+	//Init COM so we can use CoCreateInstance
+	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
 
 	//Show window
@@ -5163,12 +5879,12 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 			{
 				if (msg.wParam >= '0' && msg.wParam <= '9')
 				{
+					EnterCriticalSection(&csGameBoy);
 					if (F4Pressed == GameBoys.GetActive(false))
 					{
-						F4Pressed->AddRef();
 						F4Pressed->SetStateSlot(msg.wParam - '0');
-						F4Pressed->Release();
 					}
+					LeaveCriticalSection(&csGameBoy);
 				}
 				else
 				{
@@ -5189,6 +5905,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	//Time to clean up
 
 
+	ENDLOG;
+
+
+	CloseGfx();
 	CloseSound();
 	CloseInput();
 
@@ -5198,9 +5918,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	}
 
 
-	DeleteCriticalSection(&csTerminate);
-	DeleteCriticalSection(&csGameBoy);
-	DeleteCriticalSection(&csSound);
+	SaveCustomSettings();
 
 
 	DestroyMenu(hPopupMenu);
@@ -5213,10 +5931,16 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	DdeUninitialize(DdeInst);
 
 
-	SaveCustomSettings();
-
-
 	delete pKeySchemes;
+
+	Cheats.ReleaseGameBoy();
+
+
+	DeleteCriticalSection(&csNetwork);
+	DeleteCriticalSection(&csGraphic);
+	DeleteCriticalSection(&csTerminate);
+	DeleteCriticalSection(&csGameBoy);
+	DeleteCriticalSection(&csSound);
 
 
 	return msg.wParam;

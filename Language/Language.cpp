@@ -3,6 +3,9 @@
 
 
 char	*GameLadLanguage = 
+#ifdef	BOSNIAN_EXPORTS
+	"Bosnaski";
+#endif
 #ifdef	CZECH_EXPORTS
 	"Cesky";
 #endif
@@ -11,6 +14,9 @@ char	*GameLadLanguage =
 #endif
 #ifdef	FRENCH_EXPORTS
 	"Français";
+#endif
+#ifdef	GERMAN_EXPORTS
+	"Deutsch";
 #endif
 #ifdef	ITALIAN_EXPORTS
 	"Italian"; //change

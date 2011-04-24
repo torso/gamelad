@@ -1,7 +1,7 @@
 Swedish translation for Game Lad
 
 Put the dll file into your Game Lad directory. In the options dialog, choose "Svenska".
-This version (1.1) is intended to be used with Game Lad 1.41, but everything should be
+This version (1.2) is intended to be used with Game Lad 1.6, but everything should be
 backwards compatible.
 New versions of Game Lad and translations are available at http://gamelad.emuunlim.com
 I use this translation to verify Game Lad being able to use translations, not to provide an
@@ -13,7 +13,7 @@ torbjrn@emuunlim.com
 Svensk översättning för Game Lad
 
 Placera dll-filen i samma mapp som Game Lad. I inställningar (Tools, Options), välj Svenska.
-Denna version (1.1) är anpassad för Game Lad 1.41, men allting borde vara bakåtkompatibelt.
+Denna version (1.2) är anpassad för Game Lad 1.6, men allting borde vara bakåtkompatibelt.
 Nya versioner av Game Lad och översättningar finns på http://gamelad.emuunlim.com
 Jag använder denna översättning för att testa att Game Lad kan använda översättningar, inte
 för att göra en perfekt, genomarbetad svensk översättning. Om du behöver kontakta mig är
