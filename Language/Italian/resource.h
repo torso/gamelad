@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Developer Studio generated include file.
-// Used by Swedish.rc
+// Used by Italian.rc
 //
 #define IDS_FILE_OPEN                   1
 #define IDS_FILE_CLOSE                  2

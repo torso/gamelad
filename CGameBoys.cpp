@@ -109,11 +109,11 @@ BOOL CGameBoys::DeleteGameBoy(CGameBoy *pGameBoy)
 	char		szBuffer[0x100];
 
 
-	EnterCriticalSection(&csGameBoy);
-
 	pGameBoyItem = m_pFirstGameBoy;
 
 	pGameBoy->Stop();
+
+	EnterCriticalSection(&csGameBoy);
 
 	if (!pGameBoy->CanUnload())
 	{
@@ -289,16 +289,7 @@ CGameBoy *CGameBoys::GetPlayer2(BOOL AddRef)
 LRESULT CGameBoys::WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CGameBoy		*pGameBoy;
-	LRESULT			lResult;
 
-
-	EnterCriticalSection(&csGameBoy);
-
-	/*if (!IsWindow(hWin))
-	{
-		LeaveCriticalSection(&csGameBoy);
-		return DefMDIChildProc(hWin, uMsg, wParam, lParam);
-	}*/
 
 	if (pGameBoy = (CGameBoy *)GetWindowLong(hWin, GWL_USERDATA))
 	{
@@ -321,18 +312,13 @@ LRESULT CGameBoys::WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 		case WM_CLOSE:
 			DeleteGameBoy(pGameBoy);
-			LeaveCriticalSection(&csGameBoy);
 			return 0;
 		}
 
-		lResult = pGameBoy->GameBoyWndProc(uMsg, wParam, lParam);
-		LeaveCriticalSection(&csGameBoy);
-		return lResult;
+		return pGameBoy->GameBoyWndProc(uMsg, wParam, lParam);
 	}
 
-	lResult = DefMDIChildProc(hWin, uMsg, wParam, lParam);
-	LeaveCriticalSection(&csGameBoy);
-	return lResult;
+	return DefMDIChildProc(hWin, uMsg, wParam, lParam);
 }
 
 
@@ -341,7 +327,7 @@ void CGameBoys::UpdateKeys(CGameBoy *pGameBoy)
 {
 	DIJOYSTATE		dijs;
 	float			f;
-	DWORD			dwPlayerNo;
+	DWORD			dwPlayerNo, dw;
 
 
 	pGameBoy->DirectionKeys = 0;
@@ -503,80 +489,108 @@ void CGameBoys::UpdateKeys(CGameBoy *pGameBoy)
 			}
 			if (!lpdidJoysticks[dwPlayerNo]->GetDeviceState(sizeof(dijs), &dijs))
 			{
-				if (dijs.lX < JoyLeftX[dwPlayerNo])
+				for (dw = 1; dw < 5; dw++)
 				{
-					if (JoyIsAnalog[dwPlayerNo])
+					if (DirectionEnabled[dwPlayerNo][dw])
 					{
-						f = (10 * (float)(JoyLeftX[dwPlayerNo] - JoyMinX[dwPlayerNo] - dijs.lX)) / (float)(JoyLeftX[dwPlayerNo] - JoyMinX[dwPlayerNo]);
-						if (++pGameBoy->JoyLeft > 10)
+						if ((dijs.rgdwPOV[0] & 0xFFFF) != 0xFFFF)
 						{
-							pGameBoy->JoyLeft = 0;
+							if (dijs.rgdwPOV[0] >= 4500 && dijs.rgdwPOV[0] <= 13500)
+							{
+								pGameBoy->DirectionKeys |= 0x01;
+							}
+							if (dijs.rgdwPOV[0] >= 13500 && dijs.rgdwPOV[0] <= 22500)
+							{
+								pGameBoy->DirectionKeys |= 0x08;
+							}
+							if (dijs.rgdwPOV[0] >= 22500 && dijs.rgdwPOV[0] <= 31500)
+							{
+								pGameBoy->DirectionKeys |= 0x02;
+							}
+							if (dijs.rgdwPOV[0] >= 31500 || dijs.rgdwPOV[0] <= 4500)
+							{
+								pGameBoy->DirectionKeys |= 0x04;
+							}
 						}
-						if (pGameBoy->JoyLeft <= f)
+					}
+				}
+				if (DirectionEnabled[dwPlayerNo][0])
+				{
+					if (dijs.lX < JoyLeftX[dwPlayerNo])
+					{
+						if (JoyIsAnalog[dwPlayerNo])
+						{
+							f = (10 * (float)(JoyLeftX[dwPlayerNo] - JoyMinX[dwPlayerNo] - dijs.lX)) / (float)(JoyLeftX[dwPlayerNo] - JoyMinX[dwPlayerNo]);
+							if (++pGameBoy->JoyLeft > 10)
+							{
+								pGameBoy->JoyLeft = 0;
+							}
+							if (pGameBoy->JoyLeft <= f)
+							{
+								pGameBoy->DirectionKeys |= 0x02;
+							}
+						}
+						else
 						{
 							pGameBoy->DirectionKeys |= 0x02;
 						}
 					}
-					else
+					if (dijs.lX > JoyRightX[dwPlayerNo])
 					{
-						pGameBoy->DirectionKeys |= 0x02;
-					}
-				}
-				if (dijs.lX > JoyRightX[dwPlayerNo])
-				{
-					if (JoyIsAnalog[dwPlayerNo])
-					{
-						f = (10 * (float)(dijs.lX - JoyRightX[dwPlayerNo])) / (float)(JoyMaxX[dwPlayerNo] - JoyRightX[dwPlayerNo]);
-						if (++pGameBoy->JoyRight > 10)
+						if (JoyIsAnalog[dwPlayerNo])
 						{
-							pGameBoy->JoyRight = 0;
+							f = (10 * (float)(dijs.lX - JoyRightX[dwPlayerNo])) / (float)(JoyMaxX[dwPlayerNo] - JoyRightX[dwPlayerNo]);
+							if (++pGameBoy->JoyRight > 10)
+							{
+								pGameBoy->JoyRight = 0;
+							}
+							if (pGameBoy->JoyRight <= f)
+							{
+								pGameBoy->DirectionKeys |= 0x01;
+							}
 						}
-						if (pGameBoy->JoyRight <= f)
+						else
 						{
 							pGameBoy->DirectionKeys |= 0x01;
 						}
 					}
-					else
+					if (dijs.lY > JoyUpY[dwPlayerNo])
 					{
-						pGameBoy->DirectionKeys |= 0x01;
-					}
-				}
-				if (dijs.lY > JoyUpY[dwPlayerNo])
-				{
-					if (JoyIsAnalog[dwPlayerNo])
-					{
-						f = (10 * (float)(dijs.lY - JoyUpY[dwPlayerNo])) / (float)(JoyMaxY[dwPlayerNo] - JoyUpY[dwPlayerNo]);
-						if (++pGameBoy->JoyUp > 10)
+						if (JoyIsAnalog[dwPlayerNo])
 						{
-							pGameBoy->JoyUp = 0;
+							f = (10 * (float)(dijs.lY - JoyUpY[dwPlayerNo])) / (float)(JoyMaxY[dwPlayerNo] - JoyUpY[dwPlayerNo]);
+							if (++pGameBoy->JoyUp > 10)
+							{
+								pGameBoy->JoyUp = 0;
+							}
+							if (pGameBoy->JoyUp <= f)
+							{
+								pGameBoy->DirectionKeys |= 0x08;
+							}
 						}
-						if (pGameBoy->JoyUp <= f)
+						else
 						{
 							pGameBoy->DirectionKeys |= 0x08;
 						}
 					}
-					else
+					if (dijs.lY < JoyDownY[dwPlayerNo])
 					{
-						pGameBoy->DirectionKeys |= 0x08;
-					}
-				}
-				if (dijs.lY < JoyDownY[dwPlayerNo])
-				{
-					if (JoyIsAnalog[dwPlayerNo])
-					{
-						f = (10 * (float)(JoyDownY[dwPlayerNo] - JoyMinY[dwPlayerNo] - dijs.lY)) / (float)(JoyDownY[dwPlayerNo] - JoyMinY[dwPlayerNo]);
-						if (++pGameBoy->JoyDown > 10)
+						if (JoyIsAnalog[dwPlayerNo])
 						{
-							pGameBoy->JoyDown = 0;
+							f = (10 * (float)(JoyDownY[dwPlayerNo] - JoyMinY[dwPlayerNo] - dijs.lY)) / (float)(JoyDownY[dwPlayerNo] - JoyMinY[dwPlayerNo]);
+							if (++pGameBoy->JoyDown > 10)
+							{
+								pGameBoy->JoyDown = 0;
+							}
+							if (pGameBoy->JoyDown <= f)
+							{
+								pGameBoy->DirectionKeys |= 0x04;
+							}
 						}
-						if (pGameBoy->JoyDown <= f)
+						else
 						{
 							pGameBoy->DirectionKeys |= 0x04;
 						}
-					}
-					else
-					{
-						pGameBoy->DirectionKeys |= 0x04;
 					}
 				}
 				if (JoyButtons[dwPlayerNo].Up)

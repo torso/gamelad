@@ -14,7 +14,7 @@ INPUT_CPP	LPDIRECTINPUTDEVICE8	lpdidJoysticks[2];
 INPUT_CPP	LPDIRECTINPUTEFFECT		lpdieRumble[2];
 INPUT_CPP	long					JoyLeftX[2], JoyRightX[2], JoyDownY[2], JoyUpY[2];
 INPUT_CPP	long					JoyMinX[2], JoyMaxX[2], JoyMinY[2], JoyMaxY[2];
-INPUT_CPP	BOOL					JoyIsAnalog[2];
+INPUT_CPP	BOOL					JoyIsAnalog[2], DirectionEnabled[2][5];
 
 
 

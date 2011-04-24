@@ -15,6 +15,10 @@
 
 
 
+//#define		DEBUGCOMMANDS
+
+
+
 #define		GAME_LAD_RELEASENO				5
 #define		VERSION_MAJOR					1
 #define		VERSION_MINOR					31
@@ -34,6 +38,8 @@ struct JOYSTICKINFO
 {
 	GUID	Guid;
 
+	BOOL	DirectionEnabled[5];
+
 	/*char	AxisX[MAX_PATH];
 	char	AxisY[MAX_PATH];
 	char	AxisZ[MAX_PATH];
@@ -41,11 +47,10 @@ struct JOYSTICKINFO
 	char	AxisRY[MAX_PATH];
 	char	AxisRZ[MAX_PATH];
 	char	AxisSlider1[MAX_PATH];
-	char	AxisSlider2[MAX_PATH];
-	char	AxisPOV1[MAX_PATH];
-	char	AxisPOV2[MAX_PATH];
-	char	AxisPOV3[MAX_PATH];
-	char	AxisPOV4[MAX_PATH];*/
+	char	AxisSlider2[MAX_PATH];*/
+
+	DWORD	dwPOVs;
+	char	POVs[4][MAX_PATH];
 
 	DWORD	dwButtons;
 	char	Buttons[32][MAX_PATH];
@@ -60,6 +65,7 @@ struct KEYSCHEME
 	KEYS	Keyboard[2];
 	KEYS	Joystick[2];
 	BOOL	JoyIsAnalog;
+	BOOL	DirectionEnabled[5];
 
 	BYTE	BuiltIn;
 };
@@ -174,6 +180,7 @@ struct MENUHELPSTRINGS
 	ID_TOOLS_LINKCABLE,				IDS_TOOLS_LINKCABLE,
 	ID_TOOLS_SOUNDENABLED,			IDS_TOOLS_SOUNDENABLED,
 	ID_TOOLS_CHEAT,					IDS_TOOLS_CHEAT,
+	ID_TOOLS_SEARCHCHEAT,			IDS_TOOLS_SEARCHCHEAT,
 	ID_WINDOW_NEXT,					IDS_WINDOW_NEXT,
 	ID_WINDOW_PREVIOUS,				IDS_WINDOW_PREVIOUS,
 	ID_WINDOW_CASCADE,				IDS_WINDOW_CASCADE,
@@ -255,6 +262,73 @@ BOOL HexToNum(char *pc)
 	}
 
 	return false;
+}
+
+
+
+char NibbleToHex(BYTE b)
+{
+	if (b & 0xF0)
+	{
+		return NibbleToHex(b >> 4);
+	}
+
+	if (b <= 9)
+	{
+		return b + '0';
+	}
+
+	return b + 'A' - 10;
+}
+
+
+
+char *DwordToHex(DWORD dw, char *psz)
+{
+	BYTE		c;
+
+
+	c = 0;
+	if (dw & 0xF0000000)
+	{
+		psz[c] = NibbleToHex((BYTE)((dw & 0xF0000000) >> 28));
+		c++;
+	}
+	if (c || (dw & 0xF000000))
+	{
+		psz[c] = NibbleToHex((BYTE)((dw & 0xF000000) >> 24));
+		c++;
+	}
+	if (c || (dw & 0xF00000))
+	{
+		psz[c] = NibbleToHex((BYTE)((dw & 0xF00000) >> 20));
+		c++;
+	}
+	if (c || (dw & 0xF0000))
+	{
+		psz[c] = NibbleToHex((BYTE)((dw & 0xF0000) >> 16));
+		c++;
+	}
+	if (c || (dw & 0xF000))
+	{
+		psz[c] = NibbleToHex((BYTE)((dw & 0xF000) >> 12));
+		c++;
+	}
+	if (c || (dw & 0xF00))
+	{
+		psz[c] = NibbleToHex((BYTE)((dw & 0xF00) >> 8));
+		c++;
+	}
+	if (c || (dw & 0xF0))
+	{
+		psz[c] = NibbleToHex((BYTE)((dw & 0xF0) >> 4));
+		c++;
+	}
+	psz[c] = NibbleToHex((BYTE)(dw & 0xF));
+	c++;
+	psz[c] = '\0';
+
+	return psz;
 }
 
 
@@ -341,6 +415,11 @@ char *CopyString(char *pszDest, char *pszSrc, DWORD dwLength)
 	mii.dwTypeData = String(uString);			\
 	InsertMenuItem(hSubMenu, 0, true, &mii);
 
+#define		DEBUG_MENUITEM(uID, pszString)		\
+	mii.wID = uID;								\
+	mii.dwTypeData = pszString;					\
+	InsertMenuItem(hSubMenu, 0, true, &mii);
+
 #define		MENUITEM2(uID, uString)				\
 	mii.wID = uID;								\
 	mii.dwTypeData = String(uString);			\
@@ -363,6 +442,15 @@ char *CopyString(char *pszDest, char *pszSrc, DWORD dwLength)
 	mii.fType = MFT_STRING;						\
 	mii.hSubMenu = hSubMenu;					\
 	mii.dwTypeData = String(uString);			\
+	InsertMenuItem(hMenu, 0, true, &mii);		\
+	mii.fMask = MIIM_ID | MIIM_TYPE;			\
+	mii.fType = MFT_STRING;
+
+#define		DEBUG_SUBMENU(pszString)			\
+	mii.fMask = MIIM_SUBMENU | MIIM_TYPE;		\
+	mii.fType = MFT_STRING;						\
+	mii.hSubMenu = hSubMenu;					\
+	mii.dwTypeData = pszString;					\
 	InsertMenuItem(hMenu, 0, true, &mii);		\
 	mii.fMask = MIIM_ID | MIIM_TYPE;			\
 	mii.fType = MFT_STRING;
@@ -399,6 +487,13 @@ HMENU CreateMenus(HMENU hMainMenu, HMENU hPopupMenu)
 
 	hMenu = hMainMenu;
 
+#ifdef DEBUGCOMMANDS
+	//Debug menu
+	hSubMenu = CreateMenu();
+	DEBUG_MENUITEM(ID_DEBUG_COMMAND1, "Joystick info");
+	DEBUG_SUBMENU("Debug");
+#endif //DEBUGCOMMANDS
+
 	//Help menu
 	hSubMenu = CreateMenu();
 	MENUITEM(ID_HELP_ABOUT, IDS_HELP_ABOUT_MENU);
@@ -416,6 +511,7 @@ HMENU CreateMenus(HMENU hMainMenu, HMENU hPopupMenu)
 
 	//Tools menu
 	hSubMenu = CreateMenu();
+	MENUITEM(ID_TOOLS_SEARCHCHEAT, IDS_TOOLS_SEARCHCHEAT_MENU);
 	MENUITEM(ID_TOOLS_CHEAT, IDS_TOOLS_CHEAT_MENU);
 	MENUITEM(ID_TOOLS_SOUNDENABLED, IDS_TOOLS_SOUNDENABLED_MENU);
 	MENUITEM(ID_TOOLS_LINKCABLE, IDS_TOOLS_LINKCABLE_MENU);
@@ -588,14 +684,11 @@ HMENU CreateMenus(HMENU hMainMenu, HMENU hPopupMenu)
 
 
 
-#define		ChangeLanguageWnd(hWin)						\
-	if (hWin)											\
-	{													\
-		SendMessage(hWin, WM_APP_CHANGELANGUAGE, 0, 0);	\
-	}
-
 void ChangeLanguage()
 {
+	HWND		hWin;
+
+
 	DeleteMenu(GetMenu(hWnd), 0, MF_BYPOSITION);
 	DeleteMenu(GetMenu(hWnd), 0, MF_BYPOSITION);
 	DeleteMenu(GetMenu(hWnd), 0, MF_BYPOSITION);
@@ -607,13 +700,15 @@ void ChangeLanguage()
 	DeleteMenu(hPopupMenu, 0, MF_BYPOSITION);
 	CreateMenus(GetMenu(hWnd), hPopupMenu);
 	DrawMenuBar(hWnd);
-	ChangeLanguageWnd(hRegisters);
-	ChangeLanguageWnd(hDisAsm);
-	ChangeLanguageWnd(hMemory);
-	ChangeLanguageWnd(hTiles);
-	ChangeLanguageWnd(hTileMap);
-	ChangeLanguageWnd(hPalettes);
-	ChangeLanguageWnd(hHardware);
+
+	EnterCriticalSection(&csGameBoy);
+
+	for (hWin = GetTopWindow(hClientWnd); hWin; hWin = GetNextWindow(hWin, GW_HWNDNEXT))
+	{
+		SendMessage(hWin, WM_APP_CHANGELANGUAGE, 0, 0);
+	}
+
+	LeaveCriticalSection(&csGameBoy);
 }
 
 
@@ -670,6 +765,21 @@ void SetStatus(char *szStatusText, DWORD dwStatus)
 LPARAM CALLBACK GameBoyWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	return GameBoys.WndProc(hWin, uMsg, wParam, lParam);
+}
+
+
+
+LRESULT CALLBACK SearchCheatWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	CGameBoy		*pGameBoy;
+
+
+	if (pGameBoy = (CGameBoy *)GetWindowLong(hWin, GWL_USERDATA))
+	{
+		return pGameBoy->SearchCheatWndProc(uMsg, wParam, lParam);
+	}
+
+	return DefMDIChildProc(hWin, uMsg, wParam, lParam);
 }
 
 
@@ -1413,7 +1523,7 @@ struct CHARACTERS
 
 KEYS		TempKeys[4], TempJoyButtons[4];
 GUID		TempGuid[2];
-BOOL		TempJoyIsAnalog[2];
+BOOL		TempJoyIsAnalog[2], TempDirectionEnabled[2][5];
 char		szTempKeyScheme[2][0x100];
 DWORD		ButtonListPos;
 
@@ -1639,6 +1749,18 @@ BOOL RefreshKeys(HWND hWin, BOOL RefreshButtons)
 
 		if (pJoyStickInfo = (JOYSTICKINFO *)SendDlgItemMessage(hWin, IDC_INPUTDEVICES, CB_GETITEMDATA, SendDlgItemMessage(hWin, IDC_INPUTDEVICES, CB_GETCURSEL, 0, 0), 0))
 		{
+			SendDlgItemMessage(hWin, IDC_DIRECTION, CB_RESETCONTENT, 0, 0);
+			SendDlgItemMessage(hWin, IDC_DIRECTION, CB_ADDSTRING, 0, (LPARAM)String(IDS_OPTIONS_KEYS_DIRECTION_XY));
+			for (dwPos = 0; dwPos < pJoyStickInfo->dwPOVs; dwPos++)
+			{
+				SendDlgItemMessage(hWin, IDC_DIRECTION, CB_ADDSTRING, 0, (LPARAM)&pJoyStickInfo->POVs[dwPos]);
+			}
+			SendDlgItemMessage(hWin, IDC_DIRECTION, CB_SETCURSEL, 0, 0);
+			if (SendDlgItemMessage(hWin, IDC_PLAYER, CB_GETCURSEL, 0, 0) <= 1)
+			{
+				SendDlgItemMessage(hWin, IDC_DIRECTION_ENABLED, BM_SETCHECK, TempDirectionEnabled[SendDlgItemMessage(hWin, IDC_PLAYER, CB_GETCURSEL, 0, 0)][0] ? BST_CHECKED : BST_UNCHECKED, 0);
+			}
+
 			SendDlgItemMessage(hWin, IDC_DEVICE_BUTTONS, CB_RESETCONTENT, 0, 0);
 			SendDlgItemMessage(hWin, IDC_DEVICE_BUTTONS, CB_ADDSTRING, 0, (LPARAM)String(IDS_OPTIONS_KEYS_NOKEY));
 			for (dwPos = 0; dwPos < pJoyStickInfo->dwButtons; dwPos++)
@@ -1677,6 +1799,16 @@ BOOL RefreshKeys(HWND hWin, BOOL RefreshButtons)
 		EnableWindow(GetDlgItem(hWin, IDC_KEYBOARD), true);
 	}
 
+	if (!SendDlgItemMessage(hWin, IDC_INPUTDEVICES, CB_GETITEMDATA, SendDlgItemMessage(hWin, IDC_INPUTDEVICES, CB_GETCURSEL, 0, 0), 0))
+	{
+		EnableWindow(GetDlgItem(hWin, IDC_DIRECTION), false);
+		EnableWindow(GetDlgItem(hWin, IDC_DIRECTION_ENABLED), false);
+	}
+	else
+	{
+		EnableWindow(GetDlgItem(hWin, IDC_DIRECTION), true);
+		EnableWindow(GetDlgItem(hWin, IDC_DIRECTION_ENABLED), true);
+	}
 	if ((ButtonListPos == 8 && SendDlgItemMessage(hWin, IDC_BUTTONTYPE, CB_GETCURSEL, 0, 0)) || !SendDlgItemMessage(hWin, IDC_INPUTDEVICES, CB_GETITEMDATA, SendDlgItemMessage(hWin, IDC_INPUTDEVICES, CB_GETCURSEL, 0, 0), 0))
 	{
 		EnableWindow(GetDlgItem(hWin, IDC_DEVICE_BUTTONS), false);
@@ -1703,17 +1835,20 @@ BOOL RefreshKeys(HWND hWin, BOOL RefreshButtons)
 
 BOOL CALLBACK EnumDeviceObjectsProc(const DIDEVICEOBJECTINSTANCE *lpddoi, void *pJoyStickInfo)
 {
-	if (lpddoi->guidType != GUID_Button)
+	if (lpddoi->guidType == GUID_Button)
 	{
-		return DIENUM_CONTINUE;
+		if (((JOYSTICKINFO *)pJoyStickInfo)->dwButtons < 32)
+		{
+			strcpy(((JOYSTICKINFO *)pJoyStickInfo)->Buttons[((JOYSTICKINFO *)pJoyStickInfo)->dwButtons++], lpddoi->tszName);
+		}
 	}
-
-	if (((JOYSTICKINFO *)pJoyStickInfo)->dwButtons >= 32)
+	else if (lpddoi->guidType == GUID_POV)
 	{
-		return DIENUM_STOP;
+		if (((JOYSTICKINFO *)pJoyStickInfo)->dwPOVs < 32)
+		{
+			strcpy(((JOYSTICKINFO *)pJoyStickInfo)->POVs[((JOYSTICKINFO *)pJoyStickInfo)->dwPOVs++], lpddoi->tszName);
+		}
 	}
-
-	strcpy(((JOYSTICKINFO *)pJoyStickInfo)->Buttons[((JOYSTICKINFO *)pJoyStickInfo)->dwButtons++], lpddoi->tszName);
 
 	return DIENUM_CONTINUE;
 }
@@ -1908,6 +2043,19 @@ BOOL CALLBACK KeyOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			}
 			break;
 
+		case IDC_DIRECTION:
+			if (HIWORD(wParam) == CBN_SELCHANGE)
+			{
+				SendDlgItemMessage(hWin, IDC_DIRECTION_ENABLED, BM_SETCHECK, TempDirectionEnabled[SendDlgItemMessage(hWin, IDC_PLAYER, CB_GETCURSEL, 0, 0)][SendDlgItemMessage(hWin, IDC_DIRECTION, CB_GETCURSEL, 0, 0)] ? BST_CHECKED : BST_UNCHECKED, 0);
+				return true;
+			}
+			break;
+
+		case IDC_DIRECTION_ENABLED:
+			SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			TempDirectionEnabled[SendDlgItemMessage(hWin, IDC_PLAYER, CB_GETCURSEL, 0, 0)][SendDlgItemMessage(hWin, IDC_DIRECTION, CB_GETCURSEL, 0, 0)] = (SendDlgItemMessage(hWin, IDC_DIRECTION_ENABLED, BM_GETCHECK, 0, 0) == BST_CHECKED) ? true : false;
+			return true;
+
 		case IDC_JOYSTICK_ANALOG:
 			SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
 			TempJoyIsAnalog[SendDlgItemMessage(hWin, IDC_PLAYER, CB_GETCURSEL, 0, 0)] = (SendDlgItemMessage(hWin, IDC_JOYSTICK_ANALOG, BM_GETCHECK, 0, 0) == BST_CHECKED) ? true : false;
@@ -1927,6 +2075,7 @@ BOOL CALLBACK KeyOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 				memcpy(&TempKeys[dwPlayer * 2], pKeyScheme->Keyboard, sizeof(KEYS[2]));
 				memcpy(&TempJoyButtons[dwPlayer * 2], pKeyScheme->Joystick, sizeof(KEYS[2]));
 				TempJoyIsAnalog[dwPlayer] = pKeyScheme->JoyIsAnalog;
+				CopyMemory(TempDirectionEnabled[dwPlayer], pKeyScheme->DirectionEnabled, sizeof(pKeyScheme->DirectionEnabled));
 				RefreshKeys(hWin, true);
 
 				if (((KEYSCHEME *)SendDlgItemMessage(hWin, IDC_SCHEME, CB_GETITEMDATA, SendDlgItemMessage(hWin, IDC_SCHEME, CB_GETCURSEL, 0, 0), 0))->BuiltIn)
@@ -1993,6 +2142,7 @@ BOOL CALLBACK KeyOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 				memcpy(pKeyScheme->Keyboard, &TempKeys[dwPlayer * 2], sizeof(KEYS[2]));
 				memcpy(pKeyScheme->Joystick, &TempJoyButtons[dwPlayer * 2], sizeof(KEYS[2]));
 				pKeyScheme->JoyIsAnalog = TempJoyIsAnalog[dwPlayer];
+				CopyMemory(pKeyScheme->DirectionEnabled, TempDirectionEnabled[dwPlayer], sizeof(pKeyScheme->DirectionEnabled));
 				if (dwPos == CB_ERR)
 				{
 					if ((dwPos = SendDlgItemMessage(hWin, IDC_SCHEME, CB_ADDSTRING, 0, (LPARAM)pKeyScheme->szName)) != CB_ERR)
@@ -2043,6 +2193,7 @@ BOOL CALLBACK KeyOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		CopyMemory((void *)&TempJoyButtons[2], &JoyButtons[1], sizeof(KEYS));
 		CopyMemory((void *)&TempJoyButtons[3], &AutoFireJoyButtons[1], sizeof(KEYS));
 		CopyMemory(TempGuid, JoyGuid, sizeof(GUID[2]));
+		CopyMemory(TempDirectionEnabled, DirectionEnabled, sizeof(DirectionEnabled));
 		strcpy(szTempKeyScheme[0], szKeyScheme[0]);
 		strcpy(szTempKeyScheme[1], szKeyScheme[1]);
 		TempJoyIsAnalog[0] = JoyIsAnalog[0];
@@ -2066,6 +2217,7 @@ BOOL CALLBACK KeyOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			CopyMemory(&JoyButtons[1], &TempJoyButtons[2], sizeof(KEYS));
 			CopyMemory(&AutoFireJoyButtons[1], &TempJoyButtons[3], sizeof(KEYS));
 			CopyMemory(JoyGuid, TempGuid, sizeof(GUID[2]));
+			CopyMemory(DirectionEnabled, TempDirectionEnabled, sizeof(DirectionEnabled));
 			strcpy(szKeyScheme[0], szTempKeyScheme[0]);
 			strcpy(szKeyScheme[1], szTempKeyScheme[1]);
 			TempJoyIsAnalog[SendDlgItemMessage(hWin, IDC_PLAYER, CB_GETCURSEL, 0, 0)] = SendDlgItemMessage(hWin, IDC_JOYSTICK_ANALOG, BM_GETCHECK, 0, 0) == BST_CHECKED ? true : false;
@@ -2100,6 +2252,9 @@ BOOL CALLBACK KeyOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			SendDlgItemMessage(hWin, IDC_INPUTDEVICES, CB_SETITEMDATA, SendDlgItemMessage(hWin, IDC_INPUTDEVICES, CB_ADDSTRING, 0, (LPARAM)String(IDS_OPTIONS_KEYS_JOYSTICK_NONE)), NULL);
 			SendDlgItemMessage(hWin, IDC_INPUTDEVICES, CB_SETCURSEL, 0, 0);
 			EnableWindow(GetDlgItem(hWin, IDC_DEVICE_BUTTONS), false);
+
+			SetWindowText(GetDlgItem(hWin, IDC_DIRECTION_STATIC), String(IDS_OPTIONS_KEYS_DIRECTION));
+			SetWindowText(GetDlgItem(hWin, IDC_DIRECTION_ENABLED), String(IDS_OPTIONS_KEYS_DIRECTION_ENABLED));
 
 			SendDlgItemMessage(hWin, IDC_DEVICE_BUTTONS, CB_ADDSTRING, 0, (LPARAM)String(IDS_OPTIONS_KEYS_NOKEY));
 			SendDlgItemMessage(hWin, IDC_DEVICE_BUTTONS, CB_SETCURSEL, 0, 0);
@@ -2598,6 +2753,65 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
+#ifdef DEBUGCOMMANDS
+		case ID_DEBUG_COMMAND1:
+			if (!lpdidJoysticks[0])
+			{
+				MessageBox(hWin, "Set the joystick/gamepad to player one before using this command.", "Joystick 1", MB_OK | MB_ICONWARNING);
+				return 0;
+			}
+
+			DIJOYSTATE		dijs;
+
+#define		DebugData(szString, Data)							\
+			strcat(szBuffer, ", ");								\
+			strcat(szBuffer, szString);							\
+			strcat(szBuffer, ": ");								\
+			strcat(szBuffer, itoa(Data, NumBuffer, 16));
+
+#define		DebugData2(szString, Data)							\
+			strcat(szBuffer, szString);							\
+			strcat(szBuffer, ": ");								\
+			strcat(szBuffer, itoa(Data, NumBuffer, 16));
+
+			szBuffer[0] = '\0';
+			DebugData2("MinX", JoyMinX[0]);
+			DebugData("MaxX", JoyMaxX[0]);
+			DebugData("Left", JoyLeftX[0]);
+			DebugData("Right", JoyRightX[0]);
+			strcat(szBuffer, "\n");
+			DebugData2("MinY", JoyMinY[0]);
+			DebugData("MaxY", JoyMaxY[0]);
+			DebugData("Up", JoyUpY[0]);
+			DebugData("Down", JoyDownY[0]);
+			strcat(szBuffer, "\n");
+
+			MessageBox(hWin, "Leave direction pad centered while pushing OK.", "Joystick 1", MB_OK | MB_ICONINFORMATION);
+			lpdidJoysticks[0]->Acquire();
+			lpdidJoysticks[0]->Poll();
+			lpdidJoysticks[0]->GetDeviceState(sizeof(dijs), &dijs);
+			DebugData2("CenterX", dijs.lX);
+			DebugData("CenterY", dijs.lY);
+
+			MessageBox(hWin, "Hold direction pad in upper left corner while pushing OK.", "Joystick 1", MB_OK | MB_ICONINFORMATION);
+			lpdidJoysticks[0]->Acquire();
+			lpdidJoysticks[0]->Acquire();
+			lpdidJoysticks[0]->Poll();
+			lpdidJoysticks[0]->GetDeviceState(sizeof(dijs), &dijs);
+			DebugData("Left", dijs.lX);
+			DebugData("Up", dijs.lY);
+
+			MessageBox(hWin, "Hold direction pad in lower right corner while pushing OK.", "Joystick 1", MB_OK | MB_ICONINFORMATION);
+			lpdidJoysticks[0]->Acquire();
+			lpdidJoysticks[0]->Poll();
+			lpdidJoysticks[0]->GetDeviceState(sizeof(dijs), &dijs);
+			DebugData("Right", dijs.lX);
+			DebugData("Down", dijs.lY);
+
+			MessageBox(hWin, szBuffer, "Joystick 1", MB_OK | MB_ICONINFORMATION);
+			return 0;
+#endif //DEBUGCOMMANDS
+
 		case ID_FILE_OPEN:
 			ZeroMemory(&of, sizeof(of));
 			of.lStructSize = sizeof(of);
@@ -3218,6 +3432,14 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			Cheats.ShowCheatDialog();
 			return 0;
 
+		case ID_TOOLS_SEARCHCHEAT:
+			if (pGameBoy = GameBoys.GetActive(true))
+			{
+				pGameBoy->SearchCheat();
+				pGameBoy->Release();
+			}
+			return 0;
+
 		case ID_WINDOW_NEXT:
 			return SendMessage(hClientWnd, WM_MDINEXT, NULL, 0);
 		case ID_WINDOW_PREVIOUS:
@@ -3414,6 +3636,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVEVIDEOAS, false, &mii);
 		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 0), 7, true, &mii);
 		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 2), 11, true, &mii);
+		SetMenuItemInfo((HMENU)wParam, ID_TOOLS_SEARCHCHEAT, false, &mii);
 		if (mii.fState == MFS_ENABLED)
 		{
 			mii.fMask = MIIM_TYPE | MIIM_STATE;
@@ -3560,7 +3783,10 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		mii.fState = MFS_ENABLED | (Settings.LinkCable ? MFS_CHECKED : MFS_UNCHECKED);
 		SetMenuItemInfo((HMENU)wParam, ID_TOOLS_LINKCABLE, false, &mii);
 
-		pGameBoy->Release();
+		if (pGameBoy)
+		{
+			pGameBoy->Release();
+		}
 		return 0;
 
 	/*case WM_NCCALCSIZE:
@@ -3995,6 +4221,9 @@ BOOL LoadCustomSettings()
 
 	JoyIsAnalog[0] = false;
 	JoyIsAnalog[1] = false;
+	ZeroMemory(&DirectionEnabled, sizeof(DirectionEnabled));
+	DirectionEnabled[0][0] = true;
+	DirectionEnabled[1][0] = true;
 
 	if (!RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad\\Settings", 0, KEY_EXECUTE, &hKey))
 	{
@@ -4079,6 +4308,11 @@ BOOL LoadCustomSettings()
 		LoadSetting("JoyAutoStart", {AutoFireJoyButtons[0].Start = Value;});
 		LoadSetting("JoyAutoSelect", {AutoFireJoyButtons[0].Select = Value;});
 		LoadSetting("JoyIsAnalog", {JoyIsAnalog[0] = Value;});
+		LoadSetting("JoyDirectionEnabled0", {DirectionEnabled[0][0] = Value;});
+		LoadSetting("JoyDirectionEnabled1", {DirectionEnabled[0][1] = Value;});
+		LoadSetting("JoyDirectionEnabled2", {DirectionEnabled[0][2] = Value;});
+		LoadSetting("JoyDirectionEnabled3", {DirectionEnabled[0][3] = Value;});
+		LoadSetting("JoyDirectionEnabled4", {DirectionEnabled[0][4] = Value;});
 		ValueSize = sizeof(JoyGuid[0]);
 		if (!RegQueryValueEx(hKey, "JoyGuid", NULL, &ValueType, (BYTE *)&JoyGuid[0], &ValueSize))
 		{
@@ -4142,6 +4376,11 @@ BOOL LoadCustomSettings()
 		LoadSetting("JoyAutoStart", {AutoFireJoyButtons[1].Start = Value;});
 		LoadSetting("JoyAutoSelect", {AutoFireJoyButtons[1].Select = Value;});
 		LoadSetting("JoyIsAnalog", {JoyIsAnalog[1] = Value;});
+		LoadSetting("JoyDirectionEnabled0", {DirectionEnabled[1][0] = Value;});
+		LoadSetting("JoyDirectionEnabled1", {DirectionEnabled[1][1] = Value;});
+		LoadSetting("JoyDirectionEnabled2", {DirectionEnabled[1][2] = Value;});
+		LoadSetting("JoyDirectionEnabled3", {DirectionEnabled[1][3] = Value;});
+		LoadSetting("JoyDirectionEnabled4", {DirectionEnabled[1][4] = Value;});
 		ValueSize = sizeof(JoyGuid[1]);
 		if (!RegQueryValueEx(hKey, "JoyGuid", NULL, &ValueType, (BYTE *)&JoyGuid[1], &ValueSize))
 		{
@@ -4212,6 +4451,7 @@ BOOL LoadCustomSettings()
 					return true;
 				}
 				strcpy(pKeyScheme->szName, szBuffer);
+				pKeyScheme->DirectionEnabled[0] = true;
 				LoadSetting("Up", {pKeyScheme->Keyboard[0].Up = Value;});
 				LoadSetting("Down", {pKeyScheme->Keyboard[0].Down = Value;});
 				LoadSetting("Left", {pKeyScheme->Keyboard[0].Left = Value;});
@@ -4247,6 +4487,11 @@ BOOL LoadCustomSettings()
 				LoadSetting("JoyAutoStart", {pKeyScheme->Joystick[1].Start = Value;});
 				LoadSetting("JoyAutoSelect", {pKeyScheme->Joystick[1].Select = Value;});
 				LoadSetting("JoyIsAnalog", {pKeyScheme->JoyIsAnalog = Value;});
+				LoadSetting("JoyDirectionEnabled0", {pKeyScheme->DirectionEnabled[0] = Value;});
+				LoadSetting("JoyDirectionEnabled1", {pKeyScheme->DirectionEnabled[1] = Value;});
+				LoadSetting("JoyDirectionEnabled2", {pKeyScheme->DirectionEnabled[2] = Value;});
+				LoadSetting("JoyDirectionEnabled3", {pKeyScheme->DirectionEnabled[3] = Value;});
+				LoadSetting("JoyDirectionEnabled4", {pKeyScheme->DirectionEnabled[4] = Value;});
 				ValueSize = sizeof(pKeyScheme->JoyGuid);
 				if (!RegQueryValueEx(hKey, "JoyGuid", NULL, &ValueType, (BYTE *)&pKeyScheme->JoyGuid, &ValueSize))
 				{
@@ -4494,6 +4739,11 @@ void SaveCustomSettings()
 	SaveSetting(AutoFireJoyButtons[0].Start, "JoyAutoStart");
 	SaveSetting(AutoFireJoyButtons[0].Select, "JoyAutoSelect");
 	SaveSetting(JoyIsAnalog[0], "JoyIsAnalog");
+	SaveSetting(DirectionEnabled[0][0], "JoyDirectionEnabled0");
+	SaveSetting(DirectionEnabled[0][1], "JoyDirectionEnabled1");
+	SaveSetting(DirectionEnabled[0][2], "JoyDirectionEnabled2");
+	SaveSetting(DirectionEnabled[0][3], "JoyDirectionEnabled3");
+	SaveSetting(DirectionEnabled[0][4], "JoyDirectionEnabled4");
 	if (dwErrCode = RegSetValueEx(hKey, "JoyGuid", 0, REG_BINARY, (BYTE *)&JoyGuid[0], sizeof(JoyGuid[0])))
 	{
 		RegCloseKey(hKey);
@@ -4547,6 +4797,11 @@ void SaveCustomSettings()
 	SaveSetting(AutoFireJoyButtons[1].Start, "JoyAutoStart");
 	SaveSetting(AutoFireJoyButtons[1].Select, "JoyAutoSelect");
 	SaveSetting(JoyIsAnalog[1], "JoyIsAnalog");
+	SaveSetting(DirectionEnabled[1][0], "JoyDirectionEnabled0");
+	SaveSetting(DirectionEnabled[1][1], "JoyDirectionEnabled1");
+	SaveSetting(DirectionEnabled[1][2], "JoyDirectionEnabled2");
+	SaveSetting(DirectionEnabled[1][3], "JoyDirectionEnabled3");
+	SaveSetting(DirectionEnabled[1][4], "JoyDirectionEnabled4");
 	if (dwErrCode = RegSetValueEx(hKey, "JoyGuid", 0, REG_BINARY, (BYTE *)&JoyGuid[1], sizeof(JoyGuid[1])))
 	{
 		RegCloseKey(hKey);
@@ -4608,6 +4863,11 @@ void SaveCustomSettings()
 			SaveSetting2(pKeyScheme->Joystick[1].Start, "JoyAutoStart");
 			SaveSetting2(pKeyScheme->Joystick[1].Select, "JoyAutoSelect");
 			SaveSetting2(pKeyScheme->JoyIsAnalog, "JoyIsAnalog");
+			SaveSetting2(pKeyScheme->DirectionEnabled[0], "JoyDirectionEnabled0");
+			SaveSetting2(pKeyScheme->DirectionEnabled[1], "JoyDirectionEnabled1");
+			SaveSetting2(pKeyScheme->DirectionEnabled[2], "JoyDirectionEnabled2");
+			SaveSetting2(pKeyScheme->DirectionEnabled[3], "JoyDirectionEnabled3");
+			SaveSetting2(pKeyScheme->DirectionEnabled[4], "JoyDirectionEnabled4");
 			if (dwErrCode = RegSetValueEx(hKey, "JoyGuid", 0, REG_BINARY, (BYTE *)&pKeyScheme->JoyGuid, sizeof(pKeyScheme->JoyGuid)))
 			{
 				RegCloseKey(hKey);
@@ -4724,13 +4984,14 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 		DisplayErrorMessage(ERROR_OUTOFMEMORY);
 		return 1;
 	}
+	ZeroMemory(pKeyScheme, sizeof(*pKeyScheme));
 	pKeyScheme->BuiltIn = true;
 	strcpy(pKeyScheme->szName, "(Default)");
-	ZeroMemory(&pKeyScheme->JoyGuid, sizeof(GUID));
 	CopyMemory(&pKeyScheme->Keyboard[0], &Keys[0], sizeof(KEYS));
 	CopyMemory(&pKeyScheme->Keyboard[1], &AutoFireKeys[0], sizeof(KEYS));
 	CopyMemory(&pKeyScheme->Joystick[0], &JoyButtons[0], sizeof(KEYS));
 	CopyMemory(&pKeyScheme->Joystick[1], &AutoFireJoyButtons[0], sizeof(KEYS));
+	pKeyScheme->DirectionEnabled[0] = true;
 
 	//Loads user's settings
 	if (LoadCustomSettings())
@@ -4768,7 +5029,16 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 		delete pKeySchemes;
 		return 1;
 	}
-	//and Game Boy windows' class
+	//Search cheat window
+	wc.lpfnWndProc = SearchCheatWndProc;
+	wc.lpszClassName = "SearchCheat";
+	if (!RegisterClass(&wc))
+	{
+		DisplayErrorMessage();
+		delete pKeySchemes;
+		return 1;
+	}
+	//Game Boy window
 	wc.lpfnWndProc = GameBoyWndProc;
 	wc.hbrBackground = NULL;
 	wc.lpszClassName = "Game Boy";
@@ -4874,6 +5144,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 
 	InitializeCriticalSection(&csSound);
 	InitializeCriticalSection(&csGameBoy);
+	InitializeCriticalSection(&csTerminate);
 
 
 	//Show window
@@ -4928,6 +5199,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	}
 
 
+	DeleteCriticalSection(&csTerminate);
 	DeleteCriticalSection(&csGameBoy);
 	DeleteCriticalSection(&csSound);
 

@@ -49,6 +49,7 @@ private:
 	HWND		m_hTreeView;
 	HTREEITEM	m_hGameItem;
 	CGameBoy	*m_pGameBoy;
+	CList		*m_pCodes;
 
 	BOOL		CompareCodes(char *pszCode1, char *pszCode2);
 
@@ -73,6 +74,8 @@ public:
 	BOOL		CanReplaceCode(HTREEITEM hti, char *pszCode, char *pszNewCode);
 	int			VerifyCode(char *pszCode);
 	void		DeleteItem(HTREEITEM hti);
+
+	BOOL		AddCheat(CGameBoy *pGameBoy, char *pszCheat, char *pszCode);
 } CCHEATS_CPP Cheats;
 
 

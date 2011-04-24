@@ -544,6 +544,137 @@ BOOL CCheats::Save()
 
 
 
+BOOL CCheats::AddCheat(CGameBoy *pGameBoy, char *pszCheat, char *pszCode)
+{
+	GAMEINFO		GameInfo, *pGameInfo;
+	CHEAT			*pCheat;
+	char			*psz;
+	DWORD			dwPos;
+
+
+	if (pszCheat)
+	{
+		m_pGameBoy = NULL;
+		m_pCodes = NULL;
+
+		if (!m_pGames)
+		{
+			if (!(m_pGames = new CList(NULL, DeleteGame)))
+			{
+				DisplayErrorMessage(ERROR_OUTOFMEMORY);
+				return true;
+			}
+		}
+
+		m_pGames->ResetSearch();
+		while (pGameInfo = (GAMEINFO *)m_pGames->GetNextItem())
+		{
+			if (pGameInfo->Checksum == (pGameBoy->MEM_ROM[0x14E] << 8 | pGameBoy->MEM_ROM[0x14F]) && !memcmp(pGameInfo->szTitle, &pGameBoy->MEM_ROM[0x134], strlen(pGameInfo->szTitle))
+				&& (((pGameInfo->Flags & GIF_COLOR) && (pGameBoy->MEM_ROM[0x143] & 0x80)) || (!(pGameInfo->Flags & GIF_COLOR) && !(pGameBoy->MEM_ROM[0x143] & 0x80)))
+				&& (((pGameInfo->Flags & GIF_JAPAN) && !pGameBoy->MEM_ROM[0x14A]) || (!(pGameInfo->Flags & GIF_JAPAN) && pGameBoy->MEM_ROM[0x14A])))
+			{
+				m_pGameBoy = pGameBoy;
+				break;
+			}
+		}
+		if (!m_pGameBoy)
+		{
+			m_pGameBoy = pGameBoy;
+			CopyMemory(GameInfo.szTitle, &pGameBoy->MEM_ROM[0x134], 16);
+			if (pGameBoy->MEM_ROM[0x143] & 0x80)
+			{
+				GameInfo.szTitle[15] = '\0';
+				GameInfo.Flags = GIF_COLOR;
+			}
+			else
+			{
+				GameInfo.szTitle[16] = '\0';
+				GameInfo.Flags = 0;
+			}
+			for (dwPos = strlen(GameInfo.szTitle) - 1; GameInfo.szTitle[dwPos] == ' '; dwPos--)
+			{
+				GameInfo.szTitle[dwPos] = '\0';
+				if (dwPos == 0)
+				{
+					break;
+				}
+			}
+			if (GameInfo.szTitle[0])
+			{
+				strcpy(GameInfo.szName, GameInfo.szTitle);
+			}
+			else
+			{
+				strcpy(GameInfo.szName, "Untitled");
+			}
+			if (!pGameBoy->MEM_ROM[0x14A])
+			{
+				GameInfo.Flags |= GIF_JAPAN;
+				strcat(GameInfo.szName, " (J)");
+			}
+			GameInfo.Checksum = (pGameBoy->MEM_ROM[0x14E] << 8) | pGameBoy->MEM_ROM[0x14F];
+			GameInfo.pCheats = NULL;
+			if (!(pGameInfo = (GAMEINFO *)m_pGames->NewItem(sizeof(GameInfo), &GameInfo)))
+			{
+				return true;
+			}
+		}
+
+		if (!pGameInfo->pCheats)
+		{
+			if (!(pGameInfo->pCheats = new CList(NULL, DeleteCheat)))
+			{
+				DisplayErrorMessage(ERROR_OUTOFMEMORY);
+				return true;
+			}
+		}
+		pGameInfo->pCheats->ResetSearch();
+		while (pCheat = (CHEAT *)pGameInfo->pCheats->GetNextItem())
+		{
+			if (!stricmp(pCheat->szComment, pszCheat))
+			{
+				m_pCodes = pCheat->pCodes;
+			}
+		}
+
+		if (!m_pCodes)
+		{
+			if (!(pCheat = (CHEAT *)pGameInfo->pCheats->NewItem(sizeof(CHEAT))))
+			{
+				return true;
+			}
+			strcpy(pCheat->szComment, pszCheat);
+			if (!(m_pCodes = pCheat->pCodes = new CList()))
+			{
+				return true;
+			}
+		}
+	}
+
+	if (pszCode)
+	{
+		if (!m_pCodes)
+		{
+			return true;
+		}
+
+		m_pCodes->ResetSearch();
+		while (psz = (char *)m_pCodes->GetNextItem())
+		{
+			if (!stricmp(psz, pszCode))
+			{
+				return false;
+			}
+		}
+
+		return m_pCodes->NewItem(strlen(pszCode) + 1, pszCode) ? false : true;
+	}
+
+	return false;
+}
+
+
+
 void CCheats::DisableDuplicateCodes(HTREEITEM hti)
 {
 	TVITEM			tvi;
@@ -1455,9 +1586,8 @@ BOOL CALLBACK CheatDialogProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 	long			width, height;
 	char			szBuffer[0x100];
 	HIMAGELIST		himl;
-	HBITMAP			hbmp, hOldBmp, hbmpFCOld;
-	HANDLE			hbmpFrameControl;
-	HDC				hdc, hdcFrameControl;
+	HBITMAP			hbmp, hOldBmp;
+	HDC				hdc, hdc2;
 	TVITEM			tvi;
 	HTREEITEM		hti;
 
@@ -1579,6 +1709,7 @@ BOOL CALLBACK CheatDialogProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 									}
 									while (tvi.hItem = TreeView_GetNextSibling(((NMHDR *)lParam)->hwndFrom, tvi.hItem));
 								}
+								Cheats.UpdateCheckMarks(hti);
 							}
 							while (tvi.hItem = TreeView_GetNextSibling(((NMHDR *)lParam)->hwndFrom, hti));
 							Cheats.UpdateCheckMarks((HTREEITEM)((NMTVCUSTOMDRAW *)lParam)->nmcd.dwItemSpec);
@@ -1592,6 +1723,7 @@ BOOL CALLBACK CheatDialogProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 								TreeView_SetItem(((NMHDR *)lParam)->hwndFrom, &tvi);
 							}
 							while (tvi.hItem = TreeView_GetNextSibling(((NMHDR *)lParam)->hwndFrom, tvi.hItem));
+							Cheats.UpdateCheckMarks((HTREEITEM)((NMTVCUSTOMDRAW *)lParam)->nmcd.dwItemSpec);
 							Cheats.UpdateCheckMarks(TreeView_GetParent(((NMHDR *)lParam)->hwndFrom, (HTREEITEM)((NMTVCUSTOMDRAW *)lParam)->nmcd.dwItemSpec));
 							break;
 
@@ -1711,77 +1843,40 @@ BOOL CALLBACK CheatDialogProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 		if (!(himl = ImageList_Create(13, 13, false, 9, 0)))
 		{
-			PostMessage(hWin, WM_CLOSE, 0, 0);
-			return true;
+			return -1;
 		}
 		if (!(hdc = CreateCompatibleDC(NULL)))
 		{
-			PostMessage(hWin, WM_CLOSE, 0, 0);
-			return true;
+			return -1;
 		}
-		if (!(hbmp = CreateBitmap(13, 13, 1, 16, NULL)))
+		hdc2 = GetDC(hWnd);
+		if (!(hbmp = CreateCompatibleBitmap(hdc2, 13, 13)))
 		{
-			PostMessage(hWin, WM_CLOSE, 0, 0);
-			return true;
+			return -1;
 		}
+		ReleaseDC(hWnd, hdc2);
 		hOldBmp = (HBITMAP)SelectObject(hdc, hbmp);
 		rct.left = 0;
 		rct.right = 13;
 		rct.top = 0;
 		rct.bottom = 13;
-		if (!DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK))
-		{
-			hbmpFrameControl = LoadImage(hInstance, MAKEINTRESOURCE(IDB_UNCHECKED), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
-			hdcFrameControl = CreateCompatibleDC(hdc);
-			hbmpFCOld = (HBITMAP)SelectObject(hdcFrameControl, hbmpFrameControl);
-			BitBlt(hdc, 0, 0, 13, 13, hdcFrameControl, 0, 0, SRCCOPY);
-			SelectObject(hdcFrameControl, hbmpFCOld);
-			DeleteObject(hbmpFrameControl);
-			DeleteDC(hdcFrameControl);
-		}
+		DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK);
 		SelectObject(hdc, hOldBmp);
 		ImageList_Add(himl, hbmp, NULL);
 		ImageList_Add(himl, hbmp, NULL);
 		ImageList_Add(himl, hbmp, NULL);
 		hOldBmp = (HBITMAP)SelectObject(hdc, hbmp);
-		if (!DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_CHECKED))
-		{
-			hbmpFrameControl = LoadImage(hInstance, MAKEINTRESOURCE(IDB_CHECKED), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
-			hdcFrameControl = CreateCompatibleDC(hdc);
-			hbmpFCOld = (HBITMAP)SelectObject(hdcFrameControl, hbmpFrameControl);
-			BitBlt(hdc, 0, 0, 13, 13, hdcFrameControl, 0, 0, SRCCOPY);
-			SelectObject(hdcFrameControl, hbmpFCOld);
-			DeleteObject(hbmpFrameControl);
-			DeleteDC(hdcFrameControl);
-		}
+		DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_CHECKED);
 		SelectObject(hdc, hOldBmp);
 		ImageList_Add(himl, hbmp, NULL);
 		ImageList_Add(himl, hbmp, NULL);
 		hOldBmp = (HBITMAP)SelectObject(hdc, hbmp);
-		if (!DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_CHECKED | DFCS_INACTIVE))
-		{
-			hbmpFrameControl = LoadImage(hInstance, MAKEINTRESOURCE(IDB_GRAYCHECKED), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
-			hdcFrameControl = CreateCompatibleDC(hdc);
-			hbmpFCOld = (HBITMAP)SelectObject(hdcFrameControl, hbmpFrameControl);
-			BitBlt(hdc, 0, 0, 13, 13, hdcFrameControl, 0, 0, SRCCOPY);
-			SelectObject(hdcFrameControl, hbmpFCOld);
-			DeleteObject(hbmpFrameControl);
-			DeleteDC(hdcFrameControl);
-		}
+		DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_CHECKED | DFCS_INACTIVE);
 		SelectObject(hdc, hOldBmp);
 		ImageList_Add(himl, hbmp, NULL);
 		ImageList_Add(himl, hbmp, NULL);
 		hOldBmp = (HBITMAP)SelectObject(hdc, hbmp);
-		if (!DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_INACTIVE))
-		{
-			hbmpFrameControl = LoadImage(hInstance, MAKEINTRESOURCE(IDB_GRAYED), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
-			hdcFrameControl = CreateCompatibleDC(hdc);
-			hbmpFCOld = (HBITMAP)SelectObject(hdcFrameControl, hbmpFrameControl);
-			BitBlt(hdc, 0, 0, 13, 13, hdcFrameControl, 0, 0, SRCCOPY);
-			SelectObject(hdcFrameControl, hbmpFCOld);
-			DeleteObject(hbmpFrameControl);
-			DeleteDC(hdcFrameControl);
-		}
+		DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_INACTIVE);
 		SelectObject(hdc, hOldBmp);
 		ImageList_Add(himl, hbmp, NULL);
 		ImageList_Add(himl, hbmp, NULL);

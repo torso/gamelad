@@ -274,16 +274,6 @@ InputName=Game Lad
 
 !ELSEIF  "$(CFG)" == "Game Lad - Win32 Debug"
 
-# Begin Custom Build
-OutDir=.\Debug
-InputPath=".\Game Lad.txt"
-InputName=Game Lad
-
-"$(OutDir)\$(InputName).txt" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	copy "$(InputName).txt" "$(OutDir)\$(InputName).txt"
-
-# End Custom Build
-
 !ENDIF 
 
 # End Source File

@@ -135,10 +135,8 @@ BEGIN
     IDS_WINDOW_NEXT         "Aktivovat další okno"
     IDS_WINDOW_PREVIOUS     "Aktivovat pøedchozí okno"
     IDS_WINDOW_CASCADE      "Uspoøádat okna - kaskáda"
-    IDS_WINDOW_TILEHORIZONTALLY 
-                            "Uspoøádat okna - dlaždice - horizontálnì"
-    IDS_WINDOW_TILEVERTICALLY 
-                            "Uspoøádat okna - dlaždice - verikálnì"
+    IDS_WINDOW_TILEHORIZONTALLY "Uspoøádat okna - dlaždice - horizontálnì"
+    IDS_WINDOW_TILEVERTICALLY "Uspoøádat okna - dlaždice - verikálnì"
     IDS_HELP_ABOUT          "Zobrazit informace o programu"
     IDS_ABOUT_TITLE         "O programu"
     IDS_ABOUT_WRITTENBY     "Autorem je $"
@@ -255,7 +253,8 @@ BEGIN
     IDS_EMULATION_STEPOVER_MENU "Pøesk&oèit pøes\tF10"
     IDS_EMULATION_STEPOUT_MENU "Vyskoèi&t z\tShift+F11"
     IDS_EMULATION_RUNTOCURSOR_MENU "Spustit až ke &kurzoru\tCtrl+F10"
-    IDS_EMULATION_SETNEXTSTATEMENT_MENU "&Nastavit poèítadlo na pozici kurzoru\tCtrl+Shift+F10"
+    IDS_EMULATION_SETNEXTSTATEMENT_MENU 
+                            "&Nastavit poèítadlo na pozici kurzoru\tCtrl+Shift+F10"
     IDS_EMULATION_TOGGLEBREAKPOINT_MENU "Nas&tavit breakpoint\tF9"
     IDS_EMULATION_RESET_MENU "&Restartovat"
     IDS_TOOLS_MENU          "&Nástroje"
@@ -383,7 +382,8 @@ BEGIN
     IDS_PROMPT_SAVESTATE    "Uložit state?"
     IDS_PROMPT_SAVEBATTERY  "Uložit battery?"
     IDS_STATUS_ROMNOTFOUND  "Soubor s ROM nebyl nalezen"
-    IDS_STATUS_ROMSIZEDIFFER "Velikost souboru nesouhlasí s údajem v jeho hlavièèe."
+    IDS_STATUS_ROMSIZEDIFFER 
+                            "Velikost souboru nesouhlasí s údajem v jeho hlavièèe."
     IDS_STATUS_SELECTSTATESLOT "Byl vybrán $ State slot"
     IDS_STATUS_SELECTFRAMESKIP "Pøeskakování snímku nastaveno na $"
     IDS_EMU_INVALIDOPCODE   "Špatný operation code"
@@ -461,9 +461,45 @@ BEGIN
     IDS_OPTIONS_KEYS_JOYSTICK "Joystick"
     IDS_OPTIONS_KEYS_NOKEY  "(None)"
     IDS_OPTIONS_KEYS_SAVESCHEMEAS_TITLE "Uložit schéma jako"
-    IDS_OPTIONS_KEYS_SAVESCHEME_NONAME "Zadej jméno souboru, kam schéma uložit"
+    IDS_OPTIONS_KEYS_SAVESCHEME_NONAME 
+                            "Zadej jméno souboru, kam schéma uložit"
     IDS_OPTIONS_KEYS_SAVESCHEMEAS_CANNOTREPLACE "Nemohu pøepsat toto schéma."
     IDS_FILE_STATESLOT_EMPTY "Prázdný"
+    IDS_OPTIONS_KEYS_DIRECTION "Direction Pad"
+    IDS_OPTIONS_KEYS_DIRECTION_XY "X/Y axes"
+    IDS_OPTIONS_KEYS_DIRECTION_ENABLED "Enabled"
+    IDS_TOOLS_SEARCHCHEAT_MENU "S&earch cheat..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_TOOLS_SEARCHCHEAT   "Searches for Game Shark codes"
+    IDS_SEARCHCHEAT_TITLE   "Search cheat"
+    IDS_SEARCHCHEAT_BYTE    "Byte"
+    IDS_SEARCHCHEAT_WORD    "Word"
+    IDS_SEARCHCHEAT_DWORD   "Dword"
+    IDS_SEARCHCHEAT_NEWSEARCH "New search"
+    IDS_SEARCHCHEAT_HEXADECIMAL "Hexadecimal"
+    IDS_SEARCHCHEAT_DECIMAL "Decimal"
+    IDS_SEARCHCHEAT_RELATIVEVALUE "Entered value"
+    IDS_SEARCHCHEAT_RELATIVELAST "Last value"
+    IDS_SEARCHCHEAT_EQUAL   "Equal"
+    IDS_SEARCHCHEAT_NOTEQUAL "Not equal"
+    IDS_SEARCHCHEAT_LESSEQUAL "Less or equal"
+    IDS_SEARCHCHEAT_MOREEQUAL "More or equal"
+    IDS_SEARCHCHEAT_LESS    "Less"
+    IDS_SEARCHCHEAT_MORE    "More"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_SEARCHCHEAT_CHEATNAME "Cheat name"
+    IDS_SEARCHCHEAT_ADDCHEAT "Add cheat"
+    IDS_SEARCHCHEAT_ADDRESS "Address"
+    IDS_SEARCHCHEAT_LASTVALUE "Last"
+    IDS_SEARCHCHEAT_CURRENTVALUE "Current"
+    IDS_SEARCHCHEAT_ENTERNUMBER "Enter a valid number"
+    IDS_SEARCHCHEAT_NOSELECTION "No addresses selected"
 END
 
 #endif    // Czech resources

@@ -95,7 +95,7 @@ GAME_LAD_CPP	DWORD				DdeInst EQUALNULL;
 GAME_LAD_CPP	HSZ					hDdeServiceString, hDdeTopicString;
 GAME_LAD_CPP	HANDLE				hStartStopEvent;
 GAME_LAD_CPP	LARGE_INTEGER		TimerFrequency;
-GAME_LAD_CPP	CRITICAL_SECTION	csSound, csGameBoy;
+GAME_LAD_CPP	CRITICAL_SECTION	csSound, csGameBoy, csTerminate;
 
 
 
@@ -125,6 +125,8 @@ GAME_LAD_CPP	void				SetStatus(char *szStatusText, DWORD dwStatus);
 GAME_LAD_CPP	void				DisplayErrorMessage();
 GAME_LAD_CPP	void				DisplayErrorMessage(DWORD dwErrCode);
 GAME_LAD_CPP	BOOL				HexToNum(char *pc);
+GAME_LAD_CPP	char				*DwordToHex(DWORD dw, char *psz);
+GAME_LAD_CPP	char				NibbleToHex(BYTE b);
 
 GAME_LAD_CPP	char				*LoadString(UINT uID, char *pszBuffer, int nBufferMax);
 GAME_LAD_CPP	char				*LoadString(UINT uID, char *pszBuffer, int nBufferMax, char *pszInsert);

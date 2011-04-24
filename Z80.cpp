@@ -748,9 +748,60 @@ Sound4Port:
 
 		ret
 
+/*NR50:
+		//NR50
+		mov		byte ptr [ecx + FF00_ASM + 0x24], al
+#ifdef _DEBUG
+		push	eax
+		push	ebx
+		push	edx
+#endif //_DEBUG
+		push	ecx
+		call	Sound1
+		mov		ecx, dword ptr [esp]
+		call	Sound2
+		mov		ecx, dword ptr [esp]
+		call	Sound3
+		mov		ecx, dword ptr [esp]
+		call	Sound4
+		pop		ecx
+#ifdef _DEBUG
+		pop		edx
+		pop		ebx
+		pop		eax
+#endif //_DEBUG
+
+		ret
+
+NR51:
+		//NR51
+		mov		byte ptr [ecx + FF00_ASM + 0x25], al
+#ifdef _DEBUG
+		push	eax
+		push	ebx
+		push	edx
+#endif //_DEBUG
+		push	ecx
+		call	Sound1
+		mov		ecx, dword ptr [esp]
+		call	Sound2
+		mov		ecx, dword ptr [esp]
+		call	Sound3
+		mov		ecx, dword ptr [esp]
+		call	Sound4
+		pop		ecx
+#ifdef _DEBUG
+		pop		edx
+		pop		ebx
+		pop		eax
+#endif //_DEBUG
+
+		ret*/
+
 NR52:
 		//NR52
-		mov		byte ptr [ecx + FF00_ASM + 0x26], al
+		and		al, 0x80
+		or		byte ptr [ecx + FF00_ASM + 0x26], al
 #ifdef _DEBUG
 		push	eax
 		push	ebx

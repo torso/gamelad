@@ -1,6 +1,7 @@
 #define		_WIN32_WINNT	0x0500
 
 #include	<windows.h>
+#include	<commctrl.h>
 #include	"resource.h"
 
 #define		DEBUGGER_CPP
@@ -462,6 +463,7 @@ LRESULT CALLBACK TileZoomWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 				TileNo = GetWindowLong(hWin, GWL_USERDATA);
 				if (TileNo & 0x80000000)
 				{
+					pGameBoy->Release();
 					pGameBoy = NULL;
 				}
 				else
@@ -622,7 +624,7 @@ LRESULT CALLBACK TileMapChildWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM
 		tme.cbSize = sizeof(tme);
 		tme.dwFlags = TME_LEAVE;
 		tme.hwndTrack = hWin;
-		TrackMouseEvent(&tme);
+		_TrackMouseEvent(&tme);
 
 		si.cbSize = sizeof(si);
 		si.fMask = SIF_POS;
@@ -2063,7 +2065,7 @@ LRESULT CALLBACK TilesChildWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM l
 		tme.cbSize = sizeof(tme);
 		tme.dwFlags = TME_LEAVE;
 		tme.hwndTrack = hWin;
-		TrackMouseEvent(&tme);
+		_TrackMouseEvent(&tme);
 
 		si.cbSize = sizeof(si);
 		si.fMask = SIF_POS;

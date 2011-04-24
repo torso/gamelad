@@ -2,20 +2,24 @@
 
 
 
+char	*GameLadLanguage = 
 #ifdef	CZECH_EXPORTS
-char	*GameLadLanguage = "Czech"; //change
+	"Czech"; //change
 #endif
 #ifdef	FRENCH_EXPORTS
-char	*GameLadLanguage = "Français";
+	"Français";
+#endif
+#ifdef	ITALIAN_EXPORTS
+	"Italian"; //change
 #endif
 #ifdef	SPANISH_EXPORTS
-char	*GameLadLanguage = "Español";
+	"Español";
 #endif
 #ifdef	PORTUGUESE_EXPORTS
-char	*GameLadLanguage = "Portuguese"; //change
+	"Portuguese"; //change
 #endif
 #ifdef	SWEDISH_EXPORTS
-char	*GameLadLanguage = "Svenska";
+	"Svenska";
 #endif
 
 

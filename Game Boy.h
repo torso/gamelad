@@ -326,11 +326,11 @@ public:
 
 
 private:
+	BOOL			Terminating;
+
 	DWORD			RefCount;
 
 	HANDLE			hThread;
-
-	BOOL			Terminating;
 
 	char			Rom[MAX_PATH];
 	char			Battery[MAX_PATH];
@@ -344,6 +344,16 @@ private:
 	CList			*m_pCheatList;
 
 	BYTE			LastEmulationType;
+
+	HWND			m_hSearchCheatWnd;
+	HWND			m_hSize, m_hNewSearch, m_hValue, m_hDec;
+	HWND			m_hRelValue, m_hRelLast, m_hEqual, m_hNotEqual, m_hLessEqual, m_hMoreEqual, m_hLess, m_hMore;
+	HWND			m_hNameStatic, m_hName, m_hAddCheat;
+	BYTE			m_SearchSize;
+
+public:
+	HWND			m_hHex, m_hList;
+	BYTE			m_SortBy;
 
 
 private:
@@ -374,6 +384,8 @@ private:
 	BOOL			AddCheat(BYTE Bank, WORD Offset, BYTE Value, char *pszCode);
 	void			ReApplyCheats();
 
+	void			PerformSearch(UINT uID);
+
 
 public:
 	CGameBoy(BYTE Flags);
@@ -388,7 +400,7 @@ public:
 	BOOL			SaveBattery(BOOL Prompt, BOOL SaveAs);
 	void			GetBatteryFilename(char *Filename);
 	char			*GetStateFilename(char *pszFilename, DWORD dwStateSlot);
-	LPARAM			GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+	LRESULT			GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 	void			Reset(DWORD Flags);
 	void			Reset();
 	void			CloseSound();
@@ -427,6 +439,8 @@ public:
 	int				VerifyCode(char *pszCode, BOOL CompareValue);
 	BOOL			AddCheat(char *pszCode);
 	BOOL			IsApplied(char *pszCode);
+	void			SearchCheat();
+	LRESULT			SearchCheatWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
 
