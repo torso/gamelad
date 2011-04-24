@@ -1,6 +1,26 @@
-Game Lad 1.0
+Game Lad 1.01
 
 Written by Torbjörn Söderstedt
 
 
 All information about this program is available online at http://gamelad.emuunlim.com
+
+
+
+What's New
+----------
+
+Version 1.01
+*You can view any bank in the memory viewer
+*You can use Go To in the memory and disassembly windows to jump to an address
+*Right clicking in the memory and disassembly window brings up a context menu
+*The disassembly caret's behaviour has been improved when using step commands
+*The registers window show the memory content at the address the current operation code
+ will access. The destination of jumps are also displayed.
+*Game Lad doesn't crash when closing a Game Boy window that was not the latest opened, while
+a debug window is active
+*Step commands allocated memory without releasing it
+*Ampersands (&) in the ROM header were removed and the next character underlined
+*LCD interrupt didn't occur at LY=144
+*If the "Register File Types" was successful, the title read "Error"
+

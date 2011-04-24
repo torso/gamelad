@@ -52,6 +52,10 @@ MTL=midl.exe
 # PROP Output_Dir "Debug"
 # PROP Intermediate_Dir "Debug"
 # PROP Target_Dir ""
+# Begin Special Build Tool
+SOURCE="$(InputPath)"
+PostBuild_Cmds="C:\TV-Spel\Spec\Gb\Rgbds\xLink95.exe" -tg "C:\Torbjrn\Cpp\Game Lad\GLDemo\GLDemo.lnk"	"C:\TV-Spel\Spec\Gb\Rgbds\Rgbfix95.exe" -v "C:\Torbjrn\Cpp\Game Lad\GLDemo\Debug\GLDemo.gb"
+# End Special Build Tool
 
 !ENDIF 
 
@@ -85,13 +89,25 @@ WkspDir=.
 InputPath=.\GLDemo.asm
 InputName=GLDemo
 
-"$(WkspDir)\GLDemo\Debug\$(InputName).gb" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	"$(WkspDir)\Glasm\Debug\Glasm.exe" "$(WkspDir)\GLDemo\$(InputName).asm" "$(WkspDir)\GLDemo\Debug\$(InputName).gb"
+"$(WkspDir)\GLDemo\Debug\$(InputName).o" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	"C:\TV-Spel\Spec\Gb\Rgbds\Rgbasm95.exe" -o"$(WkspDir)\GLDemo\Debug\$(InputName).o" "$(WkspDir)\GLDemo\$(InputName).asm"
 
 # End Custom Build
 
 !ENDIF 
 
+# End Source File
+# Begin Source File
+
+SOURCE=.\GLDemo.lnk
+# End Source File
+# End Group
+# Begin Group "Header Files"
+
+# PROP Default_Filter "inc"
+# Begin Source File
+
+SOURCE=.\Hardware.inc
 # End Source File
 # End Group
 # End Target

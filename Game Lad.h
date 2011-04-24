@@ -37,15 +37,15 @@
 #define		WM_APP_REFRESHDEBUG		(WM_APP + 1)
 
 //
-#define		WM_UPDATEKEYS			WM_APP
+//#define		WM_UPDATEKEYS			WM_APP
 
 //Messages for Disassembly window
-#define		WM_APP_STEPINTO			WM_APP
-#define		WM_APP_STEPOVER			(WM_APP + 1)
-#define		WM_APP_STEPOUT			(WM_APP + 2)
-#define		WM_APP_RUNTOCURSOR		(WM_APP + 3)
-#define		WM_APP_TOGGLEBREAKPOINT	(WM_APP + 4)
-#define		WM_APP_SETNEXTSTATEMENT	(WM_APP + 5)
+//#define		WM_APP_STEPINTO			WM_APP
+//#define		WM_APP_STEPOVER			(WM_APP + 1)
+//#define		WM_APP_STEPOUT			(WM_APP + 2)
+//#define		WM_APP_RUNTOCURSOR		(WM_APP + 3)
+//#define		WM_APP_TOGGLEBREAKPOINT	(WM_APP + 4)
+//#define		WM_APP_SETNEXTSTATEMENT	(WM_APP + 5)
 
 
 
@@ -103,6 +103,7 @@ GAME_LAD_CPP	HINSTANCE			hInstance;
 GAME_LAD_CPP	HWND				hWnd, hClientWnd;
 GAME_LAD_CPP	HFONT				hFont, hFixedFont;
 GAME_LAD_CPP	int					FixedFontWidth, FixedFontHeight;
+GAME_LAD_CPP	HMENU				hPopupMenu;
 GAME_LAD_CPP	char				NumBuffer[10];
 GAME_LAD_CPP	DWORD				DdeInst EQUALNULL;
 GAME_LAD_CPP	HSZ					hDdeServiceString, hDdeTopicString;

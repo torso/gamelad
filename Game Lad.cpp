@@ -95,7 +95,7 @@ BOOL CGameBoyList::DeleteGameBoy(CGameBoy *pCGameBoy)
 	{
 		return true;
 	}
-	if (pGameBoy->pGameBoy == ActiveGameBoy)
+	if (pGameBoy->pNext->pGameBoy == ActiveGameBoy)
 	{
 		ActiveGameBoy = NULL;
 	}
@@ -162,6 +162,7 @@ LPARAM CGameBoyList::WndProc(CGameBoy *pGameBoy, HWND hWin, UINT uMsg, WPARAM wP
 			{
 				ActiveGameBoy = pGameBoy;
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
+				MemoryFlags = 0;
 			}
 			break;
 
@@ -194,7 +195,7 @@ LPARAM CGameBoyList::WndProc(CGameBoy *pGameBoy, HWND hWin, UINT uMsg, WPARAM wP
 						return 0;
 					}
 				}
-				GameBoyList.DeleteGameBoy(pGameBoy);
+				DeleteGameBoy(pGameBoy);
 			}
 			return 0;
 		}
@@ -488,7 +489,7 @@ UINT CALLBACK OFNHookProc(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lParam)
 		MoveWindow(hdlg, 0, 0, 400, 43, true);
 		hTitleCaption = CreateWindow("STATIC", "Title:", WS_CHILD | WS_VISIBLE, 7, 0, 50, 16, hdlg, NULL, hInstance, NULL);
 		SendMessage(hTitleCaption, WM_SETFONT, (WPARAM)hFont, true);
-		hTitle = CreateWindow("STATIC", "", WS_CHILD | WS_VISIBLE, 50, 0, 130, 16, hdlg, NULL, hInstance, NULL);
+		hTitle = CreateWindow("STATIC", "", WS_CHILD | WS_VISIBLE | SS_NOPREFIX, 50, 0, 130, 16, hdlg, NULL, hInstance, NULL);
 		SendMessage(hTitle, WM_SETFONT, (WPARAM)hFont, true);
 
 		hGBType = CreateWindow("COMBOBOX", NULL, WS_CHILD | WS_VISIBLE | WS_BORDER | CBS_DROPDOWNLIST, 7, 20, 180, 200, hdlg, NULL, hInstance, NULL);
@@ -856,7 +857,7 @@ BOOL CALLBACK ShellOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lP
 			}
 			else
 			{
-				MessageBox(hWin, "The registry was successfully updated.", NULL, MB_OK | MB_ICONINFORMATION);
+				MessageBox(hWin, "The registry was successfully updated.", "Game Lad", MB_OK | MB_ICONINFORMATION);
 			}
 			return true;
 
@@ -1097,10 +1098,14 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SendMessage(hWnd, WM_CLOSE, 0, 0);
 			return 0;
 
+		case ID_EDIT_GOTO:
+			SendMessage((HWND)SendMessage(hClientWnd, WM_MDIGETACTIVE, 0, 0), uMsg, wParam, lParam);
+			return 0;
+
 		case ID_VIEW_MEMORY:
 			if (!hMemory)
 			{
-				if (!(hMemory = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Memory", "Memory", WS_VISIBLE | WS_CAPTION | WS_BORDER, CW_USEDEFAULT, CW_USEDEFAULT, 39 * FixedFontWidth + 1 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE) + GetSystemMetrics(SM_CXVSCROLL), 32 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE), hClientWnd, NULL, hInstance, NULL)))
+				if (!(hMemory = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Memory", "Memory", WS_VISIBLE | WS_CAPTION | WS_BORDER, CW_USEDEFAULT, CW_USEDEFAULT, 42 * FixedFontWidth + 1 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE) + GetSystemMetrics(SM_CXVSCROLL), 32 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE), hClientWnd, NULL, hInstance, NULL)))
 				{
 					DisplayErrorMessage(NULL);
 				}
@@ -1110,7 +1115,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case ID_VIEW_REGISTERS:
 			if (!hRegisters)
 			{
-				if (!(hRegisters = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Registers", "Registers", WS_VISIBLE | WS_CAPTION | WS_BORDER, CW_USEDEFAULT, CW_USEDEFAULT, 13 * FixedFontWidth + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 14 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE), hClientWnd, NULL, hInstance, NULL)))
+				if (!(hRegisters = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Registers", "Registers", WS_VISIBLE | WS_CAPTION | WS_BORDER, CW_USEDEFAULT, CW_USEDEFAULT, 14 * FixedFontWidth + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 14 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE), hClientWnd, NULL, hInstance, NULL)))
 				{
 					DisplayErrorMessage(NULL);
 				}
@@ -1209,44 +1214,14 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			return 0;
 
 		case ID_EMULATION_STEPINTO:
-			if (hDisAsm)
-			{
-				SendMessage(hDisAsm, WM_APP_STEPINTO, 0, 0);
-			}
-			return 0;
-
 		case ID_EMULATION_STEPOVER:
-			if (hDisAsm)
-			{
-				SendMessage(hDisAsm, WM_APP_STEPOVER, 0, 0);
-			}
-			return 0;
-
 		case ID_EMULATION_STEPOUT:
-			if (hDisAsm)
-			{
-				SendMessage(hDisAsm, WM_APP_STEPOUT, 0, 0);
-			}
-			return 0;
-
 		case ID_EMULATION_RUNTOCURSOR:
-			if (hDisAsm)
-			{
-				SendMessage(hDisAsm, WM_APP_RUNTOCURSOR, 0, 0);
-			}
-			return 0;
-
 		case ID_EMULATION_TOGGLEBREAKPOINT:
-			if (hDisAsm)
-			{
-				SendMessage(hDisAsm, WM_APP_TOGGLEBREAKPOINT, 0, 0);
-			}
-			return 0;
-
 		case ID_EMULATION_SETNEXTSTATEMENT:
 			if (hDisAsm)
 			{
-				SendMessage(hDisAsm, WM_APP_SETNEXTSTATEMENT, 0, 0);
+				SendMessage(hDisAsm, WM_COMMAND, wParam, lParam);
 			}
 			return 0;
 
@@ -1333,6 +1308,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		return 0;
 
 	case WM_APP_REFRESHDEBUG:
+		MemoryFlags = 0;
 		if (hMemory)
 		{
 			InvalidateRect(hMemory, NULL, true);
@@ -1453,6 +1429,15 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			mii.fState = MFS_GRAYED;
 		}
 		SetMenuItemInfo((HMENU)wParam, ID_FILE_CLOSE, false, &mii);
+		if (hTempWnd && (hTempWnd == hMemory || hTempWnd == hDisAsm) && GameBoyList.GetActive())
+		{
+			mii.fState = MFS_ENABLED;
+		}
+		else
+		{
+			mii.fState = MFS_GRAYED;
+		}
+		SetMenuItemInfo((HMENU)wParam, ID_EDIT_GOTO, false, &mii);
 		if (hTempWnd && (hTempWnd == hTileMap || hTempWnd == hTiles))
 		{
 			mii.fState = MFS_ENABLED;
@@ -1464,7 +1449,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		return 0;
 
 	case WM_CREATE:
-		ccs.hWindowMenu = GetSubMenu(GetMenu(hWin), 4);
+		ccs.hWindowMenu = GetSubMenu(GetMenu(hWin), 5);
 		ccs.idFirstChild = 0;
 		if (!(hClientWnd = CreateWindow("MDICLIENT", NULL, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_VSCROLL | WS_HSCROLL, 0, 0, 0, 0, hWin, NULL, hInstance, &ccs)))
 		{
@@ -1873,12 +1858,20 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 		return 1;
 	}
 
+	//Load popup menus
+	if (!(hPopupMenu = LoadMenu(hInstance, MAKEINTRESOURCE(IDR_POPUPMENU))))
+	{
+		DisplayErrorMessage(NULL);
+		return 1;
+	}
+
 	//Create main window
 	if (!(hWnd = CreateWindowEx(WS_EX_CLIENTEDGE | WS_EX_ACCEPTFILES, "Game Lad", "Game Lad",
 		WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
 		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
 		NULL, LoadMenu(hInstance, MAKEINTRESOURCE(IDR_MENU)), hInstance, NULL)))
 	{
+		DestroyMenu(hPopupMenu);
 		DisplayErrorMessage(NULL);
 		return 1;
 	}
@@ -1899,6 +1892,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 
 	if (CreateDebugWindows())
 	{
+		DestroyMenu(hPopupMenu);
 		DestroyWindow(hWnd);
 		return 1;
 	}
@@ -1946,6 +1940,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 
 	//Time to clean up
 
+
+	DestroyMenu(hPopupMenu);
 
 	DeleteCriticalSection(&cs);
 

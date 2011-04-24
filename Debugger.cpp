@@ -50,75 +50,101 @@ const DWORD	GreyScales[4] =	{	0xFFFFFF,
 struct _OpCodeNames
 {
 	char	Text1[19], Text2[6];
-	BYTE	Bytes;
+	DWORD	Flags;
 };
 
 
 
+#define		OCF_DATA8		0x00000001
+#define		OCF_DATA16		0x00000002
+#define		OCF_DISP		0x00000004
+#define		OCF_CALL		0x00000008
+#define		OCF_JUMP		0x40000000
+#define		OCF_ADDRESS_BC	0x00000010
+#define		OCF_ADDRESS_DE	0x00000020
+#define		OCF_ADDRESS_HL	0x00000040
+#define		OCF_ADDRESS_SP	0x20000000
+#define		OCF_ADDRESS_C	0x80000000
+#define		OCF_ADDRESS		0x00000080
+#define		OCF_COND_NZ		0x00000100
+#define		OCF_COND_Z		0x00000200
+#define		OCF_COND_NC		0x00000400
+#define		OCF_COND_C		0x00000800
+#define		OCF_RST00		0x00001000
+#define		OCF_RST08		0x00002000
+#define		OCF_RST10		0x00004000
+#define		OCF_RST18		0x00008000
+#define		OCF_RST20		0x00010000
+#define		OCF_RST28		0x00020000
+#define		OCF_RST30		0x00040000
+#define		OCF_RST38		0x00080000
+
+#define		OCF_BYTES		(OCF_DATA8 | OCF_DATA16)
+
 const _OpCodeNames	OpCodeNames[256] = {
 							"nop", "", 0,			//0x00
-							"ld   bc, ", "", 2,
-							"ld   [bc], a", "", 0,
+							"ld   bc, ", "", OCF_DATA16,
+							"ld   [bc], a", "", OCF_ADDRESS_BC,
 							"inc  bc", "", 0,
 							"inc  b", "", 0,
 							"dec  b", "", 0,
-							"ld   b, ", "", 1,
+							"ld   b, ", "", OCF_DATA8,
 							"rlca", "", 0,
-							"ld   [", "], sp", 2,	//0x08
+							"ld   [", "], sp", OCF_DATA16 | OCF_ADDRESS,	//0x08
 							"add  hl, bc", "", 0,
-							"ld   a, [bc]", "", 0,
+							"ld   a, [bc]", "", OCF_ADDRESS_BC,
 							"dec  bc", "", 0,
 							"inc  c", "", 0,
 							"dec  c", "", 0,
-							"ld   c, ", "", 1,
+							"ld   c, ", "", OCF_DATA8,
 							"rrca", "", 0,
-							"stop", "", 1,			//0x10
-							"ld   de, ", "", 2,
-							"ld   [de], a", "", 0,
+							"stop", "", OCF_DATA8,			//0x10
+							"ld   de, ", "", OCF_DATA16,
+							"ld   [de], a", "", OCF_ADDRESS_DE,
 							"inc  de", "", 0,
 							"inc  d", "", 0,
 							"dec  d", "", 0,
-							"ld   d, ", "", 1,
+							"ld   d, ", "", OCF_DATA8,
 							"rla", "", 0,
-							"jr   ", "", 4,			//0x18
+							"jr   ", "", OCF_DATA8 | OCF_JUMP | OCF_DISP,			//0x18
 							"add  hl, de", "", 0,
-							"ld   a, [de]", "", 0,
+							"ld   a, [de]", "", OCF_ADDRESS_DE,
 							"dec  de", "", 0,
 							"inc  e", "", 0,
 							"dec  e", "", 0,
-							"ld   e, ", "", 1,
+							"ld   e, ", "", OCF_DATA8,
 							"rra", "", 0,
-							"jr   nz, ", "", 4,		//0x20
-							"ld   hl, ", "", 2,
-							"ldi  [hl], a", "", 0,
+							"jr   nz, ", "", OCF_DATA8 | OCF_JUMP | OCF_DISP | OCF_COND_NZ,	//0x20
+							"ld   hl, ", "", OCF_DATA16,
+							"ldi  [hl], a", "", OCF_ADDRESS_HL,
 							"inc  hl", "", 0,
 							"inc  h", "", 0,
 							"dec  h", "", 0,
-							"ld   h, ", "", 1,
+							"ld   h, ", "", OCF_DATA8,
 							"daa", "", 0,
-							"jr   z, ", "", 4,		//0x28
+							"jr   z, ", "", OCF_DATA8 | OCF_JUMP | OCF_DISP | OCF_COND_Z,	//0x28
 							"add  hl, hl", "", 0,
-							"ldi  a, [hl]", "", 0,
+							"ldi  a, [hl]", "", OCF_ADDRESS_HL,
 							"dec  hl", "", 0,
 							"inc  l", "", 0,
 							"dec  l", "", 0,
-							"ld   l, ", "", 1,
+							"ld   l, ", "", OCF_DATA8,
 							"cpl", "", 0,
-							"jr   nc, ", "", 4,		//0x30
-							"ld   sp, ", "", 2,
-							"ldd  [hl], a", "", 0,
+							"jr   nc, ", "", OCF_DATA8 | OCF_JUMP | OCF_DISP | OCF_COND_NC,	//0x30
+							"ld   sp, ", "", OCF_DATA16,
+							"ldd  [hl], a", "", OCF_ADDRESS_HL,
 							"inc  sp", "", 0,
-							"inc  [hl]", "", 0,
-							"dec  [hl]", "", 0,
-							"ld   [hl], ", "", 1,
+							"inc  [hl]", "", OCF_ADDRESS_HL,
+							"dec  [hl]", "", OCF_ADDRESS_HL,
+							"ld   [hl], ", "", OCF_DATA8 | OCF_ADDRESS_HL,
 							"scf", "", 0,
-							"jr   c, ", "", 4,		//0x38
+							"jr   c, ", "", OCF_DATA8 | OCF_JUMP | OCF_DISP | OCF_COND_C,	//0x38
 							"add  hl, sp", "", 0,
-							"ldd  a, [hl]", "", 0,
+							"ldd  a, [hl]", "", OCF_ADDRESS_HL,
 							"dec  sp", "", 0,
 							"inc  a", "", 0,
 							"dec  a", "", 0,
-							"ld   a, ", "", 1,
+							"ld   a, ", "", OCF_DATA8,
 							"ccf", "", 0,
 							"ld   b, b", "", 0,		//0x40
 							"ld   b, c", "", 0,
@@ -126,7 +152,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"ld   b, e", "", 0,
 							"ld   b, h", "", 0,
 							"ld   b, l", "", 0,
-							"ld   b, [hl]", "", 0,
+							"ld   b, [hl]", "", OCF_ADDRESS_HL,
 							"ld   b, a", "", 0,
 							"ld   c, b", "", 0,		//0x48
 							"ld   c, c", "", 0,
@@ -134,7 +160,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"ld   c, e", "", 0,
 							"ld   c, h", "", 0,
 							"ld   c, l", "", 0,
-							"ld   c, [hl]", "", 0,
+							"ld   c, [hl]", "", OCF_ADDRESS_HL,
 							"ld   c, a", "", 0,
 							"ld   d, b", "", 0,		//0x50
 							"ld   d, c", "", 0,
@@ -142,7 +168,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"ld   d, e", "", 0,
 							"ld   d, h", "", 0,
 							"ld   d, l", "", 0,
-							"ld   d, [hl]", "", 0,
+							"ld   d, [hl]", "", OCF_ADDRESS_HL,
 							"ld   d, a", "", 0,
 							"ld   e, b", "", 0,		//0x58
 							"ld   e, c", "", 0,
@@ -150,7 +176,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"ld   e, e", "", 0,
 							"ld   e, h", "", 0,
 							"ld   e, l", "", 0,
-							"ld   e, [hl]", "", 0,
+							"ld   e, [hl]", "", OCF_ADDRESS_HL,
 							"ld   e, a", "", 0,
 							"ld   h, b", "", 0,		//0x60
 							"ld   h, c", "", 0,
@@ -158,7 +184,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"ld   h, e", "", 0,
 							"ld   h, h", "", 0,
 							"ld   h, l", "", 0,
-							"ld   h, [hl]", "", 0,
+							"ld   h, [hl]", "", OCF_ADDRESS_HL,
 							"ld   h, a", "", 0,
 							"ld   l, b", "", 0,		//0x68
 							"ld   l, c", "", 0,
@@ -166,23 +192,23 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"ld   l, e", "", 0,
 							"ld   l, h", "", 0,
 							"ld   l, l", "", 0,
-							"ld   l, [hl]", "", 0,
+							"ld   l, [hl]", "", OCF_ADDRESS_HL,
 							"ld   l, a", "", 0,
-							"ld   [hl], b", "", 0,	//0x70
-							"ld   [hl], c", "", 0,
-							"ld   [hl], d", "", 0,
-							"ld   [hl], e", "", 0,
-							"ld   [hl], h", "", 0,
-							"ld   [hl], l", "", 0,
+							"ld   [hl], b", "", OCF_ADDRESS_HL,	//0x70
+							"ld   [hl], c", "", OCF_ADDRESS_HL,
+							"ld   [hl], d", "", OCF_ADDRESS_HL,
+							"ld   [hl], e", "", OCF_ADDRESS_HL,
+							"ld   [hl], h", "", OCF_ADDRESS_HL,
+							"ld   [hl], l", "", OCF_ADDRESS_HL,
 							"halt", "", 0,
-							"ld   [hl], a", "", 0,
+							"ld   [hl], a", "", OCF_ADDRESS_HL,
 							"ld   a, b", "", 0,		//0x78
 							"ld   a, c", "", 0,
 							"ld   a, d", "", 0,
 							"ld   a, e", "", 0,
 							"ld   a, h", "", 0,
 							"ld   a, l", "", 0,
-							"ld   a, [hl]", "", 0,
+							"ld   a, [hl]", "", OCF_ADDRESS_HL,
 							"ld   a, a", "", 0,
 							"add  a, b", "", 0,		//0x80
 							"add  a, c", "", 0,
@@ -190,7 +216,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"add  a, e", "", 0,
 							"add  a, h", "", 0,
 							"add  a, l", "", 0,
-							"add  a, [hl]", "", 0,
+							"add  a, [hl]", "", OCF_ADDRESS_HL,
 							"add  a, a", "", 0,
 							"adc  a, b", "", 0,		//0x88
 							"adc  a, c", "", 0,
@@ -198,7 +224,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"adc  a, e", "", 0,
 							"adc  a, h", "", 0,
 							"adc  a, l", "", 0,
-							"adc  a, [hl]", "", 0,
+							"adc  a, [hl]", "", OCF_ADDRESS_HL,
 							"adc  a, a", "", 0,
 							"sub  a, b", "", 0,		//0x90
 							"sub  a, c", "", 0,
@@ -206,7 +232,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"sub  a, e", "", 0,
 							"sub  a, h", "", 0,
 							"sub  a, l", "", 0,
-							"sub  a, [hl]", "", 0,
+							"sub  a, [hl]", "", OCF_ADDRESS_HL,
 							"sub  a, a", "", 0,
 							"sbc  a, b", "", 0,		//0x98
 							"sbc  a, c", "", 0,
@@ -214,7 +240,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"sbc  a, e", "", 0,
 							"sbc  a, h", "", 0,
 							"sbc  a, l", "", 0,
-							"sbc  a, [hl]", "", 0,
+							"sbc  a, [hl]", "", OCF_ADDRESS_HL,
 							"sbc  a, a", "", 0,
 							"and  b", "", 0,		//0xA0
 							"and  c", "", 0,
@@ -222,7 +248,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"and  e", "", 0,
 							"and  h", "", 0,
 							"and  l", "", 0,
-							"and  [hl]", "", 0,
+							"and  [hl]", "", OCF_ADDRESS_HL,
 							"and  a", "", 0,
 							"xor  b", "", 0,		//0xA8
 							"xor  c", "", 0,
@@ -230,7 +256,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"xor  e", "", 0,
 							"xor  h", "", 0,
 							"xor  l", "", 0,
-							"xor  [hl]", "", 0,
+							"xor  [hl]", "", OCF_ADDRESS_HL,
 							"xor  a", "", 0,
 							"or   b", "", 0,		//0xB0
 							"or   c", "", 0,
@@ -238,7 +264,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"or   e", "", 0,
 							"or   h", "", 0,
 							"or   l", "", 0,
-							"or   [hl]", "", 0,
+							"or   [hl]", "", OCF_ADDRESS_HL,
 							"or   a", "", 0,
 							"cp   b", "", 0,		//0xB8
 							"cp   c", "", 0,
@@ -246,72 +272,72 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"cp   e", "", 0,
 							"cp   h", "", 0,
 							"cp   l", "", 0,
-							"cp   [hl]", "", 0,
+							"cp   [hl]", "", OCF_ADDRESS_HL,
 							"cp   a", "", 0,
-							"ret  nz", "", 0,		//0xC0
-							"pop  bc", "", 0,
-							"jp   nz, ", "", 2,
-							"jp   ", "", 2,
-							"call nz, ", "", 2 | 8,
+							"ret  nz", "", OCF_ADDRESS_SP | OCF_COND_NZ,	//0xC0
+							"pop  bc", "", OCF_ADDRESS_SP,
+							"jp   nz, ", "", OCF_DATA16 | OCF_JUMP | OCF_COND_NZ,
+							"jp   ", "", OCF_DATA16 | OCF_JUMP,
+							"call nz, ", "", OCF_DATA16 | OCF_JUMP | OCF_CALL | OCF_COND_NZ,
 							"push bc", "", 0,
-							"add  a, ", "", 1,
-							"rst  00", "", 8,
-							"ret  z", "", 0,		//0xC8
-							"ret", "", 0,
-							"jp   z, ", "", 2,
-							"", "", 1,
-							"call z, ", "", 2 | 8,
-							"call ", "", 2 | 8,
-							"adc  a, ", "", 1,
-							"rst  08", "", 8,
-							"ret  nc", "", 0,		//0xD0
-							"pop  de", "", 0,
-							"jp   nc, ", "", 2,
+							"add  a, ", "", OCF_DATA8,
+							"rst  00", "", OCF_CALL | OCF_RST00,
+							"ret  z", "", OCF_ADDRESS_SP | OCF_COND_Z,		//0xC8
+							"ret", "", OCF_ADDRESS_SP,
+							"jp   z, ", "", OCF_DATA16 | OCF_JUMP | OCF_COND_Z,
+							"", "", OCF_DATA8,
+							"call z, ", "", OCF_DATA16 | OCF_JUMP | OCF_CALL | OCF_COND_Z,
+							"call ", "", OCF_DATA16 | OCF_JUMP | OCF_CALL,
+							"adc  a, ", "", OCF_DATA8,
+							"rst  08", "", OCF_CALL | OCF_RST08,
+							"ret  nc", "", OCF_ADDRESS_SP | OCF_COND_NC,	//0xD0
+							"pop  de", "", OCF_ADDRESS_SP,
+							"jp   nc, ", "", OCF_DATA16 | OCF_JUMP | OCF_COND_NC,
 							"Undefined", "", 0,
-							"call nc, ", "", 2 | 8,
+							"call nc, ", "", OCF_DATA16 | OCF_JUMP | OCF_CALL | OCF_COND_NC,
 							"push de", "", 0,
-							"sub  a, ", "", 1,
-							"rst  10", "", 8,
-							"ret  c", "", 0,		//0xD8
-							"reti", "", 0,
-							"jp   c, ", "", 2,
+							"sub  a, ", "", OCF_DATA8,
+							"rst  10", "", OCF_CALL | OCF_RST10,
+							"ret  c", "", OCF_ADDRESS_SP | OCF_COND_C,		//0xD8
+							"reti", "", OCF_ADDRESS_SP,
+							"jp   c, ", "", OCF_DATA16 | OCF_JUMP | OCF_COND_C,
 							"Undefined", "", 0,
-							"call c, ", "", 2 | 8,
+							"call c, ", "", OCF_DATA16 | OCF_JUMP | OCF_CALL | OCF_COND_C,
 							"Undefined", "", 0,
-							"sbc  a, ", "", 1,
-							"rst  18", "", 8,
-							"ld   [FF", "], a", 1,	//0xE0
-							"pop  hl", "", 0,
-							"ld   [FF00 + c], a", "", 0,
+							"sbc  a, ", "", OCF_DATA8,
+							"rst  18", "", OCF_CALL | OCF_RST18,
+							"ld   [FF", "], a", OCF_DATA8 | OCF_ADDRESS,	//0xE0
+							"pop  hl", "", OCF_ADDRESS_SP,
+							"ld   [FF00 + c], a", "", OCF_ADDRESS_C,
 							"Undefined", "", 0,
 							"Undefined", "", 0,
 							"push hl", "", 0,
-							"and  ", "", 1,
-							"rst  20", "", 8,
-							"add  sp, ", "", 1,		//0xE8
+							"and  ", "", OCF_DATA8,
+							"rst  20", "", OCF_CALL | OCF_RST20,
+							"add  sp, ", "", OCF_DATA8,		//0xE8
 							"jp   hl", "", 0,
-							"ld   [", "], a", 2,
+							"ld   [", "], a", OCF_DATA16 | OCF_ADDRESS,
 							"Undefined", "", 0,
 							"Undefined", "", 0,
 							"Undefined", "", 0,
-							"xor  ", "", 1,
-							"rst  28", "", 8,
-							"ld   a, [FF", "]", 1,	//0xF0
-							"pop  af", "", 0,
-							"ld   a, [FF00 + c]", "", 0,
+							"xor  ", "", OCF_DATA8,
+							"rst  28", "", OCF_CALL | OCF_RST28,
+							"ld   a, [FF", "]", OCF_DATA8 | OCF_ADDRESS,	//0xF0
+							"pop  af", "", OCF_ADDRESS_SP,
+							"ld   a, [FF00 + c]", "", OCF_ADDRESS_C,
 							"di", "", 0,
 							"Undefined", "", 0,
 							"push af", "", 0,
-							"or   ", "", 1,
-							"rst  30", "", 8,
-							"ld   hl, sp + ", "", 1,//0xF8
+							"or   ", "", OCF_DATA8,
+							"rst  30", "", OCF_CALL | OCF_RST30,
+							"ld   hl, sp + ", "", OCF_DATA8,//0xF8
 							"ld   sp, hl", "", 0,
-							"ld   a, [", "]", 2,
+							"ld   a, [", "]", OCF_DATA16 | OCF_ADDRESS,
 							"ei", "", 0,
 							"Undefined", "", 0,
 							"Undefined", "", 0,
-							"cp   ", "", 1,
-							"rst  38", "", 8
+							"cp   ", "", OCF_DATA8,
+							"rst  38", "", OCF_CALL | OCF_RST38
 						};
 
 
@@ -1249,22 +1275,603 @@ BOOL		MemoryCaret;
 int			MemoryCaretX, MemoryCaretY;
 WORD		MemoryTopByte;
 
+BYTE		MemoryROM, MemoryRAM, MemorySVBK, MemoryVBK;
+
+
+
+BOOL HexToNum(char *pc)
+{
+	if (*pc < '0')
+	{
+		return true;
+	}
+	if (*pc <= '9')
+	{
+		*pc = *pc - '0';
+	}
+	else if (*pc < 'A')
+	{
+		return true;
+	}
+	else if (*pc <= 'F')
+	{
+		*pc = *pc - 'A' + 10;
+	}
+	else if (*pc < 'a')
+	{
+		return true;
+	}
+	else if (*pc <= 'f')
+	{
+		*pc = *pc - 'a' + 10;
+	}
+	else
+	{
+		return true;
+	}
+
+	return false;
+}
+
+
+
+BOOL CALLBACK SetAddressEnumChildProc(HWND hWin, LPARAM lParam)
+{
+	if (GetWindowLong(hWin, GWL_ID) != IDC_NUMBER)
+	{
+		return true;
+	}
+
+	SendMessage(hWin, WM_SETTEXT, 0, lParam);
+
+	return false;
+}
+
+
+
+BOOL CALLBACK MemoryGotoEnumChildProc(HWND hWin, LPARAM lParam)
+{
+	char		szText[6];
+
+
+	if (GetWindowLong(hWin, GWL_ID) != IDC_NUMBER)
+	{
+		return true;
+	}
+
+	SendMessage(hWin, WM_GETTEXT, 6, (LPARAM)&szText);
+	if (strlen(szText) > 4)
+	{
+		return false;
+	}
+
+	if (HexToNum(&szText[0]))
+	{
+		return false;
+	}
+
+	if (szText[1] != '\0')
+	{
+		if (HexToNum(&szText[1]))
+		{
+			return false;
+		}
+		if (szText[2] != '\0')
+		{
+			if (HexToNum(&szText[2]))
+			{
+				return false;
+			}
+			if (szText[3] != '\0')
+			{
+				if (HexToNum(&szText[3]))
+				{
+					return false;
+				}
+				*(DWORD *)lParam = (szText[0] << 12) | (szText[1] << 8) | (szText[2] << 4) | szText[3];
+			}
+			else
+			{
+				*(DWORD *)lParam = (szText[0] << 8) | (szText[1] << 4) | szText[2];
+			}
+		}
+		else
+		{
+			*(DWORD *)lParam = (szText[0] << 4) | szText[1];
+		}
+	}
+	else
+	{
+		*(DWORD *)lParam = szText[0];
+	}
+
+	return false;
+}
+
+
+
+BOOL CALLBACK RomBankEnumChildProc(HWND hWin, LPARAM lParam)
+{
+	char		szText[4];
+
+
+	if (GetWindowLong(hWin, GWL_ID) != IDC_NUMBER)
+	{
+		return true;
+	}
+
+	if (lParam)
+	{
+		itoa(MemoryROM, szText, 16);
+		SendMessage(hWin, WM_SETTEXT, 0, (LPARAM)&szText);
+	}
+	else
+	{
+		SendMessage(hWin, WM_GETTEXT, 4, (LPARAM)&szText);
+		if (szText[0] && szText[1] && szText[2])
+		{
+			return true;
+		}
+
+		if (HexToNum(&szText[0]))
+		{
+			return true;
+		}
+
+		if (szText[1] != '\0')
+		{
+			if (HexToNum(&szText[1]))
+			{
+				return true;
+			}
+			MemoryROM = (szText[0] << 4) | szText[1];
+		}
+		else
+		{
+			MemoryROM = szText[0];
+		}
+
+		MemoryFlags |= MEMORY_ROM;
+	}
+
+	return false;
+}
+
+
+
+BOOL CALLBACK MemoryGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	DWORD		NewNumber;
+
+
+	switch (uMsg)
+	{
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDOK:
+			NewNumber = MemoryTopByte;
+			EnumChildWindows(hWin, MemoryGotoEnumChildProc, (LPARAM)&NewNumber);
+			if (MemoryTopByte == NewNumber)
+			{
+				EndDialog(hWin, true);
+				return true;
+			}
+			MemoryTopByte = (WORD)NewNumber;
+			MemoryCaretY = 0;
+			MemoryCaretX = 0;
+			EndDialog(hWin, false);
+			return true;
+
+		case IDCANCEL:
+			EndDialog(hWin, true);
+			return true;
+		}
+		break;
+
+	/*case WM_CLOSE:
+		EndDialog(hWin, true);
+		return true;*/
+
+	case WM_INITDIALOG:
+		itoa(MemoryTopByte, NumBuffer, 16);
+		EnumChildWindows(hWin, SetAddressEnumChildProc, (LPARAM)&NumBuffer);
+		return true;
+	}
+
+	return false;
+}
+
+
+
+BOOL CALLBACK RomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDOK:
+			EnumChildWindows(hWin, RomBankEnumChildProc, false);
+			EndDialog(hWin, false);
+			return true;
+
+		case IDCANCEL:
+			EndDialog(hWin, true);
+			return true;
+		}
+		break;
+
+	/*case WM_CLOSE:
+		EndDialog(hWin, true);
+		return true;*/
+
+	case WM_INITDIALOG:
+		SendMessage(hWin, WM_SETTEXT, 0, (LPARAM)&"Enter ROM Bank");
+		EnumChildWindows(hWin, RomBankEnumChildProc, true);
+		return true;
+	}
+
+	return false;
+}
+
+
+
+BOOL CreateMemoryMenu(CGameBoy *pGameBoy, HMENU hMenu)
+{
+	HMENU			hRAMMenu = GetSubMenu(hMenu, 3);
+	BYTE			Banks;
+	MENUITEMINFO	mmi;
+
+
+	mmi.cbSize = sizeof(mmi);
+	mmi.fMask = MIIM_STATE;
+	if (pGameBoy->Flags & GB_ROM_COLOR)
+	{
+		mmi.fState = MFS_ENABLED;
+	}
+	else
+	{
+		mmi.fState = MFS_GRAYED;
+	}
+	SetMenuItemInfo(hMenu, 2, true, &mmi);
+	SetMenuItemInfo(hMenu, 4, true, &mmi);
+	if (pGameBoy->MaxRomBank > 1)
+	{
+		mmi.fState = MFS_ENABLED;
+	}
+	else
+	{
+		mmi.fState = MFS_GRAYED;
+	}
+	SetMenuItemInfo(hMenu, 1, true, &mmi);
+
+	switch (pGameBoy->MEM_ROM[0x0149])
+	{
+	case 1:
+		Banks = 1;
+		break;
+	case 2:
+		Banks = 1;
+		break;
+	case 3:
+		Banks = 4;
+		break;
+	case 4:
+		Banks = 16;
+		break;
+	default:
+		Banks = 0;
+		break;
+	}
+	if (Banks <= 1)
+	{
+		mmi.fState = MFS_GRAYED;
+		SetMenuItemInfo(hMenu, 3, true, &mmi);
+	}
+	else
+	{
+		mmi.fState = MFS_ENABLED;
+		SetMenuItemInfo(hMenu, 3, true, &mmi);
+		if (Banks >= 4)
+		{
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK2, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK2, "Bank &2"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK3, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK3, "Bank &3"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+		}
+		if (Banks >= 16)
+		{
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK4, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK4, "Bank &4"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK5, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK5, "Bank &5"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK6, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK6, "Bank &6"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK7, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK7, "Bank &7"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK8, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK8, "Bank &8"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK9, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK9, "Bank &9"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK10, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK10, "Bank &10"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK11, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK11, "Bank &11"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK12, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK12, "Bank &12"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK13, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK13, "Bank &13"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK14, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK14, "Bank &14"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK15, MF_BYCOMMAND);
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK15, "Bank &15"))
+			{
+				DisplayErrorMessage(hWnd);
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+
+
 LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CGameBoy		*pGameBoy;
 	PAINTSTRUCT		Paint;
 	RECT			rct;
+	POINT			Point;
 	LOGBRUSH		lb;
 	HBRUSH			hBrush;
 	HPEN			hPen;
 	SCROLLINFO		si;
 	WORD			pByte;
-	BYTE			Byte;
+	BYTE			Byte, Access;
 	int				x, y, BytesPerLine, nBytes;
 
 
 	switch (uMsg)
 	{
+	case WM_COMMAND:
+		if (!(pGameBoy = GameBoyList.GetActive()))
+		{
+			break;
+		}
+		switch (LOWORD(wParam))
+		{
+		case ID_EDIT_GOTO:
+			if (!DialogBox(hInstance, MAKEINTRESOURCE(IDD_ENTERNUMBER), hWnd, MemoryGotoDlgProc))
+			{
+				InvalidateRect(hWin, NULL, true);
+			}
+			return 0;
+
+		case ID_MEMORY_ROM:
+			if (!(MemoryFlags & MEMORY_ROM))
+			{
+				MemoryROM = pGameBoy->ActiveRomBank;
+			}
+			Byte = MemoryROM;
+			if (!DialogBox(hInstance, MAKEINTRESOURCE(IDD_ENTERNUMBER), hWnd, RomBankDlgProc))
+			{
+				if (MemoryROM <= pGameBoy->MaxRomBank)
+				{
+					InvalidateRect(hWin, NULL, true);
+				}
+				else
+				{
+					MemoryROM = Byte;
+				}
+			}
+			return 0;
+
+		case ID_MEMORY_VBK_BANK0:
+			MemoryFlags |= MEMORY_VBK;
+			MemoryVBK = 0;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_VBK_BANK1:
+			MemoryFlags |= MEMORY_VBK;
+			MemoryVBK = 1;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK0:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 0;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK1:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 1;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK2:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 2;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK3:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 3;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK4:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 4;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK5:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 5;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK6:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 6;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK7:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 7;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK8:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 8;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK9:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 9;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK10:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 10;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK11:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 11;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK12:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 12;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK13:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 13;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK14:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 14;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK15:
+			MemoryFlags |= MEMORY_RAM;
+			MemoryRAM = 15;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK1:
+			MemoryFlags |= MEMORY_SVBK;
+			MemorySVBK = 1;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK2:
+			MemoryFlags |= MEMORY_SVBK;
+			MemorySVBK = 2;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK3:
+			MemoryFlags |= MEMORY_SVBK;
+			MemorySVBK = 3;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK4:
+			MemoryFlags |= MEMORY_SVBK;
+			MemorySVBK = 4;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK5:
+			MemoryFlags |= MEMORY_SVBK;
+			MemorySVBK = 5;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK6:
+			MemoryFlags |= MEMORY_SVBK;
+			MemorySVBK = 6;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK7:
+			MemoryFlags |= MEMORY_SVBK;
+			MemorySVBK = 7;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+		}
+		break;
+
 	case WM_SETFOCUS:
 		if (GameBoyList.GetActive())
 		{
@@ -1289,7 +1896,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			break;
 		}
 		GetClientRect(hWin, &rct);
-		BytesPerLine = (rct.right / FixedFontWidth - 7) / 4;
+		BytesPerLine = (rct.right / FixedFontWidth - 10) / 4;
 		if (BytesPerLine == 0)
 		{
 			BytesPerLine = 1;
@@ -1514,6 +2121,11 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			{
 			}
 			return 0;
+
+		case VK_APPS:
+			GetWindowRect(hWin, &rct);
+			TrackPopupMenu(GetSubMenu(hPopupMenu, 0), TPM_LEFTBUTTON, rct.left + GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXEDGE) + MemoryCaretX, rct.top + GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION) + FixedFontHeight + MemoryCaretY, 0, hWin, NULL);
+			return 0;
 		}
 		break;
 
@@ -1523,7 +2135,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return 0;
 		}
 		GetClientRect(hWin, &rct);
-		BytesPerLine = (rct.right / FixedFontWidth - 7) / 4;
+		BytesPerLine = (rct.right / FixedFontWidth - 10) / 4;
 		if (BytesPerLine == 0)
 		{
 			BytesPerLine = 1;
@@ -1620,13 +2232,14 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		}
 		return 0;
 
+	case WM_RBUTTONDOWN:
 	case WM_LBUTTONDOWN:
-		if (!GameBoyList.GetActive())
+		if (!(pGameBoy = GameBoyList.GetActive()))
 		{
 			return 0;
 		}
 		GetClientRect(hWin, &rct);
-		BytesPerLine = (rct.right / FixedFontWidth - 7) / 4;
+		BytesPerLine = (rct.right / FixedFontWidth - 10) / 4;
 		if (BytesPerLine == 0)
 		{
 			BytesPerLine = 1;
@@ -1645,6 +2258,14 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		if (MemoryCaretY > rct.bottom - FixedFontHeight)
 		{
 			SendMessage(hWin, WM_VSCROLL, SB_LINEDOWN, 0);
+		}
+		if (uMsg == WM_RBUTTONDOWN)
+		{
+			if (!CreateMemoryMenu(pGameBoy, GetSubMenu(hPopupMenu, 0)))
+			{
+				GetCursorPos(&Point);
+				TrackPopupMenu(GetSubMenu(hPopupMenu, 0), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
+			}
 		}
 		return 0;
 
@@ -1671,7 +2292,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 				GetClientRect(hWin, &rct);
 
-				BytesPerLine = (rct.right / FixedFontWidth - 7) / 4;
+				BytesPerLine = (rct.right / FixedFontWidth - 10) / 4;
 				if (BytesPerLine == 0)
 				{
 					BytesPerLine = 1;
@@ -1687,28 +2308,167 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				y = 0;
 				while (y <= rct.bottom)
 				{
-					TextOut(Paint.hdc, 0, y, ToHex(pByte, true), 4);
+					if (pByte >= 0x4000 && pByte < 0x8000)
+					{
+						if (MemoryFlags & MEMORY_ROM)
+						{
+							TextOut(Paint.hdc, 0, y, ToHex(MemoryROM, false), 2);
+						}
+						else
+						{
+							TextOut(Paint.hdc, 0, y, ToHex(pGameBoy->ActiveRomBank, false), 2);
+						}
+					}
+					else if (pByte >= 0x8000 && pByte < 0xA000)
+					{
+						if (MemoryFlags & MEMORY_VBK)
+						{
+							TextOut(Paint.hdc, 0, y, ToHex(MemoryVBK, false), 2);
+						}
+						else
+						{
+							TextOut(Paint.hdc, 0, y, ToHex(pGameBoy->MEM_CPU[0x8F4F], false), 2);
+						}
+					}
+					else if (pByte >= 0xA000 && pByte < 0xC000)
+					{
+						if (MemoryFlags & MEMORY_RAM)
+						{
+							TextOut(Paint.hdc, 0, y, ToHex(MemoryRAM, false), 2);
+						}
+						else
+						{
+							TextOut(Paint.hdc, 0, y, ToHex(pGameBoy->ActiveRamBank, false), 2);
+						}
+					}
+					else if (pByte >= 0xD000 && pByte < 0xE000)
+					{
+						if (MemoryFlags & MEMORY_SVBK)
+						{
+							TextOut(Paint.hdc, 0, y, ToHex(MemorySVBK, false), 2);
+						}
+						else
+						{
+							if (pGameBoy->MEM_CPU[0x8F70] == 0)
+							{
+								TextOut(Paint.hdc, 0, y, "01", 2);
+							}
+							else
+							{
+								TextOut(Paint.hdc, 0, y, ToHex(pGameBoy->MEM_CPU[0x8F70], false), 2);
+							}
+						}
+					}
+					else
+					{
+						TextOut(Paint.hdc, 0, y, "00", 2);
+					}
+					TextOut(Paint.hdc, 2 * FixedFontWidth, y, ":", 1);
+
+					TextOut(Paint.hdc, 3 * FixedFontWidth, y, ToHex(pByte, true), 4);
 					x = 0;
 					nBytes = 0;
 					while (nBytes++ < BytesPerLine)
 					{
-						if (!(RetrieveAccess(pGameBoy, pByte) & MEM_READ))
+						if (pByte < 0x4000)
 						{
-							TextOut(Paint.hdc, 6 * FixedFontWidth + 3 * x, y, "??", 2);
-							TextOut(Paint.hdc, (7 + 3 * BytesPerLine) * FixedFontWidth + x, y, "?", 1);
+							Byte = pGameBoy->MEM_ROM[pByte];
+							Access = pGameBoy->MemStatus_ROM[pByte];
+						}
+						else if (pByte < 0x8000)
+						{
+							if (MemoryFlags & MEMORY_ROM)
+							{
+								Byte = pGameBoy->MEM_ROM[pByte - 0x4000 + 0x4000 * MemoryROM];
+								Access = pGameBoy->MemStatus_ROM[pByte - 0x4000 + 0x4000 * MemoryROM];
+							}
+							else
+							{
+								Byte = pGameBoy->MEM_ROM[pByte - 0x4000 + 0x4000 * pGameBoy->ActiveRomBank];
+								Access = pGameBoy->MemStatus_ROM[pByte - 0x4000 + 0x4000 * pGameBoy->ActiveRomBank];
+							}
+						}
+						else if (pByte < 0xA000)
+						{
+							if (MemoryFlags & MEMORY_VBK)
+							{
+								Byte = pGameBoy->MEM_VRAM[pByte - 0x8000 + 0x2000 * MemoryVBK];
+								Access = pGameBoy->MemStatus_VRAM[pByte - 0x8000 + 0x2000 * MemoryVBK];
+							}
+							else
+							{
+								Byte = pGameBoy->MEM_VRAM[pByte - 0x8000 + 0x2000 * (pGameBoy->MEM_CPU[0x8F4F] & 1)];
+								Access = pGameBoy->MemStatus_VRAM[pByte - 0x8000 + 0x2000 * (pGameBoy->MEM_CPU[0x8F4F] & 1)];
+							}
+						}
+						else if (pByte < 0xC000)
+						{
+							if (pGameBoy->MemStatus_RAM)
+							{
+								if (MemoryFlags & MEMORY_RAM)
+								{
+									Access = pGameBoy->MemStatus_RAM[pByte - 0xA000 + 0x2000 * MemoryRAM];
+									if (Access & MEM_READ)
+									{
+										Byte = pGameBoy->MEM_RAM[pByte - 0xA000 + 0x2000 * MemoryRAM];
+									}
+								}
+								else
+								{
+									Access = pGameBoy->MemStatus_RAM[pByte - 0xA000 + 0x2000 * pGameBoy->ActiveRamBank];
+									if (Access & MEM_READ)
+									{
+										Byte = pGameBoy->MEM_RAM[pByte - 0xA000 + 0x2000 * pGameBoy->ActiveRamBank];
+									}
+								}
+							}
+							else
+							{
+								Access = 0;
+							}
+						}
+						else if (pByte < 0xD000)
+						{
+							Byte = pGameBoy->MEM_CPU[pByte - 0xC000];
+							Access = pGameBoy->MemStatus_CPU[pByte - 0xC000];
+						}
+						else if (pByte < 0xE000)
+						{
+							if (!(MemoryFlags & MEMORY_SVBK))
+							{
+								MemorySVBK = pGameBoy->MEM_CPU[0x8F70];
+								if (MemorySVBK < 1)
+								{
+									MemorySVBK = 1;
+								}
+							}
+							Byte = pGameBoy->MEM_CPU[pByte - 0xD000 + 0x1000 * MemorySVBK];
+							Access = pGameBoy->MemStatus_CPU[pByte - 0xD000 + 0x1000 * MemorySVBK];
+						}
+						else
+						{
+							Access = RetrieveAccess(pGameBoy, pByte);
+							if (Access & MEM_READ)
+							{
+								Byte = (BYTE)ReadMem(pGameBoy, pByte);
+							}
+						}
+						if (!(Access & MEM_READ))
+						{
+							TextOut(Paint.hdc, 9 * FixedFontWidth + 3 * x, y, "??", 2);
+							TextOut(Paint.hdc, (10 + 3 * BytesPerLine) * FixedFontWidth + x, y, "?", 1);
 						}
 						else
 						{
 							if (pByte & 0x8000)
 							{
-								if (RetrieveAccess(pGameBoy, pByte) & MEM_CHANGED)
+								if (Access & MEM_CHANGED)
 								{
 									SetTextColor(Paint.hdc, RGB(0xFF, 0x00, 0x00));
 								}
 							}
-							Byte = (BYTE)ReadMem(pGameBoy, pByte);
-							TextOut(Paint.hdc, 6 * FixedFontWidth + 3 * x, y, ToHex(Byte, false), 2);
-							TextOut(Paint.hdc, (7 + 3 * BytesPerLine) * FixedFontWidth + x, y, (char *)&Byte, 1);
+							TextOut(Paint.hdc, 9 * FixedFontWidth + 3 * x, y, ToHex(Byte, false), 2);
+							TextOut(Paint.hdc, (10 + 3 * BytesPerLine) * FixedFontWidth + x, y, (char *)&Byte, 1);
 							SetTextColor(Paint.hdc, 0);
 						}
 
@@ -1798,11 +2558,58 @@ int			DisAsmCaretX, DisAsmCaretY;
 WORD		DisAsmTopByte, DisAsmCaretByte, DisAsmLastPC;
 int			DisAsmScroll;
 
+BOOL CALLBACK DisAsmGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	DWORD		NewNumber;
+
+
+	switch (uMsg)
+	{
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDOK:
+			NewNumber = DisAsmCaretByte;
+			EnumChildWindows(hWin, MemoryGotoEnumChildProc, (LPARAM)&NewNumber);
+			if (DisAsmCaretByte == NewNumber)
+			{
+				EndDialog(hWin, true);
+				return true;
+			}
+			DisAsmCaretByte = (WORD)NewNumber;
+			DisAsmTopByte = DisAsmCaretByte;
+			MemoryCaretY = 0;
+			MemoryCaretX = 0;
+			EndDialog(hWin, false);
+			return true;
+
+		case IDCANCEL:
+			EndDialog(hWin, true);
+			return true;
+		}
+		break;
+
+	/*case WM_CLOSE:
+		EndDialog(hWin, true);
+		return true;*/
+
+	case WM_INITDIALOG:
+		itoa(DisAsmCaretByte, NumBuffer, 16);
+		EnumChildWindows(hWin, SetAddressEnumChildProc, (LPARAM)&NumBuffer);
+		return true;
+	}
+
+	return false;
+}
+
+
+
 LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CGameBoy		*pGameBoy;
 	PAINTSTRUCT		Paint;
 	RECT			rct;
+	POINT			Point;
 	LOGBRUSH		lb;
 	HDC				hdc;
 	HBRUSH			hBrush;
@@ -1818,6 +2625,128 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 	switch (uMsg)
 	{
+	case WM_COMMAND:
+		if (!(pGameBoy = GameBoyList.GetActive()))
+		{
+			break;
+		}
+		switch (LOWORD(wParam))
+		{
+		case ID_EDIT_GOTO:
+			if (!DialogBox(hInstance, MAKEINTRESOURCE(IDD_ENTERNUMBER), hWnd, DisAsmGotoDlgProc))
+			{
+				InvalidateRect(hWin, NULL, true);
+			}
+			return 0;
+
+		case ID_EMULATION_STEPOVER:
+			if (OpCodeNames[(BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC)].Flags & OCF_CALL)
+			{
+				if (!pGameBoy->hThread)
+				{
+					pEmulationInfo = new EMULATIONINFO;
+					pEmulationInfo->GameBoy1 = pGameBoy;
+					pEmulationInfo->Flags = EMU_RUNTO;
+					pEmulationInfo->RunToOffset = pGameBoy->Reg_PC + ((BYTE)OpCodeNames[(BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC)].Flags & OCF_BYTES) + 1;
+					if (pEmulationInfo->RunToOffset >= 0x4000 && pEmulationInfo->RunToOffset < 0x8000)
+					{
+						pEmulationInfo->RunToBank = pGameBoy->ActiveRomBank;
+					}
+					if (pEmulationInfo->RunToOffset >= 0xA000 && pEmulationInfo->RunToOffset < 0xC000)
+					{
+						pEmulationInfo->RunToBank = pGameBoy->ActiveRamBank;
+					}
+					if (pEmulationInfo->RunToOffset >= 0xD000 && pEmulationInfo->RunToOffset < 0xE000 && pGameBoy->Flags & GB_ROM_COLOR)
+					{
+						pEmulationInfo->RunToBank = pFF00_C(pGameBoy, 0x4F) & 7;
+					}
+					pGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &pGameBoy->ThreadId);
+				}
+				break;
+			}
+
+		case ID_EMULATION_STEPINTO:
+			if (!pGameBoy->hThread)
+			{
+				pEmulationInfo = new EMULATIONINFO;
+				pEmulationInfo->GameBoy1 = pGameBoy;
+				pEmulationInfo->Flags = EMU_STEPINTO;
+				pGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &pGameBoy->ThreadId);
+			}
+			return 0;
+
+		case ID_EMULATION_STEPOUT:
+			if (!pGameBoy->hThread)
+			{
+				pEmulationInfo = new EMULATIONINFO;
+				pEmulationInfo->GameBoy1 = pGameBoy;
+				pEmulationInfo->Flags = EMU_STEPOUT;
+				pGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &pGameBoy->ThreadId);
+			}
+			return 0;
+
+		case ID_EMULATION_RUNTOCURSOR:
+			if (!pGameBoy->hThread)
+			{
+				pEmulationInfo = new EMULATIONINFO;
+				pEmulationInfo->GameBoy1 = pGameBoy;
+				pEmulationInfo->Flags = EMU_RUNTO;
+				pEmulationInfo->RunToOffset = DisAsmCaretByte;
+				if (DisAsmCaretByte >= 0x4000 && DisAsmCaretByte < 0x8000)
+				{
+					pEmulationInfo->RunToBank = pGameBoy->ActiveRomBank;
+				}
+				if (DisAsmCaretByte >= 0xA000 && DisAsmCaretByte < 0xC000)
+				{
+					pEmulationInfo->RunToBank = pGameBoy->ActiveRamBank;
+				}
+				if (DisAsmCaretByte >= 0xD000 && DisAsmCaretByte < 0xE000 && pGameBoy->Flags & GB_ROM_COLOR)
+				{
+					pEmulationInfo->RunToBank = pFF00_C(pGameBoy, 0x4F) & 7;
+				}
+				pGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &pGameBoy->ThreadId);
+			}
+			return 0;
+
+		case ID_EMULATION_SETNEXTSTATEMENT:
+			if (pGameBoy->Reg_PC != DisAsmCaretByte)
+			{
+				pGameBoy->Reg_PC = DisAsmCaretByte;
+				GetClientRect(hWin, &rct);
+				rct.right = 15;
+				InvalidateRect(hWin, &rct, true);
+				if (hRegisters)
+				{
+					InvalidateRect(hRegisters, NULL, true);
+				}
+			}
+			return 0;
+
+		case ID_EMULATION_TOGGLEBREAKPOINT:
+			Status = RetrieveAccess(pGameBoy, DisAsmCaretByte);
+
+			//Breakpoints cannot be placed on non-executable statements
+			if (!(Status & MEM_EXECUTE))
+			{
+				return 0;
+			}
+
+			if (Status & MEM_BREAKPOINT)
+			{
+				Status &= ~MEM_BREAKPOINT;
+			}
+			else
+			{
+				Status |= MEM_BREAKPOINT;
+			}
+			SetAccess(pGameBoy, DisAsmCaretByte, Status);
+			GetClientRect(hWin, &rct);
+			rct.right = 15;
+			InvalidateRect(hWin, &rct, true);
+			return 0;
+		}
+		break;
+
 	case WM_SETFOCUS:
 		if (GameBoyList.GetActive())
 		{
@@ -1871,7 +2800,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 					if (Byte != 0xCB)
 					{
-						if (OpCodeNames[Byte].Bytes & 7)
+						if (OpCodeNames[Byte].Flags & OCF_BYTES)
 						{
 							if (DisAsmCaretByte == ++pByte)
 							{
@@ -1879,7 +2808,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 								break;
 							}
 
-							if (OpCodeNames[Byte].Bytes & 2)
+							if (OpCodeNames[Byte].Flags & OCF_DATA16)
 							{
 								if (DisAsmCaretByte == ++pByte)
 								{
@@ -1918,8 +2847,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return 0;
 
 		case VK_DOWN:
-			Byte = OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmCaretByte)].Bytes;
-			Byte = (Byte & 3) + 1 + ((Byte >> 2) & 1);
+			Byte = 1 + (BYTE)(OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmCaretByte)].Flags & OCF_BYTES);
 			if (DisAsmCaretByte + Byte > 0xFFFF)
 			{
 				return 0;
@@ -2014,22 +2942,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				{
 					Byte = (BYTE)ReadMem(DisAsmGameBoy, DisAsmCaretByte++);
 
-					if (Byte != 0xCB)
-					{
-						if (OpCodeNames[Byte].Bytes & 7)
-						{
-							DisAsmCaretByte++;
-
-							if (OpCodeNames[Byte].Bytes & 2)
-							{
-								DisAsmCaretByte++;
-							}
-						}
-					}
-					else
-					{
-						DisAsmCaretByte++;
-					}
+					DisAsmCaretByte += (BYTE)OpCodeNames[Byte].Flags & OCF_BYTES;
 					y += FixedFontHeight;
 				}
 			}
@@ -2054,12 +2967,12 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				}
 				if (Byte != 0xCB)
 				{
-					if (OpCodeNames[Byte].Bytes & 7)
+					if (OpCodeNames[Byte].Flags & OCF_BYTES)
 					{
 						DisAsmCaretByte++;
 						DisAsmTopByte++;
 
-						if (OpCodeNames[Byte].Bytes & 2)
+						if (OpCodeNames[Byte].Flags & OCF_DATA16)
 						{
 							if (DisAsmCaretByte == 0xFFFF)
 							{
@@ -2083,153 +2996,13 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			}
 			InvalidateRect(hWin, NULL, true);
 			return 0;
+
+		case VK_APPS:
+			GetWindowRect(hWin, &rct);
+			TrackPopupMenu(GetSubMenu(hPopupMenu, 1), TPM_LEFTBUTTON, rct.left + GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXEDGE) + DisAsmCaretX, rct.top + GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION) + FixedFontHeight + DisAsmCaretY, 0, hWin, NULL);
+			return 0;
 		}
 		break;
-
-	case WM_APP_STEPOVER:
-		if (!DisAsmGameBoy)
-		{
-			return 0;
-		}
-		if (OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmGameBoy->Reg_PC)].Bytes & 8)
-		{
-			if (!DisAsmGameBoy->hThread)
-			{
-				pEmulationInfo = new EMULATIONINFO;
-				pEmulationInfo->GameBoy1 = DisAsmGameBoy;
-				pEmulationInfo->Flags = EMU_RUNTO;
-				pEmulationInfo->RunToOffset = DisAsmGameBoy->Reg_PC + (OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmGameBoy->Reg_PC)].Bytes & 3) + 1;
-				if (pEmulationInfo->RunToOffset >= 0x4000 && pEmulationInfo->RunToOffset < 0x8000)
-				{
-					pEmulationInfo->RunToBank = DisAsmGameBoy->ActiveRomBank;
-				}
-				if (pEmulationInfo->RunToOffset >= 0xA000 && pEmulationInfo->RunToOffset < 0xC000)
-				{
-					pEmulationInfo->RunToBank = DisAsmGameBoy->ActiveRamBank;
-				}
-				if (pEmulationInfo->RunToOffset >= 0xD000 && pEmulationInfo->RunToOffset < 0xE000 && DisAsmGameBoy->Flags & GB_ROM_COLOR)
-				{
-					pEmulationInfo->RunToBank = pFF00_C(DisAsmGameBoy, 0x4F) & 7;
-				}
-				DisAsmGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &DisAsmGameBoy->ThreadId);
-			}
-			/*pByte = DisAsmGameBoy->Reg_PC + (OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmGameBoy->Reg_PC)].Bytes & 3) + 1;
-			do
-			{
-				DisAsmGameBoy->Flags |= GB_EXITLOOP;
-				DisAsmGameBoy->DebugMainLoop();
-			}
-			while (DisAsmGameBoy->Reg_PC == pByte && !(DisAsmGameBoy->Flags & GB_ERROR));
-			DisAsmGameBoy->Flags &= ~(GB_EXITLOOP | GB_ERROR);
-			DisAsmCaretByte = DisAsmGameBoy->Reg_PC;
-			//SendMessage(hWin, WM_APP_SCROLLTOCURSOR, 0, 0);
-
-			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);*/
-			break;
-		}
-
-	case WM_APP_STEPINTO:
-		if (!DisAsmGameBoy)
-		{
-			return 0;
-		}
-		if (!DisAsmGameBoy->hThread)
-		{
-			pEmulationInfo = new EMULATIONINFO;
-			pEmulationInfo->GameBoy1 = DisAsmGameBoy;
-			pEmulationInfo->Flags = EMU_STEPINTO;
-			DisAsmGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &DisAsmGameBoy->ThreadId);
-		}
-		/*pByte = DisAsmGameBoy->Reg_PC;
-		do
-		{
-			DisAsmGameBoy->Flags |= GB_EXITLOOP;
-			DisAsmGameBoy->DebugMainLoop();
-		}
-		while (DisAsmGameBoy->Reg_PC == pByte && !(DisAsmGameBoy->Flags & GB_ERROR));
-		DisAsmGameBoy->Flags &= ~(GB_EXITLOOP | GB_ERROR);
-		DisAsmCaretByte = DisAsmGameBoy->Reg_PC;
-		//SendMessage(hWin, WM_APP_SCROLLTOCURSOR, 0, 0);
-
-		PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);*/
-		return 0;
-
-	case WM_APP_STEPOUT:
-		if (!DisAsmGameBoy)
-		{
-			return 0;
-		}
-		if (!DisAsmGameBoy->hThread)
-		{
-			pEmulationInfo = new EMULATIONINFO;
-			pEmulationInfo->GameBoy1 = DisAsmGameBoy;
-			pEmulationInfo->Flags = EMU_STEPOUT;
-			DisAsmGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &DisAsmGameBoy->ThreadId);
-		}
-		return 0;
-
-	case WM_APP_RUNTOCURSOR:
-		if (!DisAsmGameBoy)
-		{
-			return 0;
-		}
-		if (!DisAsmGameBoy->hThread)
-		{
-			pEmulationInfo = new EMULATIONINFO;
-			pEmulationInfo->GameBoy1 = DisAsmGameBoy;
-			pEmulationInfo->Flags = EMU_RUNTO;
-			pEmulationInfo->RunToOffset = DisAsmCaretByte;
-			if (DisAsmCaretByte >= 0x4000 && DisAsmCaretByte < 0x8000)
-			{
-				pEmulationInfo->RunToBank = DisAsmGameBoy->ActiveRomBank;
-			}
-			if (DisAsmCaretByte >= 0xA000 && DisAsmCaretByte < 0xC000)
-			{
-				pEmulationInfo->RunToBank = DisAsmGameBoy->ActiveRamBank;
-			}
-			if (DisAsmCaretByte >= 0xD000 && DisAsmCaretByte < 0xE000 && DisAsmGameBoy->Flags & GB_ROM_COLOR)
-			{
-				pEmulationInfo->RunToBank = pFF00_C(DisAsmGameBoy, 0x4F) & 7;
-			}
-			DisAsmGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &DisAsmGameBoy->ThreadId);
-		}
-		return 0;
-
-	case WM_APP_SETNEXTSTATEMENT:
-		if (DisAsmGameBoy)
-		{
-			DisAsmGameBoy->Reg_PC = DisAsmCaretByte;
-			GetClientRect(hWin, &rct);
-			rct.right = 15;
-			InvalidateRect(hWin, &rct, true);
-		}
-		return 0;
-
-	case WM_APP_TOGGLEBREAKPOINT:
-		if (DisAsmGameBoy)
-		{
-			Status = RetrieveAccess(DisAsmGameBoy, DisAsmCaretByte);
-
-			//Breakpoints cannot be placed on non-executable statements
-			if (!(Status & MEM_EXECUTE))
-			{
-				return 0;
-			}
-
-			if (Status & MEM_BREAKPOINT)
-			{
-				Status &= ~MEM_BREAKPOINT;
-			}
-			else
-			{
-				Status |= MEM_BREAKPOINT;
-			}
-			SetAccess(DisAsmGameBoy, DisAsmCaretByte, Status);
-			GetClientRect(hWin, &rct);
-			rct.right = 15;
-			InvalidateRect(hWin, &rct, true);
-		}
-		return 0;
 
 	case WM_VSCROLL:
 		if (!DisAsmGameBoy)
@@ -2249,8 +3022,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 		case SB_LINEDOWN:
 			GetClientRect(hWin, &rct);
-			Byte = OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmTopByte)].Bytes;
-			Byte = (Byte & 3) + 1 + ((Byte >> 2) & 1);
+			Byte = 1 + (BYTE)(OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmTopByte)].Flags & OCF_BYTES);
 			if (DisAsmTopByte + Byte > 0xFFFF)
 			{
 				return 0;
@@ -2293,21 +3065,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			{
 				Byte = (BYTE)ReadMem(DisAsmGameBoy, DisAsmTopByte++);
 
-				if (Byte != 0xCB)
-				{
-					if (OpCodeNames[Byte].Bytes & 7)
-					{
-						DisAsmTopByte++;
-						if (OpCodeNames[Byte].Bytes & 2)
-						{
-							DisAsmTopByte++;
-						}
-					}
-				}
-				else
-				{
-					DisAsmTopByte++;
-				}
+				DisAsmTopByte += (BYTE)OpCodeNames[Byte].Flags & OCF_BYTES;
 				y += FixedFontHeight;
 			}
 
@@ -2329,6 +3087,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		}
 		return 0;
 
+	case WM_RBUTTONDOWN:
 	case WM_LBUTTONDOWN:
 		if (!DisAsmGameBoy)
 		{
@@ -2346,9 +3105,16 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				break;
 			}
 
-			if (Byte != 0xCB)
+			if (OpCodeNames[Byte].Flags & OCF_BYTES)
 			{
-				if (OpCodeNames[Byte].Bytes & 7)
+				DisAsmCaretByte++;
+				if (DisAsmCaretByte == 0)
+				{
+					DisAsmCaretByte = 0xFFFF;
+					break;
+				}
+
+				if (OpCodeNames[Byte].Flags & OCF_DATA16)
 				{
 					DisAsmCaretByte++;
 					if (DisAsmCaretByte == 0)
@@ -2356,25 +3122,6 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						DisAsmCaretByte = 0xFFFF;
 						break;
 					}
-
-					if (OpCodeNames[Byte].Bytes & 2)
-					{
-						DisAsmCaretByte++;
-						if (DisAsmCaretByte == 0)
-						{
-							DisAsmCaretByte = 0xFFFF;
-							break;
-						}
-					}
-				}
-			}
-			else
-			{
-				DisAsmCaretByte++;
-				if (DisAsmCaretByte == 0)
-				{
-					DisAsmCaretByte = 0xFFFF;
-					break;
 				}
 			}
 			y += FixedFontHeight;
@@ -2385,6 +3132,14 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			HideCaret(hWin);
 			SetCaretPos(DisAsmCaretX, DisAsmCaretY);
 			ShowCaret(hWin);
+		}
+		if (uMsg == WM_RBUTTONDOWN)
+		{
+			//if (!CreateMemoryMenu(pGameBoy, GetSubMenu(hPopupMenu, 0)))
+			//{
+			GetCursorPos(&Point);
+			TrackPopupMenu(GetSubMenu(hPopupMenu, 1), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
+			//}
 		}
 		return 0;
 
@@ -2426,18 +3181,25 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					}
 					else
 					{
-						if (DisAsmCaretByte - DisAsmTopByte > rct.bottom / FixedFontHeight)
+						y = 0;
+						pByte = DisAsmTopByte;
+						while (true)
 						{
-							Byte = OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmTopByte)].Bytes;
-							Byte = (Byte & 3) + 1 + ((Byte >> 2) & 1);
-							if (DisAsmTopByte + Byte <= 0xFFFF)
+							pByte += 1 + (BYTE)(OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, pByte)].Flags & OCF_BYTES);
+							y += FixedFontHeight;
+							if (pByte > DisAsmCaretByte)
 							{
-								DisAsmTopByte += Byte;
+								if (y > rct.bottom - 2 * FixedFontHeight)
+								{
+									DisAsmTopByte += 1 + (BYTE)(OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmTopByte)].Flags & OCF_BYTES);
+								}
+								break;
 							}
-						}
-						if (DisAsmCaretByte - DisAsmTopByte > rct.bottom / FixedFontHeight)
-						{
-							DisAsmTopByte = DisAsmCaretByte;
+							if (y > rct.bottom - 2 * FixedFontHeight)
+							{
+								DisAsmTopByte = DisAsmCaretByte;
+								break;
+							}
 						}
 					}
 				}
@@ -2492,7 +3254,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						{
 							TextOut(Paint.hdc, 15 + 14 * FixedFontWidth, y, OpCodeNames[Byte].Text1, strlen(OpCodeNames[Byte].Text1));
 							x = 15 + (14 + strlen(OpCodeNames[Byte].Text1)) * FixedFontWidth;
-							if (OpCodeNames[Byte].Bytes & 7)
+							if (OpCodeNames[Byte].Flags & OCF_BYTES)
 							{
 								Byte2 = (BYTE)ReadMem(pGameBoy, ++pByte);
 
@@ -2513,7 +3275,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 									}
 								}
 
-								if (OpCodeNames[Byte].Bytes & 2)
+								if (OpCodeNames[Byte].Flags & OCF_DATA16)
 								{
 									Byte3 = (BYTE)ReadMem(pGameBoy, ++pByte);
 
@@ -2538,7 +3300,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 									x += 2 * FixedFontWidth;
 								}
 								TextOut(Paint.hdc, 15 + 8 * FixedFontWidth, y, ToHex(Byte2, false), 2);
-								if (OpCodeNames[Byte].Bytes & 4)
+								if (OpCodeNames[Byte].Flags & OCF_DISP)
 								{
 									TextOut(Paint.hdc, x, y, ToHex(pByte + 1 + (Byte2 & 0x80 ? - (short)((BYTE)-Byte2) : Byte2), true), 4);
 									x += 4 * FixedFontWidth;
@@ -2672,14 +3434,43 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 
 
-int		RegisterCaretX, RegisterCaretY;
+DWORD	RegisterCaretX, RegisterCaretY;
 BOOL	RegisterCaret;
+
+
+
+void PrintAddress(CGameBoy *pGameBoy, HDC hdc, WORD Address, BOOL Word)
+{
+	TextOut(hdc, 0, 6 * FixedFontHeight, ToHex(Address, true), 4);
+	TextOut(hdc, 5 * FixedFontWidth, 6 * FixedFontHeight, "=", 1);
+	if (RetrieveAccess(pGameBoy, Address) & MEM_READ)
+	{
+		TextOut(hdc, 7 * FixedFontWidth, 6 * FixedFontHeight, ToHex(ReadMem(pGameBoy, Address + (Word ? 1 : 0)), false), 2);
+	}
+	else
+	{
+		TextOut(hdc, 7 * FixedFontWidth, 6 * FixedFontHeight, "??", 2);
+	}
+	if (Word)
+	{
+		if (RetrieveAccess(pGameBoy, Address) & MEM_READ)
+		{
+			TextOut(hdc, 9 * FixedFontWidth, 6 * FixedFontHeight, ToHex(ReadMem(pGameBoy, Address), false), 2);
+		}
+		else
+		{
+			TextOut(hdc, 9 * FixedFontWidth, 6 * FixedFontHeight, "??", 2);
+		}
+	}
+}
+
+
 
 LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	PAINTSTRUCT		Paint;
 	CGameBoy		*pGameBoy;
-	BYTE			*pByte;
+	BYTE			*pByte, Byte;
 	BOOL			HiNibble;
 
 
@@ -2689,7 +3480,7 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		if (GameBoyList.GetActive())
 		{
 			CreateCaret(hWin, NULL, 2, 16);
-			SetCaretPos(RegisterCaretX, RegisterCaretY);
+			SetCaretPos(RegisterCaretX * FixedFontWidth, RegisterCaretY * FixedFontHeight);
 			ShowCaret(hWin);
 			RegisterCaret = true;
 		}
@@ -2714,25 +3505,26 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			{
 				switch (RegisterCaretY)
 				{
-				case 0:		pByte = (BYTE *)&pGameBoy->Reg_AF; break;
-				case 15:	pByte = (BYTE *)&pGameBoy->Reg_BC; break;
-				case 30:	pByte = (BYTE *)&pGameBoy->Reg_DE; break;
-				case 45:	pByte = (BYTE *)&pGameBoy->Reg_HL; break;
-				case 60:	pByte = (BYTE *)&pGameBoy->Reg_SP; break;
-				case 75:	pByte = (BYTE *)&pGameBoy->Reg_PC; break;
+				case 0:	pByte = (BYTE *)&pGameBoy->Reg_AF; break;
+				case 1:	pByte = (BYTE *)&pGameBoy->Reg_BC; break;
+				case 2:	pByte = (BYTE *)&pGameBoy->Reg_DE; break;
+				case 3:	pByte = (BYTE *)&pGameBoy->Reg_HL; break;
+				case 4:	pByte = (BYTE *)&pGameBoy->Reg_SP; break;
+				case 5:	pByte = (BYTE *)&pGameBoy->Reg_PC;
+					if (hDisAsm)
+					{
+						InvalidateRect(hDisAsm, NULL, true);
+					}
+					break;
 				}
 				HiNibble = false;
-				if (RegisterCaretY < 100)
+				if (RegisterCaretY < 6)
 				{
-					if (RegisterCaretX >= 20 + 4 * FixedFontWidth)
-					{
-						return 0;
-					}
-					if (RegisterCaretX <= 20 + FixedFontWidth)
+					if (RegisterCaretX <= 4)
 					{
 						pByte++;
 					}
-					if (RegisterCaretX == 20 || RegisterCaretX == 20 + 2 * FixedFontWidth)
+					if (RegisterCaretX & 1)
 					{
 						HiNibble = true;
 					}
@@ -2741,7 +3533,7 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 				{
 					return 0;
 				}
-				RegisterCaretX += FixedFontWidth;
+				RegisterCaretX++;
 				if (HiNibble)
 				{
 					*pByte &= 0x0F;
@@ -2757,40 +3549,27 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			switch (wParam)
 			{
 			case VK_LEFT:
-				if (RegisterCaretX <= 20)
+				if (RegisterCaretX <= 3)
 				{
 					return 0;
 				}
-				if (RegisterCaretY >= 100 && RegisterCaretX <= 40)
+				if (RegisterCaretY >= 6 && RegisterCaretX <= 5)
 				{
 					return 0;
 				}
-				RegisterCaretX -= FixedFontWidth;
+				RegisterCaretX--;
 				break;
 
 			case VK_RIGHT:
-				if (RegisterCaretY < 100)
+				if (RegisterCaretX >= 7)
 				{
-					if (RegisterCaretX >= 20 + 4 * FixedFontWidth)
-					{
-						return 0;
-					}
+					return 0;
 				}
-				if (RegisterCaretY == 115)
+				if (RegisterCaretY == 9 && RegisterCaretX >= 6)
 				{
-					if (RegisterCaretX >= 40 + FixedFontWidth)
-					{
-						return 0;
-					}
+					return 0;
 				}
-				else
-				{
-					if (RegisterCaretX >= 40 + 2 * FixedFontWidth)
-					{
-						return 0;
-					}
-				}
-				RegisterCaretX += FixedFontWidth;
+				RegisterCaretX++;
 				break;
 
 			case VK_UP:
@@ -2799,78 +3578,48 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 				case 0:
 					return 0;
 
-				case 100:
-					if (RegisterCaretX > 20 + 4 * FixedFontWidth)
-					{
-						RegisterCaretX = 20 + 4 * FixedFontWidth;
-					}
-					if ((RegisterCaretX - 20) % FixedFontWidth)
-					{
-						if ((RegisterCaretX - 20) % FixedFontWidth <= FixedFontWidth / 2)
-						{
-							RegisterCaretX -= (RegisterCaretX - 20) % FixedFontWidth;
-						}
-						else
-						{
-							RegisterCaretX += FixedFontWidth - ((RegisterCaretX - 20) % FixedFontWidth);
-						}
-					}
-					RegisterCaretY -= 25;
+				case 8:
+					RegisterCaretY -= 3;
 					break;
 
-				case 130:
-					if (RegisterCaretX > 40 + FixedFontWidth)
+				case 10:
+					if (RegisterCaretX > 6)
 					{
-						RegisterCaretX = 40 + FixedFontWidth;
+						RegisterCaretX = 6;
 					}
 				default:
-					RegisterCaretY -= 15;
+					RegisterCaretY--;
 				}
 				break;
 
 			case VK_DOWN:
 				switch (RegisterCaretY)
 				{
-				case 75:
-					if (RegisterCaretX < 40)
+				case 5:
+					if (RegisterCaretX < 5)
 					{
-						RegisterCaretX = 40;
+						RegisterCaretX = 5;
 					}
-					if ((RegisterCaretX - 40) % FixedFontWidth)
-					{
-						if ((RegisterCaretX - 40) % FixedFontWidth <= FixedFontWidth / 2)
-						{
-							RegisterCaretX -= (RegisterCaretX - 40) % FixedFontWidth;
-						}
-						else
-						{
-							RegisterCaretX += FixedFontWidth - ((RegisterCaretX - 40) % FixedFontWidth);
-						}
-					}
-					if (RegisterCaretX > 40 + 2 * FixedFontWidth)
-					{
-						RegisterCaretX = 40 + 2 * FixedFontWidth;
-					}
-					RegisterCaretY += 25;
+					RegisterCaretY += 3;
 					break;
 
-				case 130:
+				case 10:
 					return 0;
 
-				case 100:
-					if (RegisterCaretX > 40 + FixedFontWidth)
+				case 8:
+					if (RegisterCaretX > 6)
 					{
-						RegisterCaretX = 40 + FixedFontWidth;
+						RegisterCaretX = 6;
 					}
 				default:
-					RegisterCaretY += 15;
+					RegisterCaretY++;
 					break;
 				}
 			}
 			if (RegisterCaret)
 			{
 				HideCaret(hWin);
-				SetCaretPos(RegisterCaretX, RegisterCaretY);
+				SetCaretPos(RegisterCaretX * FixedFontWidth, RegisterCaretY * FixedFontHeight);
 				ShowCaret(hWin);
 			}
 
@@ -2896,68 +3645,158 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			SetBkColor(Paint.hdc, 0xFFFFFF);
 			SetTextColor(Paint.hdc, 0);
 			TextOut(Paint.hdc, 0, 0, "AF", 2);
-			TextOut(Paint.hdc, 0, 15, "BC", 2);
-			TextOut(Paint.hdc, 0, 30, "DE", 2);
-			TextOut(Paint.hdc, 0, 45, "HL", 2);
-			TextOut(Paint.hdc, 0, 60, "SP", 2);
-			TextOut(Paint.hdc, 0, 75, "PC", 2);
-			TextOut(Paint.hdc, 0, 100, "ROM", 3);
-			TextOut(Paint.hdc, 0, 115, "SVBK", 4);
-			TextOut(Paint.hdc, 0, 130, "SRAM", 4);
-			TextOut(Paint.hdc, 0, 150, "LY", 2);
+			TextOut(Paint.hdc, 0, FixedFontHeight, "BC", 2);
+			TextOut(Paint.hdc, 0, 2 * FixedFontHeight, "DE", 2);
+			TextOut(Paint.hdc, 0, 3 * FixedFontHeight, "HL", 2);
+			TextOut(Paint.hdc, 0, 4 * FixedFontHeight, "SP", 2);
+			TextOut(Paint.hdc, 0, 5 * FixedFontHeight, "PC", 2);
+			TextOut(Paint.hdc, 0, 8 * FixedFontHeight, "ROM", 3);
+			TextOut(Paint.hdc, 0, 9 * FixedFontHeight, "SVBK", 4);
+			TextOut(Paint.hdc, 0, 10 * FixedFontHeight, "SRAM", 4);
+			TextOut(Paint.hdc, 0, 12 * FixedFontHeight, "LY", 2);
 			if (pGameBoy)
 			{
-				TextOut(Paint.hdc, 20, 0, ToHex(pGameBoy->Reg_AF, true), 4);
+				TextOut(Paint.hdc, 3 * FixedFontWidth, 0, ToHex(pGameBoy->Reg_AF, true), 4);
 				if (pGameBoy->Reg_F & Flag_Z)
 				{
-					TextOut(Paint.hdc, 60, 0, "Z", 1);
+					TextOut(Paint.hdc, 8 * FixedFontWidth, 0, "Z", 1);
 				}
 				if (pGameBoy->Reg_F & Flag_N)
 				{
-					TextOut(Paint.hdc, 70, 0, "N", 1);
+					TextOut(Paint.hdc, 9 * FixedFontWidth, 0, "N", 1);
 				}
 				if (pGameBoy->Reg_F & Flag_H)
 				{
-					TextOut(Paint.hdc, 80, 0, "H", 1);
+					TextOut(Paint.hdc, 10 * FixedFontWidth, 0, "H", 1);
 				}
 				if (pGameBoy->Reg_F & Flag_C)
 				{
-					TextOut(Paint.hdc, 90, 0, "C", 1);
+					TextOut(Paint.hdc, 11 * FixedFontWidth, 0, "C", 1);
 				}
 
-				TextOut(Paint.hdc, 20, 15, ToHex(pGameBoy->Reg_BC, true), 4);
-				TextOut(Paint.hdc, 20, 30, ToHex(pGameBoy->Reg_DE, true), 4);
-				TextOut(Paint.hdc, 20, 45, ToHex(pGameBoy->Reg_HL, true), 4);
-				TextOut(Paint.hdc, 20, 60, ToHex(pGameBoy->Reg_SP, true), 4);
-				TextOut(Paint.hdc, 20, 75, ToHex(pGameBoy->Reg_PC, true), 4);
-				TextOut(Paint.hdc, 40, 100, ToHex(pGameBoy->ActiveRomBank, false), 2);
+				TextOut(Paint.hdc, 3 * FixedFontWidth, FixedFontHeight, ToHex(pGameBoy->Reg_BC, true), 4);
+				TextOut(Paint.hdc, 3 * FixedFontWidth, 2 * FixedFontHeight, ToHex(pGameBoy->Reg_DE, true), 4);
+				TextOut(Paint.hdc, 3 * FixedFontWidth, 3 * FixedFontHeight, ToHex(pGameBoy->Reg_HL, true), 4);
+				TextOut(Paint.hdc, 3 * FixedFontWidth, 4 * FixedFontHeight, ToHex(pGameBoy->Reg_SP, true), 4);
+				TextOut(Paint.hdc, 3 * FixedFontWidth, 5 * FixedFontHeight, ToHex(pGameBoy->Reg_PC, true), 4);
+
+				if (RetrieveAccess(pGameBoy, pGameBoy->Reg_PC) & MEM_READ)
+				{
+					Byte = (BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC);
+					if (OpCodeNames[Byte].Flags & OCF_RST00)
+					{
+						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0000", 4);
+					}
+					if (OpCodeNames[Byte].Flags & OCF_RST08)
+					{
+						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0008", 4);
+					}
+					if (OpCodeNames[Byte].Flags & OCF_RST10)
+					{
+						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0010", 4);
+					}
+					if (OpCodeNames[Byte].Flags & OCF_RST18)
+					{
+						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0018", 4);
+					}
+					if (OpCodeNames[Byte].Flags & OCF_RST20)
+					{
+						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0020", 4);
+					}
+					if (OpCodeNames[Byte].Flags & OCF_RST28)
+					{
+						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0028", 4);
+					}
+					if (OpCodeNames[Byte].Flags & OCF_RST30)
+					{
+						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0030", 4);
+					}
+					if (OpCodeNames[Byte].Flags & OCF_RST38)
+					{
+						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0038", 4);
+					}
+					if ((OpCodeNames[Byte].Flags & OCF_COND_NZ && (pGameBoy->Reg_F & Flag_Z))
+						|| (OpCodeNames[Byte].Flags & OCF_COND_Z && !(pGameBoy->Reg_F & Flag_Z))
+						|| (OpCodeNames[Byte].Flags & OCF_COND_NC && (pGameBoy->Reg_F & Flag_C))
+						|| (OpCodeNames[Byte].Flags & OCF_COND_C && !(pGameBoy->Reg_F & Flag_C)))
+					{
+						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, ToHex(pGameBoy->Reg_PC + 1 + (OpCodeNames[Byte].Flags & OCF_BYTES), true), 4);
+					}
+					else
+					{
+						if (OpCodeNames[Byte].Flags & OCF_ADDRESS_BC)
+						{
+							PrintAddress(pGameBoy, Paint.hdc, pGameBoy->Reg_BC, false);
+						}
+						if (OpCodeNames[Byte].Flags & OCF_ADDRESS_DE)
+						{
+							PrintAddress(pGameBoy, Paint.hdc, pGameBoy->Reg_DE, false);
+						}
+						if ((OpCodeNames[Byte].Flags & OCF_ADDRESS_HL) || (Byte == 0xCB && (ReadMem(pGameBoy, pGameBoy->Reg_PC + 1) & 7) == 6))
+						{
+							PrintAddress(pGameBoy, Paint.hdc, pGameBoy->Reg_HL, false);
+						}
+						if (OpCodeNames[Byte].Flags & OCF_ADDRESS_SP)
+						{
+							PrintAddress(pGameBoy, Paint.hdc, pGameBoy->Reg_SP, true);
+						}
+						if (OpCodeNames[Byte].Flags & OCF_ADDRESS_C)
+						{
+							PrintAddress(pGameBoy, Paint.hdc, 0xFF00 + pGameBoy->Reg_C, false);
+						}
+						if (OpCodeNames[Byte].Flags & OCF_ADDRESS)
+						{
+							if (OpCodeNames[Byte].Flags & OCF_DATA16)
+							{
+								PrintAddress(pGameBoy, Paint.hdc, (WORD)(ReadMem(pGameBoy, pGameBoy->Reg_PC + 2) << 8) | ((BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1)), false);
+							}
+							if (OpCodeNames[Byte].Flags & OCF_DATA8)
+							{
+								PrintAddress(pGameBoy, Paint.hdc, 0xFF00 | (BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1), false);
+							}
+						}
+						if (OpCodeNames[Byte].Flags & OCF_JUMP)
+						{
+							if (OpCodeNames[Byte].Flags & OCF_DATA16)
+							{
+								TextOut(Paint.hdc, 0, 6 * FixedFontHeight, ToHex((WORD)(ReadMem(pGameBoy, pGameBoy->Reg_PC + 2) << 8) | ((BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1)), true), 4);
+							}
+							if (OpCodeNames[Byte].Flags & OCF_DISP)
+							{
+								TextOut(Paint.hdc, 0, 6 * FixedFontHeight, ToHex(pGameBoy->Reg_PC + 1 + (OpCodeNames[Byte].Flags & OCF_BYTES) - (signed short)(-(signed char)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1)), true), 4);
+							}
+						}
+					}
+				}
+
+				TextOut(Paint.hdc, 5 * FixedFontWidth, 8 * FixedFontHeight, ToHex(pGameBoy->ActiveRomBank, false), 2);
 				NumBuffer[0] = (pGameBoy->FF00_C(0x70) & 7) + 48;
 				if (NumBuffer[0] == 48)
 				{
 					NumBuffer[0]++;
 				}
-				TextOut(Paint.hdc, 40, 115, NumBuffer, 1);
-				TextOut(Paint.hdc, 40, 130, ToHex(pGameBoy->ActiveRamBank, false), 2);
-				TextOut(Paint.hdc, 60, 150, ToHex(pGameBoy->FF00_C(0x44), false), 2);
+				TextOut(Paint.hdc, 5 * FixedFontWidth, 9 * FixedFontHeight, NumBuffer, 1);
+				TextOut(Paint.hdc, 5 * FixedFontWidth, 10 * FixedFontHeight, ToHex(pGameBoy->ActiveRamBank, false), 2);
+				TextOut(Paint.hdc, 8 * FixedFontWidth, 12 * FixedFontHeight, ToHex(pGameBoy->FF00_C(0x44), false), 2);
 				switch (pGameBoy->FF00_C(0x41) & 3)
 				{
 				case 0:
-					TextOut(Paint.hdc, 0, 165, "H-Blank", 7);
+					TextOut(Paint.hdc, 0, 13 * FixedFontHeight, "H-Blank", 7);
 					break;
 
 				case 1:
-					TextOut(Paint.hdc, 0, 165, "V-Blank", 7);
+					TextOut(Paint.hdc, 0, 13 * FixedFontHeight, "V-Blank", 7);
 					break;
 
 				case 2:
-					TextOut(Paint.hdc, 0, 165, "OAM", 3);
+					TextOut(Paint.hdc, 0, 13 * FixedFontHeight, "OAM", 3);
 					break;
 
 				case 3:
-					TextOut(Paint.hdc, 0, 165, "LCD", 3);
+					TextOut(Paint.hdc, 0, 13 * FixedFontHeight, "LCD", 3);
 					break;
 				}
-				TextOut(Paint.hdc, 60, 165, ToHex(pGameBoy->LCD_Ticks, false), 2);
+				TextOut(Paint.hdc, 8 * FixedFontWidth, 13 * FixedFontHeight, ToHex(pGameBoy->LCD_Ticks, false), 2);
 			}
 
 			EndPaint(hWin, &Paint);
@@ -2973,7 +3812,7 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 	case WM_CREATE:
 		RegisterCaret = false;
-		RegisterCaretX = 20;
+		RegisterCaretX = 3;
 		RegisterCaretY = 0;
 		return 0;
 

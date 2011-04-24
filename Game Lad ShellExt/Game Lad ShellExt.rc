@@ -31,7 +31,7 @@ STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "ROM Header"
 FONT 8, "MS Sans Serif"
 BEGIN
-    LTEXT           "Static",IDC_TITLE,109,7,118,12
+    LTEXT           "Static",IDC_TITLE,109,7,118,12,SS_NOPREFIX
     LTEXT           "Title",IDC_STATIC,7,7,96,12
     LTEXT           "Game Boy Color",IDC_STATIC,7,19,96,12
     LTEXT           "Static",IDC_GBC,109,19,118,12

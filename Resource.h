@@ -5,24 +5,42 @@
 #define IDR_MENU                        101
 #define IDI_MAINICON                    106
 #define IDD_ABOUT                       107
-#define IDD_OPTIONS                     108
 #define IDD_OPTIONS_KEYS                108
 #define ID_REGISTER_FILE_TYPES          114
 #define IDC_REGISTER_FILE_TYPES         114
+#define ID_MEMORY_RAM_BANK0             115
 #define IDR_ACCELERATOR                 116
+#define ID_MEMORY_RAM_BANK1             116
 #define IDD_OPTIONS_SHELL               117
+#define ID_MEMORY_RAM_BANK2             117
 #define IDB_CURRENTSTATEMENT            118
+#define ID_MEMORY_RAM_BANK3             118
 #define IDB_BREAKPOINT                  119
+#define ID_MEMORY_RAM_BANK4             119
 #define IDI_ICON1                       120
+#define ID_MEMORY_RAM_BANK5             120
 #define IDI_ICON2                       121
+#define ID_MEMORY_RAM_BANK6             121
 #define IDI_ICON3                       122
+#define ID_MEMORY_RAM_BANK7             122
 #define IDI_ICON4                       123
+#define ID_MEMORY_RAM_BANK8             123
 #define IDI_ICON5                       124
+#define ID_MEMORY_RAM_BANK9             124
 #define IDI_ICON6                       125
+#define ID_MEMORY_RAM_BANK10            125
+#define IDR_POPUPMENU                   126
+#define ID_MEMORY_RAM_BANK11            126
+#define ID_MEMORY_RAM_BANK12            127
+#define IDD_ENTERNUMBER                 127
+#define ID_MEMORY_RAM_BANK13            128
+#define ID_MEMORY_RAM_BANK14            129
+#define ID_MEMORY_RAM_BANK15            130
 #define IDC_UP                          1020
 #define IDC_AUTOLOADBATTERY             1021
 #define IDC_GBTYPE                      1022
 #define IDC_AUTOSTART                   1023
+#define IDC_NUMBER                      1023
 #define IDC_DOWN                        1024
 #define IDC_LEFT                        1025
 #define IDC_RIGHT                       1026
@@ -63,15 +81,26 @@
 #define ID_VIEW_ZOOM_400                40065
 #define ID_EMULATION_TOGGLEBREAKPOINT   40067
 #define ID_EMULATION_SETNEXTSTATEMENT   40069
+#define ID_MEMORY_VBK_BANK0             40070
+#define ID_MEMORY_VBK_BANK1             40071
+#define ID_MEMORY_ROM                   40072
+#define ID_MEMORY_SVBK_BANK1            40075
+#define ID_MEMORY_SVBK_BANK2            40076
+#define ID_MEMORY_SVBK_BANK3            40077
+#define ID_MEMORY_SVBK_BANK4            40078
+#define ID_MEMORY_SVBK_BANK5            40079
+#define ID_MEMORY_SVBK_BANK6            40080
+#define ID_MEMORY_SVBK_BANK7            40081
+#define ID_EDIT_GOTO                    40087
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        126
-#define _APS_NEXT_COMMAND_VALUE         40070
-#define _APS_NEXT_CONTROL_VALUE         1023
-#define _APS_NEXT_SYMED_VALUE           115
+#define _APS_NEXT_RESOURCE_VALUE        128
+#define _APS_NEXT_COMMAND_VALUE         40091
+#define _APS_NEXT_CONTROL_VALUE         1024
+#define _APS_NEXT_SYMED_VALUE           131
 #endif
 #endif

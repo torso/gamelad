@@ -4,6 +4,7 @@
 #define		EMULATION_CPP
 #include	"Game Lad.h"
 #include	"Emulation.h"
+#include	"Debugger.h"
 #include	"Z80.h"
 
 
@@ -26,6 +27,7 @@ DWORD WINAPI GameLoop(void *pGameBoy)
 
 
 	((CGameBoy *)pGameBoy)->PrepareEmulation(false);
+	MemoryFlags = 0;
 
 #ifdef TIMEDEMO
 	QueryPerformanceFrequency(&TimerFrequency);
@@ -113,6 +115,7 @@ DWORD WINAPI DebugGameLoop(void *pGameBoy)
 
 
 	((CGameBoy *)pGameBoy)->PrepareEmulation(true);
+	MemoryFlags = 0;
 
 	while (true)
 	{
@@ -203,6 +206,7 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 
 
 	((EMULATIONINFO *)pEmulationInfo)->GameBoy1->PrepareEmulation(true);
+	MemoryFlags = 0;
 
 	while (true)
 	{
@@ -216,6 +220,7 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 				}
 				((EMULATIONINFO *)pEmulationInfo)->GameBoy1->hThread = NULL;
+				delete pEmulationInfo;
 				return msg.wParam;
 			}
 			TranslateMessage(&msg);
@@ -234,6 +239,7 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			}
 			((EMULATIONINFO *)pEmulationInfo)->GameBoy1->hThread = NULL;
+			delete pEmulationInfo;
 			return 0;
 		}
 
@@ -254,6 +260,7 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			}
 			((EMULATIONINFO *)pEmulationInfo)->GameBoy1->hThread = NULL;
+			delete pEmulationInfo;
 			return 0;
 		}
 
@@ -268,6 +275,7 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 				}
 				((EMULATIONINFO *)pEmulationInfo)->GameBoy1->hThread = NULL;
+				delete pEmulationInfo;
 				return 0;
 			}
 			break;
@@ -302,6 +310,7 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 				}
 				((EMULATIONINFO *)pEmulationInfo)->GameBoy1->hThread = NULL;
+				delete pEmulationInfo;
 				return 0;
 			}
 			break;
@@ -315,6 +324,7 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 				}
 				((EMULATIONINFO *)pEmulationInfo)->GameBoy1->hThread = NULL;
+				delete pEmulationInfo;
 				return 0;
 			}
 			break;

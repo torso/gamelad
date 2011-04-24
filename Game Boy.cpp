@@ -172,7 +172,11 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszBatteryFilename)
 	if (SaveRamSize)
 	{
 		//External Battery RAM
-		MemStatus_RAM = new BYTE[(MaxRamBank + 1) * 0x2000];
+		if (!(MemStatus_RAM = new BYTE[(MaxRamBank + 1) * 0x2000]))
+		{
+			DisplayErrorMessage(hWnd);
+			return true;
+		}
 		ZeroMemory(MemStatus_RAM, (MaxRamBank + 1) * 0x2000);
 	}
 	ZeroMemory(MemStatus_CPU, sizeof(MemStatus_CPU));
@@ -1191,6 +1195,13 @@ HDMA_NotFinished:
 						//V-Blank interrupt
 						FF00_C(0x0F) |= 1;
 
+						if (FF00_C(0x41) & 0x40 && FF00_C(0x45) == 144)
+						{
+							//LYC coincidence interrupt
+							FF00_C(0x0F) |= 2;
+						}
+
+						//Delay, refresh screen
 						Flags |= GB_EXITLOOP;
 					}
 					else
@@ -3735,6 +3746,13 @@ HDMA_NotFinished:
 						FF00_C(0x0F) |= 1;
 						MemStatus_CPU[0x8F0F] |= MEM_CHANGED;
 
+						if (FF00_C(0x41) & 0x40 && FF00_C(0x45) == 144)
+						{
+							//LYC coincidence interrupt
+							FF00_C(0x0F) |= 2;
+						}
+
+						//Delay, refresh screen
 						Flags |= GB_EXITLOOP;
 					}
 					else

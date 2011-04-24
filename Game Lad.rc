@@ -40,6 +40,10 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Exit",                       ID_FILE_EXIT
     END
+    POPUP "&Edit"
+    BEGIN
+        MENUITEM "&Go To...\tCtrl+G",           ID_EDIT_GOTO
+    END
     POPUP "&View"
     BEGIN
         MENUITEM "&Disassembly\tAlt+8",         ID_VIEW_DISASSEMBLY
@@ -96,6 +100,44 @@ BEGIN
     END
 END
 
+IDR_POPUPMENU MENU DISCARDABLE 
+BEGIN
+    POPUP "Memory"
+    BEGIN
+        MENUITEM "&Go To...",                   ID_EDIT_GOTO
+        MENUITEM "&ROM...",                     ID_MEMORY_ROM
+        POPUP "&VBK"
+        BEGIN
+            MENUITEM "Bank &0",                     ID_MEMORY_VBK_BANK0
+            MENUITEM "Bank &1",                     ID_MEMORY_VBK_BANK1
+        END
+        POPUP "R&AM"
+        BEGIN
+            MENUITEM "Bank &0",                     ID_MEMORY_RAM_BANK0
+            MENUITEM "Bank &1",                     ID_MEMORY_RAM_BANK1
+        END
+        POPUP "&SVBK"
+        BEGIN
+            MENUITEM "Bank &1",                     ID_MEMORY_SVBK_BANK1
+            MENUITEM "Bank &2",                     ID_MEMORY_SVBK_BANK2
+            MENUITEM "Bank &3",                     ID_MEMORY_SVBK_BANK3
+            MENUITEM "Bank &4",                     ID_MEMORY_SVBK_BANK4
+            MENUITEM "Bank &5",                     ID_MEMORY_SVBK_BANK5
+            MENUITEM "Bank &6",                     ID_MEMORY_SVBK_BANK6
+            MENUITEM "Bank &7",                     ID_MEMORY_SVBK_BANK7
+        END
+    END
+    POPUP "Disassembly"
+    BEGIN
+        MENUITEM "&Go To...",                   ID_EDIT_GOTO
+        MENUITEM "&Run to Cursor",              ID_EMULATION_RUNTOCURSOR
+        MENUITEM "Set &Next Statement",         ID_EMULATION_SETNEXTSTATEMENT
+
+        MENUITEM "&Toggle Breakpoint",          ID_EMULATION_TOGGLEBREAKPOINT
+
+    END
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -117,8 +159,8 @@ CAPTION "About Game Lad"
 FONT 8, "MS Sans Serif"
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,137,7,50,14
-    ICON            IDI_MAINICON,IDC_STATIC,7,15,20,20
-    LTEXT           "Game Lad 1.0",IDC_STATIC,36,7,100,14
+    ICON            IDI_MAINICON,IDC_STATIC,7,15,21,20
+    LTEXT           "Game Lad 1.01",IDC_STATIC,36,7,100,14
     LTEXT           "Written by: Torbjörn Söderstedt",IDC_STATIC,36,21,100,
                     14
     LTEXT           "http://gamelad.emuunlim.com",IDC_STATIC,36,35,100,14
@@ -181,6 +223,16 @@ BEGIN
                     33
 END
 
+IDD_ENTERNUMBER DIALOG DISCARDABLE  0, 0, 118, 46
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Enter Address"
+FONT 8, "MS Sans Serif"
+BEGIN
+    EDITTEXT        IDC_NUMBER,7,7,104,12,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,7,25,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,61,25,50,14
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -233,6 +285,14 @@ BEGIN
         HORZGUIDE, 106
         HORZGUIDE, 139
     END
+
+    IDD_ENTERNUMBER, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 111
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 39
+    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -247,6 +307,7 @@ BEGIN
     "5",            ID_VIEW_REGISTERS,      VIRTKEY, ALT, NOINVERT
     "6",            ID_VIEW_MEMORY,         VIRTKEY, ALT, NOINVERT
     "8",            ID_VIEW_DISASSEMBLY,    VIRTKEY, ALT, NOINVERT
+    "G",            ID_EDIT_GOTO,           VIRTKEY, CONTROL, NOINVERT
     "O",            ID_FILE_OPEN,           VIRTKEY, CONTROL, NOINVERT
     "S",            ID_FILE_SAVEBATTERY,    VIRTKEY, CONTROL, NOINVERT
     VK_ESCAPE,      ID_EMULATION_STOP,      VIRTKEY, NOINVERT
