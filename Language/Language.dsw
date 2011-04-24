@@ -15,6 +15,18 @@ Package=<4>
 
 ###############################################################################
 
+Project: "Dutch"=".\Dutch\Dutch.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "French"=".\French\French.dsp" - Package Owner=<4>
 
 Package=<5>

@@ -105,6 +105,56 @@ void CreatePalettes()
 
 
 
+/*#ifdef LCD
+
+__forceinline __declspec(naked) __fastcall EraseLine(WORD *Dest)
+{
+	__asm
+	{
+		push	ebx
+
+		mov		eax, 0x50
+FillMore:
+		dec		eax
+		mov		ebx, dword ptr [ecx + 4 * eax]
+		add		ebx, (10570 << 16) | 10570
+		jns		HiOk
+		or		ebx, 0x7FFF0000
+HiOk:
+		test	ebx, 0x00008000
+		jz		LowOk
+		or		ebx, 0x00007FFF
+LowOk:
+		and		ebx, 0x7FFF7FFF
+		mov		[ecx + 4 * eax], ebx
+		test	eax, eax
+		jnz		FillMore
+
+		pop		ebx
+		ret
+	}
+}
+
+#else*/
+
+/*__forceinline __declspec(naked) __fastcall EraseLine(WORD *Dest)
+{
+	__asm
+	{
+		mov		eax, 0x50
+FillMore:
+		dec		eax
+		mov		dword ptr [ecx + 4 * eax], 0xFFFFFFFF
+		jnz		FillMore
+
+		ret
+	}
+}*/
+
+//#endif
+
+
+
 CGameBoy::CGameBoy(BYTE Flags)
 {
 	ZeroMemory(this, sizeof(*this));
@@ -5088,11 +5138,11 @@ BOOL CGameBoy::Step(EMULATIONINFO *pEmulationInfo)
 
 void CGameBoy::Resume()
 {
-	EnterCriticalSection(&csGameBoy);
+	EnterCriticalSection(&csTerminate);
 
 	if (Terminating)
 	{
-		LeaveCriticalSection(&csGameBoy);
+		LeaveCriticalSection(&csTerminate);
 		return;
 	}
 
@@ -5101,17 +5151,17 @@ void CGameBoy::Resume()
 		ResetEvent(hStartStopEvent);
 		PostThreadMessage(ThreadId, WM_APP_RESUME, 0, 0);
 
-		LeaveCriticalSection(&csGameBoy);
+		LeaveCriticalSection(&csTerminate);
 
 		if (GetCurrentThreadId() != ThreadId)
 		{
-			//Wait for emulation to start before leaving critical section
+			//Wait for emulation to start
 			WaitForSingleObject(hStartStopEvent, INFINITE);
 		}
 	}
 	else
 	{
-		LeaveCriticalSection(&csGameBoy);
+		LeaveCriticalSection(&csTerminate);
 	}
 }
 
@@ -5130,6 +5180,7 @@ void CGameBoy::Stop()
 			EnterCriticalSection(&csTerminate);
 			if (Terminating)
 			{
+				LeaveCriticalSection(&csTerminate);
 				return;
 			}
 			Terminating = true;
@@ -5152,6 +5203,14 @@ void CGameBoy::Stop()
 		}
 		else
 		{
+			EnterCriticalSection(&csTerminate);
+			if (Terminating)
+			{
+				LeaveCriticalSection(&csTerminate);
+				return;
+			}
+			Terminating = true;
+			LeaveCriticalSection(&csTerminate);
 			PostThreadMessage(ThreadId, WM_QUIT, 0, 0);
 			if (GetCurrentThreadId() != ThreadId)
 			{
@@ -5161,6 +5220,9 @@ void CGameBoy::Stop()
 					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 				}
 			}
+			EnterCriticalSection(&csTerminate);
+			Terminating = false;
+			LeaveCriticalSection(&csTerminate);
 		}
 	}
 	else

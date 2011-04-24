@@ -8,7 +8,6 @@
 #include	"Game Boy.h"
 #include	"CGameBoys.h"
 #include	"CCheats.h"
-#include	"Emulation.h"
 #include	"Debugger.h"
 #include	"Error.h"
 #include	"Input.h"

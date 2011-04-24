@@ -10,7 +10,6 @@
 #include	"Game Boy.h"
 #include	"CGameBoys.h"
 #include	"Debugger.h"
-#include	"Emulation.h"
 #include	"Z80.h"
 
 

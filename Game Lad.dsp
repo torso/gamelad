@@ -110,11 +110,6 @@ SOURCE=.\Debugger.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\Emulation.cpp
-# PROP Exclude_From_Build 1
-# End Source File
-# Begin Source File
-
 SOURCE=".\Game Boy.cpp"
 # End Source File
 # Begin Source File
@@ -158,10 +153,6 @@ SOURCE=.\CGameBoys.h
 # Begin Source File
 
 SOURCE=.\Debugger.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\Emulation.h
 # End Source File
 # Begin Source File
 

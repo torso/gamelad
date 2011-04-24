@@ -1,4 +1,4 @@
-Game Lad 1.4+ Preview 1
+Game Lad 1.5
 
 Written by Torbjörn Söderstedt
 
@@ -10,13 +10,13 @@ All information about this program is available online at http://gamelad.emuunli
 What's New
 ----------
 
-Version 1.4+ Preview 1
+Version 1.5
 *Search Game Shark codes
 *Sound emulation improved. Channel 1 & 2 frequency corrected, NR50 implemented
 *Point-of-views on joysticks can be used as direction keys. X/Y axes can be disabled.
 *Check boxes in cheat dialog are now displayed correctly when screen is set to other than 16-bit color. (First reported by Marco Mauri. The Hypnotist found the cause)
 *Using frame skip (or fast forward) in linked mode does not distort the Game Boy window
-*Confirmed to run on Windows 95
+*Crashes when stopping emulation fixed
 
 Version 1.4
 *Serial link cable

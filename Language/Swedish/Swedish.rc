@@ -525,8 +525,8 @@ BEGIN
     IDS_SEARCHCHEAT_ADDRESS "Adress"
     IDS_SEARCHCHEAT_LASTVALUE "Föregående"
     IDS_SEARCHCHEAT_CURRENTVALUE "Nuvarande"
-    IDS_SEARCHCHEAT_ENTERNUMBER "Enter a valid number"
-    IDS_SEARCHCHEAT_NOSELECTION "No addresses selected"
+    IDS_SEARCHCHEAT_ENTERNUMBER "Skriv ett giltigt värde"
+    IDS_SEARCHCHEAT_NOSELECTION "Inga adresser markerade"
 END
 
 #endif    // Swedish resources
