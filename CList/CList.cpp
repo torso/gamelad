@@ -9,12 +9,19 @@
 
 CList::CList()
 {
-	CList(NULL, NULL);
+	Init(NULL, NULL);
 }
 
 
 
 CList::CList(CLIST_CREATECALLBACK _CreateCallback, CLIST_DELETECALLBACK _DeleteCallback)
+{
+	Init(_CreateCallback, _DeleteCallback);
+}
+
+
+
+void CList::Init(CLIST_CREATECALLBACK _CreateCallback, CLIST_DELETECALLBACK _DeleteCallback)
 {
 	CreateCallback = _CreateCallback;
 	DeleteCallback = _DeleteCallback;

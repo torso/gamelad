@@ -55,6 +55,30 @@ BEGIN
         MENUITEM "T&ile Map",                   ID_VIEW_TILEMAP
         MENUITEM "&Tiles",                      ID_VIEW_TILES
         MENUITEM SEPARATOR
+        POPUP "&Bank"
+        BEGIN
+            MENUITEM "&ROM...",                     ID_MEMORY_ROM
+            POPUP "&VBK"
+            BEGIN
+                MENUITEM "Bank &0",                     ID_MEMORY_VBK_BANK0
+                MENUITEM "Bank &1",                     ID_MEMORY_VBK_BANK1
+            END
+            POPUP "R&AM"
+            BEGIN
+                MENUITEM "Bank &0",                     ID_MEMORY_RAM_BANK0
+                MENUITEM "Bank &1",                     ID_MEMORY_RAM_BANK1
+            END
+            POPUP "&SVBK"
+            BEGIN
+                MENUITEM "Bank &1",                     ID_MEMORY_SVBK_BANK1
+                MENUITEM "Bank &2",                     ID_MEMORY_SVBK_BANK2
+                MENUITEM "Bank &3",                     ID_MEMORY_SVBK_BANK3
+                MENUITEM "Bank &4",                     ID_MEMORY_SVBK_BANK4
+                MENUITEM "Bank &5",                     ID_MEMORY_SVBK_BANK5
+                MENUITEM "Bank &6",                     ID_MEMORY_SVBK_BANK6
+                MENUITEM "Bank &7",                     ID_MEMORY_SVBK_BANK7
+            END
+        END
         POPUP "&Zoom"
         BEGIN
             MENUITEM "&100%",                       ID_VIEW_ZOOM_100
@@ -63,7 +87,7 @@ BEGIN
             MENUITEM "&400%",                       ID_VIEW_ZOOM_400
         END
     END
-    POPUP "&Emulation"
+    POPUP "E&mulation"
     BEGIN
         MENUITEM "Start &Debug\tF5",            ID_EMULATION_STARTDEBUG
         MENUITEM "&Execute\tCtrl+F5",           ID_EMULATION_EXECUTE
@@ -129,12 +153,34 @@ BEGIN
     END
     POPUP "Disassembly"
     BEGIN
-        MENUITEM "&Go To...",                   ID_EDIT_GOTO
         MENUITEM "&Run to Cursor",              ID_EMULATION_RUNTOCURSOR
         MENUITEM "Set &Next Statement",         ID_EMULATION_SETNEXTSTATEMENT
 
         MENUITEM "&Toggle Breakpoint",          ID_EMULATION_TOGGLEBREAKPOINT
 
+        MENUITEM SEPARATOR
+        MENUITEM "&Go To...",                   ID_EDIT_GOTO
+        MENUITEM "&ROM...",                     ID_MEMORY_ROM
+        POPUP "&VBK"
+        BEGIN
+            MENUITEM "Bank &0",                     ID_MEMORY_VBK_BANK0
+            MENUITEM "Bank &1",                     ID_MEMORY_VBK_BANK1
+        END
+        POPUP "R&AM"
+        BEGIN
+            MENUITEM "Bank &0",                     ID_MEMORY_RAM_BANK0
+            MENUITEM "Bank &1",                     ID_MEMORY_RAM_BANK1
+        END
+        POPUP "&SVBK"
+        BEGIN
+            MENUITEM "Bank &1",                     ID_MEMORY_SVBK_BANK1
+            MENUITEM "Bank &2",                     ID_MEMORY_SVBK_BANK2
+            MENUITEM "Bank &3",                     ID_MEMORY_SVBK_BANK3
+            MENUITEM "Bank &4",                     ID_MEMORY_SVBK_BANK4
+            MENUITEM "Bank &5",                     ID_MEMORY_SVBK_BANK5
+            MENUITEM "Bank &6",                     ID_MEMORY_SVBK_BANK6
+            MENUITEM "Bank &7",                     ID_MEMORY_SVBK_BANK7
+        END
     END
 END
 
@@ -159,8 +205,8 @@ CAPTION "About Game Lad"
 FONT 8, "MS Sans Serif"
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,137,7,50,14
-    ICON            IDI_MAINICON,IDC_STATIC,7,15,21,20
-    LTEXT           "Game Lad 1.01",IDC_STATIC,36,7,100,14
+    ICON            IDI_MAINICON,IDC_STATIC,7,15,20,20
+    LTEXT           "Game Lad 1.1",IDC_STATIC,36,7,100,14
     LTEXT           "Written by: Torbjörn Söderstedt",IDC_STATIC,36,21,100,
                     14
     LTEXT           "http://gamelad.emuunlim.com",IDC_STATIC,36,35,100,14

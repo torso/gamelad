@@ -1,6 +1,7 @@
 #include	<windows.h>
 
 #define		GAME_BOY_CPP
+#include	"CDebugInfo.h"
 #include	"Game Lad.h"
 #include	"Z80.h"
 #include	"Debugger.h"
@@ -59,6 +60,11 @@ CGameBoy::~CGameBoy()
 	delete MEM_ROM;
 	delete MemStatus_ROM;
 	delete MemStatus_RAM;
+
+	if (pDebugInfo)
+	{
+		delete pDebugInfo;
+	}
 
 	if (hGBWnd)
 	{
@@ -174,7 +180,7 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszBatteryFilename)
 		//External Battery RAM
 		if (!(MemStatus_RAM = new BYTE[(MaxRamBank + 1) * 0x2000]))
 		{
-			DisplayErrorMessage(hWnd);
+			MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
 			return true;
 		}
 		ZeroMemory(MemStatus_RAM, (MaxRamBank + 1) * 0x2000);
@@ -229,6 +235,15 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszBatteryFilename)
 
 	LoadBattery(pszBatteryFilename);
 	Reset();
+
+	if (pDebugInfo = new CDebugInfo())
+	{
+		if (pDebugInfo->LoadFile(pszROMFilename))
+		{
+			delete pDebugInfo;
+			pDebugInfo = NULL;
+		}
+	}
 
 	SendMessage(hClientWnd, WM_MDIGETACTIVE, 0, (LPARAM)&Maximized);
 
@@ -577,8 +592,7 @@ LPARAM CGameBoy::GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			FastFwd = true;
 			SoundBufferPosition = 0;
-			Sound1L = Sound1R = 0;
-			Sound2L = Sound2R = 0;
+			SoundL = SoundR = 0;
 		}
 		return 0;
 
@@ -626,8 +640,7 @@ LPARAM CGameBoy::GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 		if (wParam == Keys.FastForward)
 		{
 			FastFwd = false;
-			Sound1L = Sound1R = 0;
-			Sound2L = Sound2R = 0;
+			SoundL = SoundR = 0;
 		}
 		return 0;
 	}
@@ -879,8 +892,15 @@ void CGameBoy::PrepareEmulation(BOOL Debug)
 			MemStatus[0xA] = ZeroStatus;
 			MemStatus[0xB] = ZeroStatus;
 		}
-		MemStatus[0xC] = &MemStatus_CPU[(FF00_C(0x70) & 7) * 0x2000];
-		MemStatus[0xD] = &MemStatus_CPU[(FF00_C(0x70) & 7) * 0x2000 + 0x1000];
+		MemStatus[0xC] = &MemStatus_CPU[0x0000];
+		if (FF00_C(0x70) != 0)
+		{
+			MemStatus[0xD] = &MemStatus_CPU[(FF00_C(0x70) & 7) * 0x1000];
+		}
+		else
+		{
+			MemStatus[0xD] = &MemStatus_CPU[0x1000];
+		}
 	}
 	else
 	{
@@ -1022,240 +1042,369 @@ void CGameBoy::Delay()
 
 const int	Volume[16] = {0, 8, 17, 25, 34, 42, 51, 59, 68, 76, 85, 93, 102, 110, 119, 127};
 
-void CGameBoy::MainLoop()
+void __declspec(naked) CGameBoy::MainLoop()
 {
-	BYTE			Ticks, Ticks2, Ticks3;
-	WORD			Sprites[10];
-	MSG				msg;
-
-
-	do
+	__asm
 	{
-//ContinueLoop:
-		if (Flags & GB_HALT)
-		{
-			Ticks = 1;
-			nCycles++;
-		}
-		else
-		{
-		/*__asm
-		{
-			mov		ecx, this
-			test	dword ptr [ecx + Offset_Flags], GB_HALT
-			jz		NotHalt
+		push	ebp
+		push	esi
+		push	edi
+		push	edx
+		push	ebx
 
-			mov		eax, dword ptr [ecx + Offset_nCycles]
-			mov		byte ptr [Ticks], 1
-			inc		eax
-			mov		dword ptr [ecx + Offset_nCycles], eax
-			//inc		dword ptr [ecx + Offset_nCycles]
-			jmp		HaltComplete*/
+		mov		esi, dword ptr [ecx + Offset_Flags]
 
-			//Because OpCodes functions can change eax, ebx and edx, all these registers should be
-			//used within this __asm block. If not, an optimized compilation will result in strange errors.
-			__asm
-			{
-//NotHalt:
-				mov		ecx, this
-				mov		edx, dword ptr [ecx + Offset_Reg_PC]
-				call	ReadMem
-				and		eax, 0xFF
-				call	dword ptr [OpCodes + 4 * eax]
+ContinueLoop:
+		//esi	= Flags
+		test	esi, GB_HALT
+		jz		NotHalt
 
-				test	byte ptr [ecx + FF00_ASM + 0x4D], 0x80
-				jnz		FastCPU
-				shl		al, 1
+		mov		ebx, dword ptr [ecx + Offset_nCycles]
+		//ebx	= Cycles
+		mov		eax, 1
+		//eax	= Ticks
+		inc		ebx
+		mov		dword ptr [ecx + Offset_nCycles], ebx
+		//ebx	free
+		jmp		HaltComplete
+
+NotHalt:
+		//esi	= Flags
+		mov		dword ptr [ecx + Offset_Flags], esi
+
+		mov		edx, dword ptr [ecx + Offset_Reg_PC]
+		//edx	= PC
+		call	ReadMem
+		//al	= mem[PC]
+		and		eax, 0xFF
+		call	dword ptr [OpCodes + 4 * eax]
+		//eax	= Ticks
+
+		mov		esi, dword ptr [ecx + Offset_Flags]
+
+		test	byte ptr [ecx + FF00_ASM + 0x4D], 0x80
+		jnz		FastCPU
+		shl		al, 1
 FastCPU:
-				mov		ebx, dword ptr [ecx + Offset_nCycles]
-				mov		byte ptr [Ticks], al
-				add		ebx, eax
-				mov		dword ptr [ecx + Offset_nCycles], ebx
 
-				//test	byte ptr [ecx + Offset_Flags], 0//GB_EXITLOOPDIRECTLY
-				//jnz		ExitLoop
-				//int		3
-			}
-//HaltComplete:
+		test	esi, GB_EXITLOOPDIRECTLY
+		jnz		ExitLoop
 
-			if (Flags & GB_EXITLOOPDIRECTLY)
-			{
-				Flags &= ~(GB_EXITLOOPDIRECTLY | GB_EXITLOOP);
-				return;
-			}
-		}
+		mov		ebx, dword ptr [ecx + Offset_nCycles]
+		//ebx	= Cycles
+		add		ebx, eax
+		mov		dword ptr [ecx + Offset_nCycles], ebx
+		//ebx	free
+
+HaltComplete:
+		//eax	= Ticks
+		//esi	= Flags
+
+
+
 
 
 		//LCD
-		if (LCD_Ticks <= Ticks)
-		{
-			if (FF00_C(0x40) & 0x80) //LCD on
-			{
-				switch (FF00_C(0x41) & 3)
-				{
-				case 3: //Transfer to LCD
-					LCD_Ticks += 104;
+		mov		bl, byte ptr [ecx + Offset_LCD_Ticks]
+		//bl	= LCD_Ticks
+		cmp		bl, al
+		ja		LCD_NotEnoughTicks
 
-					FF00_C(0x41) &= ~0x03;		//H-Blank
+		mov		dx, word ptr [ecx + FF00_ASM + 0x40]
+		//dl	= FF40
+		//dh	= FF41
+		test	dl, 0x80
+		jz		LCD_Off
 
-					//HDMA
-					if (Flags & GB_HDMA)
-					{
-						__asm
-						{
-							mov		ecx, this
+		test	dh, 2
+		jnz		LCD_Mode2or3
 
-							mov		bl, byte ptr [ecx + FF00_ASM + 0x4F]
-							and		ebx, 1
-							shl		ebx, 13
+		test	dh, 1
+		jnz		LCD_VBlank
 
-							mov		esi, dword ptr [ecx + FF00_ASM + 0x51]
-							mov		edi, dword ptr [ecx + FF00_ASM + 0x53]
-							dec		byte ptr [ecx + FF00_ASM + 0x55]
-							rol		si, 8
-							rol		di, 8
-							and		esi, 0xFFF0
-							and		edi, 0x1FF0
 
-							add		edi, ebx
 
-							mov		eax, esi
-							add		eax, 0x0010
-							mov		byte ptr [ecx + FF00_ASM + 0x52], al
-							mov		byte ptr [ecx + FF00_ASM + 0x51], ah
-							mov		eax, edi
-							add		eax, 0x0010
-							mov		byte ptr [ecx + FF00_ASM + 0x54], al
-							mov		byte ptr [ecx + FF00_ASM + 0x53], ah
+//LCD_HBlank:
+		mov		bh, byte ptr [ecx + FF00_ASM + 0x44]
+		sub		bl, al
 
-							mov		eax, esi
-							shr		esi, 12
-							and		eax, 0x0FFF
-							mov		esi, [ecx + Offset_MEM + esi * 4]
+		cmp		bh, 143
+		ja		LCD_ExitHBlank
 
-							mov		edx, [esi + eax]
-							mov		dword ptr [ecx + Offset_MEM_VRAM + edi], edx
-							mov		edx, [esi + eax + 0x04]
-							mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x04], edx
-							mov		edx, [esi + eax + 0x08]
-							mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x08], edx
-							mov		edx, [esi + eax + 0x0C]
-							mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x0C], edx
+		add		bl, 40
+		inc		bh
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+		//bl	free
+		mov		byte ptr [ecx + FF00_ASM + 0x44], bh
+		//bh	free
+		//ebx	free
 
-							mov		bl, byte ptr [ecx + FF00_ASM + 0x55]
-							test	bl, 0x80
-							jz		HDMA_NotFinished
-							and		dword ptr [ecx + Offset_Flags], ~GB_HDMA
+		and		dh, ~3
+		or		dh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+		//dh	free
+
+		jmp		LCD_Done
+
+LCD_ExitHBlank:
+		add		bl, 228
+		mov		bh, byte ptr [ecx + FF00_ASM + 0x0F]
+		//bh	= [FF0F]
+		mov		byte ptr [ecx + FF00_ASM + 0x44], 145
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+		//bl	free
+
+		and		dh, ~3
+		or		dh, 1
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+		//dh	free
+
+		or		bh, 1
+		or		esi, GB_EXITLOOP
+
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
+
+		test	dh, 0x40
+		jz		LCD_Done
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x45]
+		cmp		bl, 144
+		jne		LCD_Done
+
+		or		bh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
+
+		jmp		LCD_Done
+
+
+
+LCD_VBlank:
+		mov		bh, [ecx + FF00_ASM + 0x44]
+		sub		bl, al
+
+		//bh	= [FF44]
+		test	bh, bh
+		jz		LCD_ExitVBlank
+
+		add		bl, 228
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+		//bl	free
+
+		cmp		bh, 154
+		ja		LCD_Line0
+
+		inc		bh
+		mov		byte ptr [ecx + FF00_ASM + 0x44], bh
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x45]
+		cmp		bh, bl
+		//bl	free
+		//bh	free
+		//ebx	free
+		jne		LCD_Done
+
+		//LYC interrupt
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		bl, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bl
+		jmp		LCD_Done
+
+LCD_Line0:
+		mov		byte ptr [ecx + FF00_ASM + 0x44], 0
+
+		test	dh, 0x40
+		//dh	free
+		jz		LCD_Done
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x45]
+		test	bl, bl
+		jnz		LCD_Done
+
+		//LYC interrupt
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		bl, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bl
+		jmp		LCD_Done
+
+LCD_ExitVBlank:
+		add		bl, 40
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+
+		and		dh, ~3
+		or		dh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x4A]
+		mov		byte ptr [ecx + Offset_WindowY], bl
+		mov		byte ptr [ecx + Offset_WindowTileY], 0
+		mov		byte ptr [ecx + Offset_WindowTileY2], 0
+
+		jmp		LCD_Done
+
+LCD_Mode2or3:
+		test	dh, 1
+		jz		LCD_OAM
+
+
+
+//LCD_ToLCD:
+		add		bl, 104
+		sub		bl, al
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+		//bl	free
+		//ebx	free
+
+		and		dh, ~3
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+		//dh	free
+		//edx	free
+
+		test	esi, GB_HDMA
+		jz		LCD_NoHDMA
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x4F]
+		//bl	= [FF4F]
+		and		ebx, 1
+		shl		ebx, 13
+
+		mov		ebp, dword ptr [ecx + FF00_ASM + 0x51]
+		//ebp	= [FF51-52]
+		mov		edi, dword ptr [ecx + FF00_ASM + 0x53]
+		//edi	= [FF53-54]
+		rol		bp, 8
+		rol		di, 8
+		and		ebp, 0xFFF0
+		and		edi, 0x1FF0
+
+		add		edi, ebx
+
+		mov		eax, ebp
+		add		eax, 0x0010
+		mov		byte ptr [ecx + FF00_ASM + 0x52], al
+		mov		byte ptr [ecx + FF00_ASM + 0x51], ah
+		mov		eax, edi
+		add		eax, 0x0010
+		mov		byte ptr [ecx + FF00_ASM + 0x54], al
+		mov		byte ptr [ecx + FF00_ASM + 0x53], ah
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x55]
+		//bl	= [FF55]
+
+		mov		eax, ebp
+		shr		ebp, 12
+		and		eax, 0x0FFF
+		mov		ebp, [ecx + Offset_MEM + ebp * 4]
+
+		dec		bl	//[FF55]--
+
+		mov		edx, [ebp + eax]
+		mov		dword ptr [ecx + Offset_MEM_VRAM + edi], edx
+		mov		edx, [ebp + eax + 0x04]
+		mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x04], edx
+		mov		edx, [ebp + eax + 0x08]
+		mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x08], edx
+		mov		edx, [ebp + eax + 0x0C]
+		mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x0C], edx
+
+		mov		byte ptr [ecx + FF00_ASM + 0x55], bl
+		test	bl, 0x80
+		//bl	free
+		jz		HDMA_NotFinished
+		and		esi, ~GB_HDMA
 HDMA_NotFinished:
-						}
-					}
-					break;
 
-				case 1: //V-Blank
-					if (!FF00_C(0x44))
-					{
-						LCD_Ticks += 40;
-						FF00_C(0x41) &= ~0x03;
-						FF00_C(0x41) |= 0x02;	//OAM-RAM search
+LCD_NoHDMA:
+		jmp		LCD_Done
 
-						//++DrawLineMask &= 1;
 
-						WindowY = FF00_C(0x4A);
-						WindowTileY = 0;
-						WindowTileY2 = 0;
 
-						break;
-					}
+LCD_OAM:
+		//eax	= Ticks
+		//esi	= Flags
+		//dl	= [FF40]
+		//dh	= [FF41]
 
-					FF00_C(0x44)++;
-					if (FF00_C(0x44) >= 154)
-					{
-						FF00_C(0x44) = 0;
-					}
+		sub		bl, al
+		add		bl, 84
+		or		dh, 3
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+		//bl	free
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
 
-					LCD_Ticks += 228;
+		mov		bx, word ptr [ecx + FF00_ASM + 0x44]
+		//bl	= [FF44]
+		//bh	= [FF45]
 
-					if (FF00_C(0x41) & 0x40 && FF00_C(0x44) == FF00_C(0x45))
-					{
-						//LYC coincidence interrupt
-						FF00_C(0x0F) |= 0x02;
-					}
-					break;
+		test	dh, 0x40
+		jz		LCD_NoLYC
 
-				case 0: //H-Blank
-					FF00_C(0x44)++;
+		cmp		bl, bh
+		jne		LCD_NoLYC
 
-					if (FF00_C(0x44) >= 144)
-					{
-						LCD_Ticks += 228;
+		mov		bh, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		bh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
 
-						FF00_C(0x41) &= ~0x03;
-						FF00_C(0x41) |= 0x01;		//V-Blank
+LCD_NoLYC:
+		//eax	= Ticks
+		//esi	= Flags
+		//bl	= [FF44]
 
-						//V-Blank interrupt
-						FF00_C(0x0F) |= 1;
+		cmp		bl, 144
+		ja		LCD_Done
 
-						if (FF00_C(0x41) & 0x40 && FF00_C(0x45) == 144)
-						{
-							//LYC coincidence interrupt
-							FF00_C(0x0F) |= 2;
-						}
 
-						//Delay, refresh screen
-						Flags |= GB_EXITLOOP;
-					}
-					else
-					{
-						LCD_Ticks += 40;
+		//Set pointer to bitmap
+		movzx	edi, bl
+		//bl	free
+		imul	edi, (160 + 14) * 2
+		add		edi, dword ptr [ecx + Offset_pGBBitmap]
 
-						FF00_C(0x41) &= ~0x03;
-						FF00_C(0x41) |= 0x02;		//OAM search
-					}
-					break;
+		push	eax
+		push	ecx
+		push	esi
 
-				case 2: //OAM search
-					LCD_Ticks += 84;
-					FF00_C(0x41) |= 0x03;			//Transfer to LCD
+		push	ebp
+		mov		ebp, esp
+		sub		esp, 28 + 2 * (160 + 14)
 
-					if (FF00_C(0x41) & 0x40 && FF00_C(0x44) == FF00_C(0x45))
-					{
-						//LYC coincidence interrupt
-						FF00_C(0x0F) |= 0x02;
-					}
+#define		LineX		(ebp - 4)
+#define		LCD_X		(ebp - 5)
+#define		WndX		(ebp - 6)
+#define		Sprites		(ebp - 26)
+#define		Line		(ebp - 28 - 2 * (160 + 14))
 
-					BYTE	LCD_X = FF00_C(0x43);
+		push	edi
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x43]
+		mov		byte ptr [LCD_X], bl
+
+		lea		ebx, [Line]
+		mov		dword ptr [LineX], ebx
+
+		//WORD			Sprites[10];
+				/*	BYTE	LCD_X = FF00_C(0x43);
 					WORD	Line[160 + 14];
 					WORD	*LineX;
 					LineX = Line;
-					if (/*DrawLineMask == (FF00_C(0x44) & 1) &&*/ FF00_C(0x44) < 144)
+					if (FF00_C(0x44) < 144)
 					{
-						BYTE	WndX;
-						__asm
-						{
-							mov		ecx, this
+						BYTE	WndX;*/
 
 
-							mov		dword ptr [Line], 0
-							mov		dword ptr [Line + 4], 0
-							mov		dword ptr [Line + 8], 0
-							mov		dword ptr [Line + 12], 0
+		mov		dword ptr [Line], 0
+		mov		dword ptr [Line + 4], 0
+		mov		dword ptr [Line + 8], 0
+		mov		dword ptr [Line + 12], 0
 
 
-							//Set pointer to bitmap
-							movzx	edi, byte ptr [ecx + FF00_ASM + 0x44]
-							imul	edi, (160 + 14) * 2
-							add		edi, dword ptr [ecx + Offset_pGBBitmap]
-							push	edi
+		test	esi, GB_ROM_COLOR
+		jz		Gfx_NoColor
 
 
-							test	byte ptr [ecx + Offset_Flags], GB_ROM_COLOR
-							jz		Gfx_NoColor
-
-
-							/////////////
-							//Background
-							/////////////
-
+		/////////////
+		//Background
+		/////////////
 
 							//Clip window
 							test	byte ptr [ecx + FF00_ASM + 0x40], 0x20
@@ -2311,1504 +2460,2124 @@ NC_Spr_NextSprite1:
 NC_Spr_NoDraw:
 Spr_NoDraw:
 Gfx_Done:
-						}
-					}
-				}
-				LCD_Ticks -= Ticks;
-			}
-			else
-			{
-				LCD_Ticks = 0;
-				FF00_C(0x44) = 0;
-				FF00_C(0x41) &= ~0x03;
 
-				if (PeekMessage(&msg, NULL, WM_QUIT, WM_QUIT, PM_NOREMOVE))
-				{
-					Flags |= GB_EXITLOOP;
-				}
-			}
-		}
-		else
+		add		esp, 28 + 2 * (160 + 14)
+		pop		ebp
+		pop		esi
+		pop		ecx
+		pop		eax
+
+		jmp		LCD_Done
+
+
+
+LCD_Off:
+		//eax	= Ticks
+		//esi	= Flags
+		//dl	= FF40
+		//dh	= FF41
+
+		and		dh, ~3
+		mov		byte ptr [ecx + Offset_LCD_Ticks], 0
+		mov		byte ptr [ecx + FF00_ASM + 0x44], 0
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+
+		sub		esp, 32 //sizeof(MSG)
+		mov		edx, esp
+
+		push	eax
+		push	ecx
+		push	esi
+		push	PM_NOREMOVE
+		push	WM_QUIT
+		push	WM_QUIT
+		push	NULL
+		push	edx
+		call	dword ptr [PeekMessage]
+		mov		edx, eax
+		pop		esi
+		pop		ecx
+		pop		eax
+		add		esp, 32
+		test	edx, edx
+		jz		LCD_Done
+
+		or		esi, GB_EXITLOOP
+
+		jmp		LCD_Done
+
+		/*if (PeekMessage(&msg, NULL, WM_QUIT, WM_QUIT, PM_NOREMOVE))
 		{
-			LCD_Ticks -= Ticks;
-		}
-
-
-
-		if (Sound1Enabled)
-		{
-			if (Sound1TimeOut)
-			{
-				if (Sound1TimeOut <= Ticks)
-				{
-					Sound1Enabled = false;
-					FF00_C(0x26) &= ~0x01;
-				}
-				else
-				{
-					Sound1TimeOut -= Ticks;
-				}
-			}
-			if (Sound1Sweep)
-			{
-				if (Sound1Sweep <= Ticks)
-				{
-					Sound1Sweep = 0;
-
-					if (FF00_C(0x10) & 0x08)
-					{
-						if (Sound1Frequency >= (Sound1Frequency >> (FF00_C(0x10) & 0x07)))
-						{
-							Sound1Frequency -= (Sound1Frequency >> (FF00_C(0x10) & 0x07));
-						}
-						else
-						{
-							Sound1Frequency = 0;
-						}
-					}
-					else
-					{
-						Sound1Frequency += (Sound1Frequency >> (FF00_C(0x10) & 0x07));
-						if (Sound1Frequency > 2047)
-						{
-							Sound1Enabled = false;
-							FF00_C(0x26) &= ~0x01;
-							Sound1Frequency = 2047;
-						}
-					}
-					FF00_C(0x13) = (BYTE)((~Sound1Frequency) & 0xFF);
-					FF00_C(0x14) = (BYTE)(((~Sound1Frequency) & 0x0700) >> 8);
-
-					Sound1Sweep = 8192 * ((FF00_C(0x10) & 0x70) >> 4);
-				}
-				else
-				{
-					Sound1Sweep -= Ticks;
-				}
-			}
-			if (Sound1Envelope)
-			{
-				if (Sound1Envelope <= Ticks)
-				{
-					if (FF00_C(0x12) & 0x08)
-					{
-						if ((FF00_C(0x12) & 0xF0) == 0xF0)
-						{
-							Sound1Enabled = false;
-							FF00_C(0x26) &= ~0x01;
-						}
-						else
-						{
-							FF00_C(0x12) += 0x10;
-							Sound1Volume = FF00_C(0x12) >> 4;
-							Sound1Envelope = ((DWORD)FF00_C(0x12) & 0x07) * 16384;
-						}
-					}
-					else
-					{
-						if (FF00_C(0x12) & 0xF0)
-						{
-							FF00_C(0x12) -= 0x10;
-							Sound1Volume = FF00_C(0x12) >> 4;
-						}
-						Sound1Envelope = ((DWORD)FF00_C(0x12) & 0x07) * 16384;
-					}
-				}
-				else
-				{
-					Sound1Envelope -= Ticks;
-				}
-			}
-
-
-			if (SoundTicks >= Ticks)
-			{
-				Ticks2 = Ticks;
-			}
-			else
-			{
-				Ticks2 = (BYTE)SoundTicks;
-			}
-			while (Ticks2 != 0)
-			{
-				Ticks2--;
-				Sound1Ticks++;
-				if (Sound1Ticks >= ((2048 - Sound1Frequency) << 3))
-				{
-					Sound1Ticks = 0;
-					Sound1Stage = ++Sound1Stage & 7;
-				}
-
-				switch (FF00_C(0x11) >> 6)
-				{
-				case 0:
-					if (Sound1Stage == 0)
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-					}
-					break;
-				case 1:
-					if (Sound1Stage <= 1)
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-					}
-					break;
-				case 2:
-					if (Sound1Stage <= 3)
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-					}
-					break;
-				case 3:
-					if (Sound1Stage <= 5)
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-					}
-					break;
-				}
-			}
-		}
-
-		if (Sound2Enabled)
-		{
-			if (Sound2TimeOut)
-			{
-				if (Sound2TimeOut <= Ticks)
-				{
-					Sound2Enabled = false;
-					FF00_C(0x26) &= ~0x02;
-				}
-				else
-				{
-					Sound2TimeOut -= Ticks;
-				}
-			}
-			if (Sound2Envelope)
-			{
-				if (Sound2Envelope <= Ticks)
-				{
-					if (FF00_C(0x17) & 0x08)
-					{
-						if ((FF00_C(0x17) & 0xF0) == 0xF0)
-						{
-							Sound2Enabled = false;
-							FF00_C(0x26) &= ~0x02;
-						}
-						else
-						{
-							FF00_C(0x17) += 0x10;
-							Sound2Volume = FF00_C(0x17) >> 4;
-							Sound2Envelope = ((DWORD)FF00_C(0x17) & 0x07) * 16384;
-						}
-					}
-					else
-					{
-						if (FF00_C(0x17) & 0xF0)
-						{
-							FF00_C(0x17) -= 0x10;
-							Sound2Volume = FF00_C(0x17) >> 4;
-						}
-						Sound2Envelope = ((DWORD)FF00_C(0x17) & 0x07) * 16384;
-					}
-				}
-				else
-				{
-					Sound2Envelope -= Ticks;
-				}
-			}
-
-
-			if (SoundTicks >= Ticks)
-			{
-				Ticks2 = Ticks;
-			}
-			else
-			{
-				Ticks2 = (BYTE)SoundTicks;
-			}
-			while (Ticks2 != 0)
-			{
-				Ticks2--;
-				Sound2Ticks++;
-				if (Sound2Ticks >= ((2048 - Sound2Frequency) << 3))
-				{
-					Sound2Ticks = 0;
-					Sound2Stage = ++Sound2Stage & 7;
-				}
-
-				switch (FF00_C(0x16) >> 6)
-				{
-				case 0:
-					if (Sound2Stage == 0)
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-					}
-					break;
-				case 1:
-					if (Sound2Stage <= 1)
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-					}
-					break;
-				case 2:
-					if (Sound2Stage <= 3)
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-					}
-					break;
-				case 3:
-					if (Sound2Stage <= 5)
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-					}
-					break;
-				}
-			}
-		}
-
-		if (Sound3Enabled)
-		{
-			if (Sound3TimeOut)
-			{
-				if (Sound3TimeOut <= Ticks)
-				{
-					Sound3Enabled = false;
-					FF00_C(0x1A) &= ~0x80;
-					FF00_C(0x26) &= ~0x04;
-				}
-			}
-
-			Sound3TimeOut -= Ticks;
-
-			if (SoundTicks >= Ticks)
-			{
-				Ticks2 = Ticks;
-			}
-			else
-			{
-				Ticks2 = (BYTE)SoundTicks;
-			}
-			while (Ticks2 != 0)
-			{
-				Ticks2--;
-				Sound3Ticks++;
-				if (Sound3Ticks >= 2048 - Sound3Frequency)
-				{
-					Sound3Ticks = 0;
-					Sound3Stage = ++Sound3Stage & 31;
-				}
-
-				BYTE	SoundBit;
-
-				if (Sound3Stage & 1)
-				{
-					SoundBit = FF00_C(0x30 + (Sound3Stage >> 1)) & 0x0F;
-				}
-				else
-				{
-					SoundBit = FF00_C(0x30 + (Sound3Stage >> 1)) >> 4;
-				}
-				switch (FF00_C(0x1C) & 0x60)
-				{
-				case 0x00:
-					SoundBit = 8;
-					break;
-
-				case 0x20:
-					break;
-
-				case 0x40:
-					SoundBit = 8 | (SoundBit >> 1);
-					break;
-
-				case 0x60:
-					SoundBit = 0xC | (SoundBit >> 2);
-					break;
-				}
-
-				if (FF00_C(0x25) & 0x04)
-				{
-					Sound3L += (SoundBit << 4) - 0x80;
-				}
-				if (FF00_C(0x25) & 0x40)
-				{
-					Sound3R += (SoundBit << 4) - 0x80;
-				}
-			}
-		}
-
-		if (Sound4Enabled)
-		{
-			if (Sound4TimeOut)
-			{
-				if (Sound4TimeOut <= Ticks)
-				{
-					Sound4Enabled = false;
-					FF00_C(0x26) &= ~0x08;
-				}
-				else
-				{
-					Sound4TimeOut -= Ticks;
-				}
-			}
-			if (Sound4Envelope)
-			{
-				if (Sound4Envelope <= Ticks)
-				{
-					if (FF00_C(0x21) & 0x08)
-					{
-						if ((FF00_C(0x21) & 0xF0) == 0xF0)
-						{
-							Sound4Enabled = false;
-							FF00_C(0x26) &= ~0x08;
-						}
-						else
-						{
-							FF00_C(0x21) += 0x10;
-							Sound4Volume = FF00_C(0x21) >> 4;
-							Sound4Envelope = ((DWORD)FF00_C(0x21) & 0x07) * 16384;
-						}
-					}
-					else
-					{
-						if (FF00_C(0x21) & 0xF0)
-						{
-							FF00_C(0x21) -= 0x10;
-							Sound4Volume = FF00_C(0x21) >> 4;
-						}
-						Sound4Envelope = ((DWORD)FF00_C(0x21) & 0x07) * 16384;
-					}
-				}
-				else
-				{
-					Sound4Envelope -= Ticks;
-				}
-			}
-
-			if (SoundTicks >= Ticks)
-			{
-				Ticks2 = Ticks;
-			}
-			else
-			{
-				Ticks2 = (BYTE)SoundTicks;
-			}
-			while (Ticks2 != 0)
-			{
-				Ticks2--;
-				Sound4Ticks++;
-				if (Sound4Ticks >= Sound4Frequency)
-				{
-					Sound4Ticks = 0;
-					Sound4Bit = rand() & 1;
-				}
-
-				if (Sound4Bit)
-				{
-					if (FF00_C(0x25) & 0x08)
-					{
-						Sound4L += Volume[Sound4Volume];
-					}
-					if (FF00_C(0x25) & 0x80)
-					{
-						Sound4R += Volume[Sound4Volume];
-					}
-				}
-				else
-				{
-					if (FF00_C(0x25) & 0x08)
-					{
-						Sound4L -= Volume[Sound4Volume];
-					}
-					if (FF00_C(0x25) & 0x80)
-					{
-						Sound4R -= Volume[Sound4Volume];
-					}
-				}
-			}
-		}
-
-		//__asm int 3
-		if (SoundTicks < Ticks)
-		{
-			Ticks2 = Ticks - (BYTE)SoundTicks;
-			SoundUpdate(this);
-
-			if (Sound1Enabled)
-			{
-				Ticks3 = Ticks2;
-				while (Ticks3 != 0)
-				{
-					Ticks3--;
-					Sound1Ticks++;
-					if (Sound1Ticks >= ((2048 - Sound1Frequency) << 3))
-					{
-						Sound1Ticks = 0;
-						Sound1Stage = ++Sound1Stage & 7;
-					}
-
-
-					switch (FF00_C(0x11) >> 6)
-					{
-					case 0:
-						if (Sound1Stage == 0)
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-						}
-						break;
-					case 1:
-						if (Sound1Stage <= 1)
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-						}
-						break;
-					case 2:
-						if (Sound1Stage <= 3)
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-						}
-						break;
-					case 3:
-						if (Sound1Stage <= 5)
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-						}
-						break;
-					}
-				}
-			}
-			if (Sound2Enabled)
-			{
-				Ticks3 = Ticks2;
-				while (Ticks3 != 0)
-				{
-					Ticks3--;
-					Sound2Ticks++;
-					if (Sound2Ticks >= ((2048 - Sound2Frequency) << 3))
-					{
-						Sound2Ticks = 0;
-						Sound2Stage = ++Sound2Stage & 7;
-					}
-
-					switch (FF00_C(0x16) >> 6)
-					{
-					case 0:
-						if (Sound2Stage == 0)
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-						}
-						break;
-					case 1:
-						if (Sound2Stage <= 1)
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-						}
-						break;
-					case 2:
-						if (Sound2Stage <= 3)
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-						}
-						break;
-					case 3:
-						if (Sound2Stage <= 5)
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-						}
-						break;
-					}
-				}
-			}
-
-			if (Sound3Enabled)
-			{
-				Ticks3 = Ticks2;
-				while (Ticks3 != 0)
-				{
-					Ticks3--;
-					Sound3Ticks++;
-					if (Sound3Ticks >= 2048 - Sound3Frequency)
-					{
-						Sound3Ticks = 0;
-						Sound3Stage = ++Sound3Stage & 31;
-					}
-
-					BYTE	Sound3Bit;
-
-					if (Sound3Stage & 1)
-					{
-						Sound3Bit = FF00_C(0x30 + (Sound3Stage >> 1)) & 0x0F;
-					}
-					else
-					{
-						Sound3Bit = FF00_C(0x30 + (Sound3Stage >> 1)) >> 4;
-					}
-					switch (FF00_C(0x1C) & 0x60)
-					{
-					case 0x00:
-						Sound3Bit = 8;
-						break;
-
-					case 0x20:
-						break;
-
-					case 0x40:
-						Sound3Bit = 8 | (Sound3Bit >> 1);
-						break;
-
-					case 0x60:
-						Sound3Bit = 0xC | (Sound3Bit >> 2);
-						break;
-					}
-
-					if (FF00_C(0x25) & 0x04)
-					{
-						Sound3L += (Sound3Bit << 4) - 0x80;
-					}
-					if (FF00_C(0x25) & 0x40)
-					{
-						Sound3R += (Sound3Bit << 4) - 0x80;
-					}
-				}
-			}
-
-			if (Sound4Enabled)
-			{
-				while (Ticks2 != 0)
-				{
-					Ticks2--;
-					Sound4Ticks++;
-					if (Sound4Ticks >= Sound4Frequency)
-					{
-						Sound4Ticks = 0;
-						Sound4Bit = rand() & 1;
-					}
-
-					if (Sound4Bit)
-					{
-						if (FF00_C(0x25) & 0x08)
-						{
-							Sound4L += Volume[Sound4Volume];
-						}
-						if (FF00_C(0x25) & 0x80)
-						{
-							Sound4R += Volume[Sound4Volume];
-						}
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x08)
-						{
-							Sound4L -= Volume[Sound4Volume];
-						}
-						if (FF00_C(0x25) & 0x80)
-						{
-							Sound4R -= Volume[Sound4Volume];
-						}
-					}
-				}
-			}
-		}
-		SoundTicks -= Ticks;//*/
-		//__asm int 3
-/*
-004069CA 8B 7D FC             mov         edi,dword ptr [ebp-4]			//Ticks
-004069CD 8B 86 60 39 04 00    mov         eax,dword ptr [esi+43960h]	//SoundTicks
-004069D3 81 E7 FF 00 00 00    and         edi,0FFh
-004069D9 3B C7                cmp         eax,edi
-004069DB 89 7D EC             mov         dword ptr [ebp-14h],edi		//Ticks2
-004069DE 0F 83 D2 02 00 00    jae         00406CB6
-004069E4 8A C8                mov         cl,al
-004069E6 2A D9                sub         bl,cl
-004069E8 8B CE                mov         ecx,esi
-004069EA 88 5D F8             mov         byte ptr [ebp-8],bl
-004069ED E8 DE 04 00 00       call        00406ED0
-004069F2 8B 86 68 39 04 00    mov         eax,dword ptr [esi+43968h]
-004069F8 8B 4D F8             mov         ecx,dword ptr [ebp-8]
-004069FB 85 C0                test        eax,eax
-004069FD 0F 84 57 01 00 00    je          00406B5A
-00406A03 84 DB                test        bl,bl
-00406A05 0F 84 4F 01 00 00    je          00406B5A
-00406A0B 8B 96 78 39 04 00    mov         edx,dword ptr [esi+43978h]
-00406A11 33 C0                xor         eax,eax
-00406A13 8A 86 71 8F 00 00    mov         al,byte ptr [esi+8F71h]
-00406A19 BF 00 40 00 00       mov         edi,4000h
-00406A1E C1 E2 03             shl         edx,3
-00406A21 2B FA                sub         edi,edx
-00406A23 8B D1                mov         edx,ecx
-00406A25 C1 E8 06             shr         eax,6
-00406A28 89 45 E8             mov         dword ptr [ebp-18h],eax
-00406A2B 81 E2 FF 00 00 00    and         edx,0FFh
-00406A31 EB 03                jmp         00406A36
-00406A33 8B 45 E8             mov         eax,dword ptr [ebp-18h]
-00406A36 8B 9E 70 39 04 00    mov         ebx,dword ptr [esi+43970h]
-00406A3C 43                   inc         ebx
-00406A3D 3B DF                cmp         ebx,edi
-00406A3F 89 9E 70 39 04 00    mov         dword ptr [esi+43970h],ebx
-00406A45 72 1A                jb          00406A61
-00406A47 8B 9E 74 39 04 00    mov         ebx,dword ptr [esi+43974h]
-00406A4D C7 86 70 39 04 00 00 mov         dword ptr [esi+43970h],0
-00406A57 43                   inc         ebx
-00406A58 83 E3 07             and         ebx,7
-00406A5B 89 9E 74 39 04 00    mov         dword ptr [esi+43974h],ebx
-00406A61 83 F8 03             cmp         eax,3
-00406A64 0F 87 E3 00 00 00    ja          00406B4D
-00406A6A FF 24 85 00 6E 40 00 jmp         dword ptr [eax*4+406E00h]
-00406A71 8B 86 74 39 04 00    mov         eax,dword ptr [esi+43974h]
-00406A77 85 C0                test        eax,eax
-00406A79 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406A7F 75 06                jne         00406A87
-00406A81 A8 01                test        al,1
-00406A83 74 77                je          00406AFC
-00406A85 EB 62                jmp         00406AE9
-00406A87 A8 01                test        al,1
-00406A89 74 43                je          00406ACE
-00406A8B EB 2E                jmp         00406ABB
-00406A8D 8B 86 74 39 04 00    mov         eax,dword ptr [esi+43974h]
-00406A93 83 F8 01             cmp         eax,1
-00406A96 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406A9C 77 E9                ja          00406A87
-00406A9E EB E1                jmp         00406A81
-00406AA0 8B 86 74 39 04 00    mov         eax,dword ptr [esi+43974h]
-00406AA6 83 F8 03             cmp         eax,3
-00406AA9 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406AAF 77 06                ja          00406AB7
-00406AB1 A8 01                test        al,1
-00406AB3 74 47                je          00406AFC
-00406AB5 EB 32                jmp         00406AE9
-00406AB7 A8 01                test        al,1
-00406AB9 74 13                je          00406ACE
-00406ABB 8B 9E 7C 39 04 00    mov         ebx,dword ptr [esi+4397Ch]
-00406AC1 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406AC8 29 9E 8C 39 04 00    sub         dword ptr [esi+4398Ch],ebx
-00406ACE A8 10                test        al,10h
-00406AD0 74 7B                je          00406B4D
-00406AD2 EB 5E                jmp         00406B32
-00406AD4 8B 86 74 39 04 00    mov         eax,dword ptr [esi+43974h]
-00406ADA 83 F8 05             cmp         eax,5
-00406ADD 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406AE3 77 32                ja          00406B17
-00406AE5 A8 01                test        al,1
-00406AE7 74 13                je          00406AFC
-00406AE9 8B 9E 7C 39 04 00    mov         ebx,dword ptr [esi+4397Ch]
-00406AEF 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406AF6 01 9E 8C 39 04 00    add         dword ptr [esi+4398Ch],ebx
-00406AFC A8 10                test        al,10h
-00406AFE 74 4D                je          00406B4D
-00406B00 8B 86 7C 39 04 00    mov         eax,dword ptr [esi+4397Ch]
-00406B06 8B 9E 90 39 04 00    mov         ebx,dword ptr [esi+43990h]
-00406B0C 8B 04 85 60 22 41 00 mov         eax,dword ptr [eax*4+412260h]
-00406B13 03 D8                add         ebx,eax
-00406B15 EB 30                jmp         00406B47
-00406B17 A8 01                test        al,1
-00406B19 74 13                je          00406B2E
-00406B1B 8B 9E 7C 39 04 00    mov         ebx,dword ptr [esi+4397Ch]
-00406B21 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406B28 29 9E 8C 39 04 00    sub         dword ptr [esi+4398Ch],ebx
-00406B2E A8 10                test        al,10h
-00406B30 74 1B                je          00406B4D
-00406B32 8B 86 7C 39 04 00    mov         eax,dword ptr [esi+4397Ch]
-00406B38 8B 9E 90 39 04 00    mov         ebx,dword ptr [esi+43990h]
-00406B3E 8B 04 85 60 22 41 00 mov         eax,dword ptr [eax*4+412260h]
-00406B45 2B D8                sub         ebx,eax
-00406B47 89 9E 90 39 04 00    mov         dword ptr [esi+43990h],ebx
-00406B4D 4A                   dec         edx
-00406B4E 0F 85 DF FE FF FF    jne         00406A33
-00406B54 8B 7D EC             mov         edi,dword ptr [ebp-14h]
-00406B57 8A 5D F8             mov         bl,byte ptr [ebp-8]
-00406B5A 8B 86 6C 39 04 00    mov         eax,dword ptr [esi+4396Ch]
-00406B60 85 C0                test        eax,eax
-00406B62 0F 84 4E 01 00 00    je          00406CB6
-00406B68 84 DB                test        bl,bl
-00406B6A 0F 84 46 01 00 00    je          00406CB6
-00406B70 8B 86 9C 39 04 00    mov         eax,dword ptr [esi+4399Ch]
-00406B76 BA 00 40 00 00       mov         edx,4000h
-00406B7B C1 E0 03             shl         eax,3
-00406B7E 2B D0                sub         edx,eax
-00406B80 33 C0                xor         eax,eax
-00406B82 8A 86 76 8F 00 00    mov         al,byte ptr [esi+8F76h]
-00406B88 8B F8                mov         edi,eax
-00406B8A C1 EF 06             shr         edi,6
-00406B8D 81 E1 FF 00 00 00    and         ecx,0FFh
-00406B93 8B 9E 94 39 04 00    mov         ebx,dword ptr [esi+43994h]
-00406B99 43                   inc         ebx
-00406B9A 8B C3                mov         eax,ebx
-00406B9C 89 9E 94 39 04 00    mov         dword ptr [esi+43994h],ebx
-00406BA2 3B C2                cmp         eax,edx
-00406BA4 72 1A                jb          00406BC0
-00406BA6 8B 86 98 39 04 00    mov         eax,dword ptr [esi+43998h]
-00406BAC C7 86 94 39 04 00 00 mov         dword ptr [esi+43994h],0
-00406BB6 40                   inc         eax
-00406BB7 83 E0 07             and         eax,7
-00406BBA 89 86 98 39 04 00    mov         dword ptr [esi+43998h],eax
-00406BC0 83 FF 03             cmp         edi,3
-00406BC3 0F 87 E3 00 00 00    ja          00406CAC
-00406BC9 FF 24 BD 10 6E 40 00 jmp         dword ptr [edi*4+406E10h]
-00406BD0 8B 86 98 39 04 00    mov         eax,dword ptr [esi+43998h]
-00406BD6 85 C0                test        eax,eax
-00406BD8 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406BDE 75 06                jne         00406BE6
-00406BE0 A8 02                test        al,2
-00406BE2 74 77                je          00406C5B
-00406BE4 EB 62                jmp         00406C48
-00406BE6 A8 02                test        al,2
-00406BE8 74 43                je          00406C2D
-00406BEA EB 2E                jmp         00406C1A
-00406BEC 8B 86 98 39 04 00    mov         eax,dword ptr [esi+43998h]
-00406BF2 83 F8 01             cmp         eax,1
-00406BF5 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406BFB 77 E9                ja          00406BE6
-00406BFD EB E1                jmp         00406BE0
-00406BFF 8B 86 98 39 04 00    mov         eax,dword ptr [esi+43998h]
-00406C05 83 F8 03             cmp         eax,3
-00406C08 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406C0E 77 06                ja          00406C16
-00406C10 A8 02                test        al,2
-00406C12 74 47                je          00406C5B
-00406C14 EB 32                jmp         00406C48
-00406C16 A8 02                test        al,2
-00406C18 74 13                je          00406C2D
-00406C1A 8B 9E A0 39 04 00    mov         ebx,dword ptr [esi+439A0h]
-00406C20 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406C27 29 9E AC 39 04 00    sub         dword ptr [esi+439ACh],ebx
-00406C2D A8 20                test        al,20h
-00406C2F 74 7B                je          00406CAC
-00406C31 EB 5E                jmp         00406C91
-00406C33 8B 86 98 39 04 00    mov         eax,dword ptr [esi+43998h]
-00406C39 83 F8 05             cmp         eax,5
-00406C3C 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406C42 77 32                ja          00406C76
-00406C44 A8 02                test        al,2
-00406C46 74 13                je          00406C5B
-00406C48 8B 9E A0 39 04 00    mov         ebx,dword ptr [esi+439A0h]
-00406C4E 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406C55 01 9E AC 39 04 00    add         dword ptr [esi+439ACh],ebx
-00406C5B A8 20                test        al,20h
-00406C5D 74 4D                je          00406CAC
-00406C5F 8B 86 A0 39 04 00    mov         eax,dword ptr [esi+439A0h]
-00406C65 8B 9E B0 39 04 00    mov         ebx,dword ptr [esi+439B0h]
-00406C6B 8B 04 85 60 22 41 00 mov         eax,dword ptr [eax*4+412260h]
-00406C72 03 D8                add         ebx,eax
-00406C74 EB 30                jmp         00406CA6
-00406C76 A8 02                test        al,2
-00406C78 74 13                je          00406C8D
-00406C7A 8B 9E A0 39 04 00    mov         ebx,dword ptr [esi+439A0h]
-00406C80 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406C87 29 9E AC 39 04 00    sub         dword ptr [esi+439ACh],ebx
-00406C8D A8 20                test        al,20h
-00406C8F 74 1B                je          00406CAC
-00406C91 8B 86 A0 39 04 00    mov         eax,dword ptr [esi+439A0h]
-00406C97 8B 9E B0 39 04 00    mov         ebx,dword ptr [esi+439B0h]
-00406C9D 8B 04 85 60 22 41 00 mov         eax,dword ptr [eax*4+412260h]
-00406CA4 2B D8                sub         ebx,eax
-00406CA6 89 9E B0 39 04 00    mov         dword ptr [esi+439B0h],ebx
-00406CAC 49                   dec         ecx
-00406CAD 0F 85 E0 FE FF FF    jne         00406B93
-00406CB3 8B 7D EC             mov         edi,dword ptr [ebp-14h]
-00406CB6 29 BE 60 39 04 00    sub         dword ptr [esi+43960h],edi
-*/
-
-
-		__asm
-		{
-			xor		ebx, ebx
-			mov		ecx, this
-			//ecx	= this
-			mov		bl, byte ptr [Ticks]
-			//ebx	= Ticks
-
-
-			/*/*****
-			//Sound
-
-			//ecx	= this
-			//ebx	= Ticks
-
-			push	ebx
-			mov		al, byte ptr [ecx + Offset_SoundTicks]
-			//al	= SoundTicks
-			sub		bl, al
-			//ebx	= Ticks2 (new value)
-			//al	free
-			jb		Sound_NotEnoughTicks
-//#ifdef _DEBUG
-			push	ebx
-			push	ecx
-//#endif //_DEBUG
-			call	SoundUpdate
-//#ifdef _DEBUG
-			pop		ecx
-			pop		ebx
-//#endif //_DEBUG
-			test	bl, bl
-			jz		SoundDone
-			mov		al, byte ptr [ecx + Offset_Sound1Enabled]
-			//al	= Sound1Enabled
-			test	al, al
-			//al	free
-			jz		Sound1Done
-			mov		eax, dword ptr [ecx + Offset_Sound1Ticks]
-			//eax	= Sound1Ticks
-			mov		edx, dword ptr [ecx + Offset_Sound1Frequency]
-			//edx	= Sound1Frequency
-			shl		edx, 3
-			//edx	= Sound1Frequency * 8
-			neg		edx
-			//edx	= -Sound1Frequency * 8
-			add		edx, 2048 * 8
-			//edx	= (2048 - Sound1Frequency) * 8
-			cmp		edx, eax
-			ja		Sound1NoStageChange
-
-			mov		dword ptr [ecx + Offset_Sound1Ticks], eax
-
-			mov		dh, byte ptr [ecx + Offset_Sound1Stage]
-			inc		dh
-			and		dh, 7
-			mov		byte ptr [ecx + Offset_Sound1Stage], dh
-			/*xor		edx, edx
-			//edx	= 0
-			mov		dl, byte ptr [ecx + Offset_Sound1Volume]
-			//edx	= Sound1Volume
-			mov		esi, dword ptr [Volume + edx * 4]*/
-			//esi	= Volume
-			//edx	free
-
-			//l, r (edx)
-
-			/*sub		eax, edi
-			//edi	free
-			jc		Sound1Done
-			mov		dword ptr [ecx + Offset_Sound1Ticks], 0
-			Sound1Stage = ++Sound1Stage & 7*/
-/*			xor		esi, esi
-			jmp		Sound1StateChanged
-
-Sound1NoStageChange:
-			//edx	free
-			xor		edx, edx
-			//edx	= 0
-			mov		dl, byte ptr [ecx + Offset_Sound1Volume]
-			//edx	= Sound1Volume
-			mov		esi, dword ptr [Volume + edx * 4]
-			//esi	= Volume
-			//edx	free
-			mov		dword ptr [ecx + Offset_Sound1Ticks], eax
-			mov		dh, byte ptr [ecx + Offset_Sound1Stage]
-			//dh	= Sound1Stage
-			test	dh, dh
-			jz		Sound1Up
-			shr		dh, 1
-
-			mov		dl, byte ptr [ecx + FF00_ASM + 0x11]
-			//dl	= FF00(0x11)
-			shr		dl, 6
-			cmp		dh, dl
-			//edx	free
-			jb		Sound1Up
-
-//Sound1Down:
-			neg		esi
-
-Sound1Up:
-			//edx	free
-
-			imul	esi, ebx
-			//eax	= L, R
-Sound1StateChanged:
-			//mov		edx, dword ptr [ecx + Offset_Sound1L]
-			//add		edx, esi
-			mov		dword ptr [ecx + Offset_Sound1L], esi
-Sound1Done:
-			//bl	= Ticks2
-
-			//Sound2
-Sound_NotEnoughTicks:
-SoundDone:
-			pop		ebx
-			//ebx	= Ticks
-			mov		al, byte ptr [ecx + Offset_SoundTicks]
-			sub		al, bl
-			mov		byte ptr [ecx + Offset_SoundTicks], al
-			//*/
-
-
-			//*******
-			//Divider
-
-			//ecx	= this
-			//ebx	= Ticks
-
-			mov		al, byte ptr [ecx + Offset_DIV_Ticks]
-			//al	= DIV_Ticks
-			sub		al, bl	//DIV_Ticks -= Ticks
-			//jc		DIV_Increase
-//DIV_Increased:
-			jnc		DIV_NotEnoughTicks
-			mov		dl, byte ptr [ecx + FF00_ASM + 0x04]
-			//dl	= FF00(0x04)
-			add		al, 32	//DIV_Ticks += 32
-			inc		dl
-			mov		byte ptr [ecx + FF00_ASM + 0x04], dl
-			//dl	free
-			//edx	free
-DIV_NotEnoughTicks:
-			mov		byte ptr [ecx + Offset_DIV_Ticks], al
-			//al	free
-			//eax	free
-
-			//ecx	= this
-			//ebx	= Ticks
-
-
-			//*****
-			//Timer
-
-			//ecx	= this
-			//ebx	= Ticks
-			mov		al, byte ptr [ecx + FF00_ASM + 0x07]
-			test	al, 0x04
-			jz		TimerDisabled
-			mov		eax, dword ptr [ecx + Offset_TIMA_Ticks]
-			//eax	= TIMA_Ticks
-			add		eax, ebx
-			//ebx	free
-			mov		edx, dword ptr [ecx + Offset_Hz]
-			//edx	= Hz
-			//mov		dword ptr [ecx + Offset_TIMA_Ticks], eax
-			cmp		eax, edx
-			jb		TIMA_NotEnoughTicks
-
-			sub		eax, edx
-			//edx	free
-			mov		dl, byte ptr [ecx + FF00_ASM + 0x05]
-			//dl	= FF00(0x05)
-			inc		dl
-			jnz		TIMA_NotZero
-			mov		dl, byte ptr [ecx + FF00_ASM + 0x06]
-			//dl	= FF00(0x06) (new value of FF00(0x05))
-			mov		dh, byte ptr [ecx + FF00_ASM + 0x0F]
-			or		dh, 0x04
-			mov		byte ptr [ecx + FF00_ASM + 0x0F], dh
-			//or		byte ptr [ecx + FF00_ASM + 0x0F], 0x04
-TIMA_NotZero:
-			mov		byte ptr [ecx + FF00_ASM + 0x05], dl
-			//dl	free
-			//edx	free
-
-TIMA_NotEnoughTicks:
-			mov		dword ptr [ecx + Offset_TIMA_Ticks], eax
-			//eax	free
-
-TimerDisabled:
-			//ecx	= this
-
-
-			//**********
-			//Interrupts
-
-			//ecx	= this
-
-			mov		edx, dword ptr [ecx + Offset_Flags]
-			//edx	= Flags
-			test	edx, GB_IE
-			jz		NoInterrupt
-			mov		ah, byte ptr [ecx + FF00_ASM + 0x0F]
-			//ah	= FF00(0x0F)
-			mov		al, byte ptr [ecx + FF00_ASM + 0xFF]
-			and		al, ah
-			//al	= FF00(0xFF) & FF00(0x0F)
-			test	al, 0x0F
-			jz		InterruptServiced
-
-			and		edx, ~(GB_IE | GB_ENABLEIE | GB_HALT)
-			mov		dword ptr [ecx + Offset_Flags], edx
-			//edx	free
-
-
-			push	ecx
-			xor		ecx, ecx
-			shr		al, 1
-			jc		InterruptFound
-TestNextInterrupt:
-			inc		cl
-			shr		al, 1
-			jnc		TestNextInterrupt
-
-InterruptFound:
-			//al	free
-			mov		bl, 1
-			shl		bl, cl
-			not		bl
-			and		ah, bl
-			//ah	= new value of FF0F
-			lea		ebx, [ecx * 8 + 0x40]
-			//ebx	= interrupt address
-			pop		ecx
-			//ecx	= this
-
-			mov		edx, dword ptr [ecx + Offset_Reg_SP]
-			//edx	= Reg_SP
-			sub		dx, 2
-
-			mov		byte ptr [ecx + FF00_ASM + 0x0F], ah
-			//ah	free
-			//eax	free
-			or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
-
-			mov		eax, dword ptr [ecx + Offset_Reg_PC]
-			//eax	= Reg_PC
-
-			mov		word ptr [ecx + Offset_Reg_PC], bx
-			//ebx	free
-
-			mov		word ptr [ecx + Offset_Reg_SP], dx
-			call	Debug_LD_mem8
-			inc		dx
-			mov		al, ah
-			call	Debug_LD_mem8
-
-			//eax	free
-			//edx	free
-
-			jmp		InterruptServiced
-
-NoInterrupt:
-			//ecx	= this
-			//edx	= Flags
-
-			and		edx, GB_ENABLEIE
-			jz		InterruptServiced
-			shl		edx, 1
-			mov		eax, dword ptr [ecx + Offset_Flags]
-			//eax	= Flags
-			or		edx, eax
-			//eax	free
-			mov		dword ptr [ecx + Offset_Flags], edx
-			//edx	free
-
-InterruptServiced:
-			//ecx	= this
-
-
-			/*/*********
-			//Exit loop
-
-			//ecx	= this
-
-			mov		dl, byte ptr [ecx + Offset_Flags]
-			//edx	= Flags
-			test	dl, GB_EXITLOOP
-			jz		ContinueLoop
-			and		dl, ~GB_EXITLOOP
-			mov		byte ptr [ecx + Offset_Flags], dl
-			//ecx	free
-			//edx	free//*/
-		}
-	}
-	while (!(Flags & GB_EXITLOOP));
-
-	Flags &= ~(GB_EXITLOOPDIRECTLY | GB_EXITLOOP);
-	return;
-
-/*DIV_Increase:
-	__asm
-	{
+			Flags |= GB_EXITLOOP;
+		}*/
+
+
+
+LCD_NotEnoughTicks:
+		sub		bl, al
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+LCD_Done:
+		//eax	= Ticks
+		//esi	= Flags
+
+
+
+
+
+
+
+		//*******
+		//Sound
+
+		//ecx	= this
+		//eax	= Ticks
+		//esi	= Flags
+
+		mov		ebp, ecx
+		//ebp	= this
+		//ecx	free
+
+		mov		bl, byte ptr [ebp + Offset_Sound1Enabled]
+		test	bl, bl
+		jz		Sound1_Off
+
+		mov		ebx, dword ptr [ebp + Offset_Sound1TimeOut]
+		//bh	= Sound1TimeOut
+		test	ebx, ebx
+		jz		Sound1_NoTimeOut
+
+		cmp		ebx, eax
+		ja		Sound1_NotTimeOutYet
+
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound1Enabled], 0
+		and		bl, ~1
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		jmp		Sound1_Off
+
+Sound1_NotTimeOutYet:
+		sub		ebx, eax
+		mov		dword ptr [ebp + Offset_Sound1TimeOut], ebx
+		//ebx	free
+
+Sound1_NoTimeOut:
+
+		mov		ebx, dword ptr [ebp + Offset_Sound1Sweep]
+		test	ebx, ebx
+		jz		Sound1_NoSweep
+
+		sub		ebx, eax
+		ja		Sound1_NotSweepYet
+
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x10]
+		//cl	= [FF10]
+		mov		dword ptr [ebp + Offset_Sound1Sweep], 0
+		mov		ch, cl
+		//ch	= [FF10]
+		test	cl, 8
+		jz		Sound1_SweepIncrease
+
+		mov		ebx, dword ptr [ebp + Offset_Sound1Frequency]
+		and		cl, 7
+		mov		edx, ebx
+		shr		ebx, cl
+		cmp		edx, ebx
+		jae		Sound1_Sweep_NotZero
+
+		xor		ebx, ebx
+Sound1_Sweep_NotZero:
+
+		sub		edx, ebx
+		jmp		Sound1_Sweeped
+
+Sound1_SweepIncrease:
+		mov		ebx, dword ptr [ebp + Offset_Sound1Frequency]
+		and		cl, 7
+		mov		edx, ebx
+		shr		ebx, cl
+		add		edx, ebx
+		cmp		edx, 2047
+		jb		Sound1_Sweep_NotAbove2047
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound1Enabled], 0
+		and		bl, ~1
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		mov		edx, 2047
+Sound1_Sweep_NotAbove2047:
+
+Sound1_Sweeped:
+		//edx	= Sound1Frequency
+		//ch	= [FF10]
+		mov		dword ptr [ebp + Offset_Sound1Frequency], edx
+		not		edx
+		and		dh, 7
+		and		ch, 0x70
+		xor		ebx, ebx
+		mov		byte ptr [ebp + FF00_ASM + 0x13], dl
+		mov		byte ptr [ebp + FF00_ASM + 0x14], dh
+		mov		bl, ch
+		shl		ebx, 9
+Sound1_NotSweepYet:
+		mov		dword ptr [ebp + Offset_Sound1Sweep], ebx
+Sound1_NoSweep:
+
+		mov		ebx, dword ptr [ebp + Offset_Sound1Envelope]
+		test	ebx, ebx
+		jz		Sound1_NoEnvelope
+
+		sub		ebx, eax
+		ja		Sound1_Envelope_NotYet
+
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x12]
+		//dl	= [FF12]
+		test	dl, 8
+		jz		Sound1_Envelope_Decrease
+
+		cmp		dl, 0xF0
+		jae		Sound1_Envelope_Max
+
+		xor		ebx, ebx
+		mov		bl, dl
+		add		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x12], dl
+		shr		dl, 4
+		and		bl, 7
+		mov		byte ptr [ebp + Offset_Sound1Volume], dl
+		shl		ebx, 14
+		jmp		Sound1_Envelope_Done
+
+Sound1_Envelope_Max:
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound1Enabled], 0
+		and		bl, ~1
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		jmp		Sound1_Off
+
+Sound1_Envelope_Decrease:
+		xor		ebx, ebx
+		mov		bl, dl
+		test	dl, 0xF0
+		jz		Sound1_Envelope_Min
+		sub		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x12], dl
+		shr		dl, 4
+		mov		byte ptr [ebp + Offset_Sound1Volume], dl
+Sound1_Envelope_Min:
+		and		bl, 7
+		shl		ebx, 14
+		//jmp		Sound1_Envelope_Done
+
+Sound1_Envelope_NotYet:
+Sound1_Envelope_Done:
+		//ebx	= Sound1Envelope
+		mov		dword ptr [ebp + Offset_Sound1Envelope], ebx
+		//ebx	free
+Sound1_NoEnvelope:
+
+		mov		edi, dword ptr [ebp + Offset_SoundTicks]
+		cmp		eax, edi
+		ja		Sound1_TicksSet
+		mov		edi, eax
+Sound1_TicksSet:
+
+		mov		edx, dword ptr [ebp + Offset_Sound1Frequency]
+		//edx	= Sound1Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound1Ticks]
+		//ecx	= Sound1Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound1Ticks + Ticks
+		add		edx, 2048
+		shl		edx, 3
+		//edx	= (2048 - Sound1Frequency) << 3
+		cmp		ecx, edx
+		jae		Sound1_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound1Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x11]
+		//cl	= [FF11]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		ch, byte ptr [ebp + Offset_Sound1Stage]
+		//ch	= Sound1Stage
+		imul	ebx, edi
+		test	cl, 0x80
+		jnz		Sound1_50_75
+
+		shr		cl, 6
+		and		cl, 1
+		cmp		ch, cl
+		jbe		Sound1_ToBuffer
+		neg		ebx
+		jmp		Sound1_ToBuffer
+
+Sound1_50_75:
+		shr		cl, 6
+		add		cl, cl
+		dec		cl
+		cmp		ch, cl
+		jbe		Sound1_ToBuffer
+		neg		ebx
+		jmp		Sound1_ToBuffer
+
+Sound1_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound1_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x11]
+		//dl	= [FF11]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		dh, byte ptr [ebp + Offset_Sound1Stage]
+		//dh	= Sound1Stage
+		imul	ebx, edi
+		test	dl, 0x80
+		jnz		Sound1_50_75_2
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound1_ChangeStage
+		neg		ebx
+		jmp		Sound1_ChangeStage
+
+Sound1_50_75_2:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound1_ChangeStage
+		neg		ebx
+		jmp		Sound1_ChangeStage
+
+Sound1_ChangeStage2:
+		mov		ecx, eax
+		mov		dh, byte ptr [ebp + Offset_Sound1Stage]
+		xor		ebx, ebx
+Sound1_ChangeStage:
+		mov		edi, ecx
+		//dh	= Sound1Stage
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound1Ticks], 0
+		inc		dh
+		and		dh, 7
+		mov		byte ptr [ebp + Offset_Sound1Stage], dh
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x11]
+		//dl	= [FF11]
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		//dh	= Sound1Stage
+		imul	ecx, edi
+		test	dl, 0x80
+		jnz		Sound1_50_75_3
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound1_MixEbxEcx
+		neg		ecx
+		jmp		Sound1_MixEbxEcx
+
+Sound1_50_75_3:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound1_MixEbxEcx
+		neg		ecx
+		//jmp		Sound1_MixEbxEcx
+Sound1_MixEbxEcx:
+		add		ebx, ecx
+
+Sound1_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound1Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x01
+		jz		Sound1_NotLeft
+		mov		edi, dword ptr [ebp + Offset_SoundL]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edi
+Sound1_NotLeft:
+		test	cl, 0x10
+		jz		Sound1_NotRight
+		mov		edi, dword ptr [ebp + Offset_SoundR]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edi
+Sound1_NotRight:
+
+Sound1_Off:
+
+
+
+		mov		bl, byte ptr [ebp + Offset_Sound2Enabled]
+		test	bl, bl
+		jz		Sound2_Off
+
+		mov		ebx, dword ptr [ebp + Offset_Sound2TimeOut]
+		//bh	= Sound2TimeOut
+		test	ebx, ebx
+		jz		Sound2_NoTimeOut
+
+		cmp		ebx, eax
+		ja		Sound2_NotTimeOutYet
+
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound2Enabled], 0
+		and		bl, ~2
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		jmp		Sound2_Off
+
+Sound2_NotTimeOutYet:
+		sub		ebx, eax
+		mov		dword ptr [ebp + Offset_Sound2TimeOut], ebx
+		//ebx	free
+
+Sound2_NoTimeOut:
+
+		mov		ebx, dword ptr [ebp + Offset_Sound2Envelope]
+		test	ebx, ebx
+		jz		Sound2_NoEnvelope
+
+		sub		ebx, eax
+		ja		Sound2_Envelope_NotYet
+
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x17]
+		//dl	= [FF17]
+		test	dl, 8
+		jz		Sound2_Envelope_Decrease
+
+		cmp		dl, 0xF0
+		jae		Sound2_Envelope_Max
+
+		xor		ebx, ebx
+		mov		bl, dl
+		add		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x17], dl
+		shr		dl, 4
+		and		bl, 7
+		mov		byte ptr [ebp + Offset_Sound2Volume], dl
+		shl		ebx, 14
+		jmp		Sound2_Envelope_Done
+
+Sound2_Envelope_Max:
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound2Enabled], 0
+		and		bl, ~2
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		jmp		Sound2_Off
+
+Sound2_Envelope_Decrease:
+		xor		ebx, ebx
+		mov		bl, dl
+		test	dl, 0xF0
+		jz		Sound2_Envelope_Min
+		sub		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x17], dl
+		shr		dl, 4
+		mov		byte ptr [ebp + Offset_Sound2Volume], dl
+Sound2_Envelope_Min:
+		and		bl, 7
+		shl		ebx, 14
+		//jmp		Sound2_Envelope_Done
+
+Sound2_Envelope_NotYet:
+Sound2_Envelope_Done:
+		//ebx	= Sound2Envelope
+		mov		dword ptr [ebp + Offset_Sound2Envelope], ebx
+		//ebx	free
+Sound2_NoEnvelope:
+
+		mov		edi, dword ptr [ebp + Offset_SoundTicks]
+		cmp		eax, edi
+		ja		Sound2_TicksSet
+		mov		edi, eax
+Sound2_TicksSet:
+
+		mov		edx, dword ptr [ebp + Offset_Sound2Frequency]
+		//edx	= Sound2Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound2Ticks]
+		//ecx	= Sound2Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound2Ticks + Ticks
+		add		edx, 2048
+		shl		edx, 3
+		//edx	= (2048 - Sound2Frequency) << 3
+		cmp		ecx, edx
+		jae		Sound2_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound2Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x16]
+		//cl	= [FF16]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		ch, byte ptr [ebp + Offset_Sound2Stage]
+		//ch	= Sound2Stage
+		imul	ebx, edi
+		test	cl, 0x80
+		jnz		Sound2_50_75
+
+		shr		cl, 6
+		and		cl, 1
+		cmp		ch, cl
+		jbe		Sound2_ToBuffer
+		neg		ebx
+		jmp		Sound2_ToBuffer
+
+Sound2_50_75:
+		shr		cl, 6
+		add		cl, cl
+		dec		cl
+		cmp		ch, cl
+		jbe		Sound2_ToBuffer
+		neg		ebx
+		jmp		Sound2_ToBuffer
+
+Sound2_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound2_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x16]
+		//dl	= [FF16]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		dh, byte ptr [ebp + Offset_Sound2Stage]
+		//dh	= Sound2Stage
+		imul	ebx, edi
+		test	dl, 0x80
+		jnz		Sound2_50_75_2
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound2_ChangeStage
+		neg		ebx
+		jmp		Sound2_ChangeStage
+
+Sound2_50_75_2:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound2_ChangeStage
+		neg		ebx
+		jmp		Sound2_ChangeStage
+
+Sound2_ChangeStage2:
+		mov		ecx, eax
+		mov		dh, byte ptr [ebp + Offset_Sound2Stage]
+		xor		ebx, ebx
+Sound2_ChangeStage:
+		mov		edi, ecx
+		//dh	= Sound2Stage
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound2Ticks], 0
+		inc		dh
+		and		dh, 7
+		mov		byte ptr [ebp + Offset_Sound2Stage], dh
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x16]
+		//dl	= [FF16]
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		//dh	= Sound2Stage
+		imul	ecx, edi
+		test	dl, 0x80
+		jnz		Sound2_50_75_3
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound2_MixEbxEcx
+		neg		ecx
+		jmp		Sound2_MixEbxEcx
+
+Sound2_50_75_3:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound2_MixEbxEcx
+		neg		ecx
+		//jmp		Sound2_MixEbxEcx
+Sound2_MixEbxEcx:
+		add		ebx, ecx
+
+Sound2_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound2Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x02
+		jz		Sound2_NotLeft
+		mov		edi, dword ptr [ebp + Offset_SoundL]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edi
+Sound2_NotLeft:
+		test	cl, 0x20
+		jz		Sound2_NotRight
+		mov		edi, dword ptr [ebp + Offset_SoundR]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edi
+Sound2_NotRight:
+
+Sound2_Off:
+
+
+
+		mov		bl, byte ptr [ebp + Offset_Sound3Enabled]
+		test	bl, bl
+		jz		Sound3_Off
+
+		mov		ebx, dword ptr [ebp + Offset_Sound3TimeOut]
+		//bh	= Sound3TimeOut
+		test	ebx, ebx
+		jz		Sound3_NoTimeOut
+
+		cmp		ebx, eax
+		ja		Sound3_NotTimeOutYet
+
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		bh, byte ptr [ebp + FF00_ASM + 0x1A]
+		mov		byte ptr [ebp + Offset_Sound3Enabled], 0
+		and		bx, ~0x8004
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		mov		byte ptr [ebp + FF00_ASM + 0x1A], bh
+		jmp		Sound3_Off
+
+Sound3_NotTimeOutYet:
+		sub		ebx, eax
+		mov		dword ptr [ebp + Offset_Sound3TimeOut], ebx
+		//ebx	free
+
+Sound3_NoTimeOut:
+
+		mov		edi, dword ptr [ebp + Offset_SoundTicks]
+		cmp		eax, edi
+		ja		Sound3_TicksSet
+		mov		edi, eax
+Sound3_TicksSet:
+
+		mov		edx, dword ptr [ebp + Offset_Sound3Frequency]
+		//edx	= Sound3Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound3Ticks]
+		//ecx	= Sound3Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound3Ticks + Ticks
+		add		edx, 2048
+		//shl		edx, 3
+		//edx	= 2048 - Sound3Frequency
+		cmp		ecx, edx
+		jae		Sound3_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound3Ticks], ecx
+		//ecx	free
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		bl, cl
+		//bl	= Sound3Stage
+		and		cl, 1
+		shr		bl, 1
+		shl		cl, 2
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x30 + ebx]
+		shr		bl, cl
+		//bl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_HighVolume
+		test	ch, 0x20
+		jnz		Sound3_VolumeSet
+		mov		bl, 8
+		jmp		Sound3_VolumeSet
+Sound3_HighVolume:
+		shr		bl, 1
+		or		bl, 8
+		test	ch, 0x20
+		jz		Sound3_VolumeSet
+		shr		bl, 1
+		or		bl, 8
+		//jmp		Sound3_VolumeSet
+Sound3_VolumeSet:
+		shl		bl, 4
+		sub		ebx, 0x80
+		imul	ebx, edi
+		jmp		Sound3_ToBuffer
+
+Sound3_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound3_ChangeStage2
+
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound3Ticks], ecx
+		mov		edx, ecx
+		//ecx	free
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		bl, cl
+		//bl	= Sound3Stage
+		and		cl, 1
+		shr		bl, 1
+		shl		cl, 2
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x30 + ebx]
+		shr		bl, cl
+		//bl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_HighVolume2
+		test	ch, 0x20
+		jz		Sound3_VolumeSet2
+		mov		bl, 8
+		jmp		Sound3_VolumeSet2
+Sound3_HighVolume2:
+		shr		bl, 1
+		or		bl, 8
+		test	ch, 0x20
+		jz		Sound3_VolumeSet2
+		shr		bl, 1
+		or		bl, 8
+		//jmp		Sound3_VolumeSet2
+Sound3_VolumeSet2:
+		shl		bl, 4
+		sub		ebx, 0x80
+		imul	ebx, edi
+		jmp		Sound3_ChangeStage
+
+Sound3_ChangeStage2:
+		mov		edx, eax
+		xor		ebx, ebx
+Sound3_ChangeStage:
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		//cl	= Sound3Stage
+		mov		edi, edx
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound3Ticks], 0
+		inc		cl
+		and		cl, 31
+		mov		byte ptr [ebp + Offset_Sound3Stage], cl
+		xor		edx, edx
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		dl, cl
+		//dl	= Sound3Stage
+		and		cl, 1
+		shr		dl, 1
+		shl		cl, 2
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x30 + edx]
+		shr		dl, cl
+		//dl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_HighVolume3
+		test	ch, 0x20
+		jz		Sound3_VolumeSet3
+		mov		dl, 8
+		jmp		Sound3_VolumeSet3
+Sound3_HighVolume3:
+		shr		dl, 1
+		or		dl, 8
+		test	ch, 0x20
+		jz		Sound3_VolumeSet3
+		shr		dl, 1
+		or		dl, 8
+		//jmp		Sound3_VolumeSet3
+Sound3_VolumeSet3:
+		shl		dl, 4
+		sub		edx, 0x80
+		imul	edx, edi
+		add		ebx, edx
+		//jmp		Sound3_ToBuffer
+
+Sound3_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound2Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x04
+		jz		Sound3_NotLeft
+		mov		edi, dword ptr [ebp + Offset_SoundL]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edi
+Sound3_NotLeft:
+		test	cl, 0x40
+		jz		Sound3_NotRight
+		mov		edi, dword ptr [ebp + Offset_SoundR]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edi
+Sound3_NotRight:
+
+Sound3_Off:
+
+
+
+		mov		bl, byte ptr [ebp + Offset_Sound4Enabled]
+		test	bl, bl
+		jz		Sound4_Off
+
+		mov		ebx, dword ptr [ebp + Offset_Sound4TimeOut]
+		//bh	= Sound4TimeOut
+		test	ebx, ebx
+		jz		Sound4_NoTimeOut
+
+		cmp		ebx, eax
+		ja		Sound4_NotTimeOutYet
+
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound4Enabled], 0
+		and		bl, ~8
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		jmp		Sound4_Off
+
+Sound4_NotTimeOutYet:
+		sub		ebx, eax
+		mov		dword ptr [ebp + Offset_Sound4TimeOut], ebx
+		//ebx	free
+
+Sound4_NoTimeOut:
+
+		mov		ebx, dword ptr [ebp + Offset_Sound4Envelope]
+		test	ebx, ebx
+		jz		Sound4_NoEnvelope
+
+		sub		ebx, eax
+		ja		Sound4_Envelope_NotYet
+
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x21]
+		//dl	= [FF21]
+		test	dl, 8
+		jz		Sound4_Envelope_Decrease
+
+		cmp		dl, 0xF0
+		jae		Sound4_Envelope_Max
+
+		xor		ebx, ebx
+		mov		bl, dl
+		add		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x21], dl
+		shr		dl, 4
+		and		bl, 7
+		mov		byte ptr [ebp + Offset_Sound4Volume], dl
+		shl		ebx, 14
+		jmp		Sound4_Envelope_Done
+
+Sound4_Envelope_Max:
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound4Enabled], 0
+		and		bl, ~8
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		jmp		Sound4_Off
+
+Sound4_Envelope_Decrease:
+		xor		ebx, ebx
+		mov		bl, dl
+		test	dl, 0xF0
+		jz		Sound4_Envelope_Min
+		sub		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x21], dl
+		shr		dl, 4
+		mov		byte ptr [ebp + Offset_Sound4Volume], dl
+Sound4_Envelope_Min:
+		and		bl, 7
+		shl		ebx, 14
+		//jmp		Sound4_Envelope_Done
+
+Sound4_Envelope_NotYet:
+Sound4_Envelope_Done:
+		//ebx	= Sound4Envelope
+		mov		dword ptr [ebp + Offset_Sound4Envelope], ebx
+		//ebx	free
+Sound4_NoEnvelope:
+
+		mov		edi, dword ptr [ebp + Offset_SoundTicks]
+		cmp		eax, edi
+		ja		Sound4_TicksSet
+		mov		edi, eax
+Sound4_TicksSet:
+
+		mov		ecx, dword ptr [ebp + Offset_Sound4Ticks]
+		//ecx	= Sound4Ticks
+		mov		edx, dword ptr [ebp + Offset_Sound4Frequency]
+		//edx	= Sound4Frequency
+		//neg		edx
+		add		ecx, edi
+		//ecx	= Sound4Ticks + Ticks
+		//add		edx, 2048
+		//shl		edx, 3
+		////edx	= (2048 - Sound4Frequency) << 3
+		cmp		ecx, edx
+		jae		Sound4_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound4Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound4Volume]
+		//bl	= Sound2Volume
+		mov		cl, byte ptr [ebp + Offset_Sound4Bit]
+		//cl	= Sound4Bit
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		imul	ebx, edi
+		test	cl, cl
+		jz		Sound4_ToBuffer
+		neg		ebx
+		jmp		Sound4_ToBuffer
+
+Sound4_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound4_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound4Volume]
+		//bl	= Sound4Volume
+		mov		dl, byte ptr [ebp + Offset_Sound4Bit]
+		//dl	= Sound4Bit
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		imul	ebx, edi
+		test	dl, dl
+		jz		Sound4_ChangeStage
+		neg		ebx
+		jmp		Sound4_ChangeStage
+
+Sound4_ChangeStage2:
+		mov		ecx, eax
+		xor		ebx, ebx
+Sound4_ChangeStage:
+		mov		edi, ecx
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound4Ticks], 0
+		push	eax
+		call	rand
+		and		al, 1
+		mov		dl, al
+		//dl	= Sound4Bit
+		mov		byte ptr [ebp + Offset_Sound4Bit], al
+		pop		eax
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound4Volume]
+		//cl	= Sound4Volume
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		imul	ecx, edi
+		test	dl, dl
+		jz		Sound4_MixEbxEcx
+		neg		ecx
+		//jmp		Sound4_MixEbxEcx
+
+Sound4_MixEbxEcx:
+		add		ebx, ecx
+
+Sound4_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound4Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x08
+		jz		Sound4_NotLeft
+		mov		edi, dword ptr [ebp + Offset_SoundL]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edi
+Sound4_NotLeft:
+		test	cl, 0x80
+		jz		Sound4_NotRight
+		mov		edi, dword ptr [ebp + Offset_SoundR]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edi
+Sound4_NotRight:
+
+Sound4_Off:
+
+
+
+		mov		dl, byte ptr [ebp + Offset_SoundTicks]
+		sub		dl, al
+		mov		byte ptr [ebp + Offset_SoundTicks], dl
+		jae		Sound_NoUpdate
+
+		mov		ecx, ebp
+
+		add		edx, eax
+		and		edx, 0xFF
+		mov		edi, eax
+		sub		edi, edx
+
+		push	eax
+		push	esi
+		push	edi
+		call	SoundUpdate
+		pop		edi
+		pop		esi
+		pop		eax
+
+
+
+		mov		bl, byte ptr [ebp + Offset_Sound1Enabled]
+		test	bl, bl
+		jz		Sound1_2_Off
+
+		push	edi
+
+		mov		edx, dword ptr [ebp + Offset_Sound1Frequency]
+		//edx	= Sound1Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound1Ticks]
+		//ecx	= Sound1Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound1Ticks + Ticks
+		add		edx, 2048
+		shl		edx, 3
+		//edx	= (2048 - Sound1Frequency) << 3
+		cmp		ecx, edx
+		jae		Sound1_2_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound1Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x11]
+		//cl	= [FF11]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		ch, byte ptr [ebp + Offset_Sound1Stage]
+		//ch	= Sound1Stage
+		imul	ebx, edi
+		test	cl, 0x80
+		jnz		Sound1_2_50_75
+
+		shr		cl, 6
+		and		cl, 1
+		cmp		ch, cl
+		jbe		Sound1_2_ToBuffer
+		neg		ebx
+		jmp		Sound1_2_ToBuffer
+
+Sound1_2_50_75:
+		shr		cl, 6
+		add		cl, cl
+		dec		cl
+		cmp		ch, cl
+		jbe		Sound1_2_ToBuffer
+		neg		ebx
+		jmp		Sound1_2_ToBuffer
+
+Sound1_2_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound1_2_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x11]
+		//dl	= [FF11]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		dh, byte ptr [ebp + Offset_Sound1Stage]
+		//dh	= Sound1Stage
+		imul	ebx, edi
+		test	dl, 0x80
+		jnz		Sound1_2_50_75_2
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound1_2_ChangeStage
+		neg		ebx
+		jmp		Sound1_2_ChangeStage
+
+Sound1_2_50_75_2:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound1_2_ChangeStage
+		neg		ebx
+		jmp		Sound1_2_ChangeStage
+
+Sound1_2_ChangeStage2:
+		mov		ecx, eax
+		mov		dh, byte ptr [ebp + Offset_Sound1Stage]
+		xor		ebx, ebx
+Sound1_2_ChangeStage:
+		mov		edi, ecx
+		//dh	= Sound1Stage
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound1Ticks], 0
+		inc		dh
+		and		dh, 7
+		mov		byte ptr [ebp + Offset_Sound1Stage], dh
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x11]
+		//dl	= [FF11]
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		//dh	= Sound1Stage
+		imul	ecx, edi
+		test	dl, 0x80
+		jnz		Sound1_2_50_75_3
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound1_2_MixEbxEcx
+		neg		ecx
+		jmp		Sound1_2_MixEbxEcx
+
+Sound1_2_50_75_3:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound1_2_MixEbxEcx
+		neg		ecx
+		//jmp		Sound1_2_MixEbxEcx
+Sound1_2_MixEbxEcx:
+		add		ebx, ecx
+
+Sound1_2_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound1Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x01
+		jz		Sound1_2_NotLeft
+		mov		dword ptr [ebp + Offset_SoundL], ebx
+Sound1_2_NotLeft:
+		test	cl, 0x10
+		jz		Sound1_2_NotRight
+		mov		dword ptr [ebp + Offset_SoundR], ebx
+Sound1_2_NotRight:
+		pop		edi
+Sound1_2_Off:
+
+
+
+		mov		bl, byte ptr [ebp + Offset_Sound2Enabled]
+		test	bl, bl
+		jz		Sound2_2_Off
+
+		push	edi
+
+		mov		edx, dword ptr [ebp + Offset_Sound2Frequency]
+		//edx	= Sound2Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound2Ticks]
+		//ecx	= Sound2Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound2Ticks + Ticks
+		add		edx, 2048
+		shl		edx, 3
+		//edx	= (2048 - Sound2Frequency) << 3
+		cmp		ecx, edx
+		jae		Sound2_2_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound2Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x16]
+		//cl	= [FF16]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		ch, byte ptr [ebp + Offset_Sound2Stage]
+		//ch	= Sound2Stage
+		imul	ebx, edi
+		test	cl, 0x80
+		jnz		Sound2_2_50_75
+
+		shr		cl, 6
+		and		cl, 1
+		cmp		ch, cl
+		jbe		Sound2_2_ToBuffer
+		neg		ebx
+		jmp		Sound2_2_ToBuffer
+
+Sound2_2_50_75:
+		shr		cl, 6
+		add		cl, cl
+		dec		cl
+		cmp		ch, cl
+		jbe		Sound2_2_ToBuffer
+		neg		ebx
+		jmp		Sound2_2_ToBuffer
+
+Sound2_2_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound2_2_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x16]
+		//dl	= [FF16]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		dh, byte ptr [ebp + Offset_Sound2Stage]
+		//dh	= Sound2Stage
+		imul	ebx, edi
+		test	dl, 0x80
+		jnz		Sound2_2_50_75_2
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound2_2_ChangeStage
+		neg		ebx
+		jmp		Sound2_2_ChangeStage
+
+Sound2_2_50_75_2:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound2_2_ChangeStage
+		neg		ebx
+		jmp		Sound2_2_ChangeStage
+
+Sound2_2_ChangeStage2:
+		mov		ecx, eax
+		mov		dh, byte ptr [ebp + Offset_Sound2Stage]
+		xor		ebx, ebx
+Sound2_2_ChangeStage:
+		mov		edi, ecx
+		//dh	= Sound2Stage
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound2Ticks], 0
+		inc		dh
+		and		dh, 7
+		mov		byte ptr [ebp + Offset_Sound2Stage], dh
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x16]
+		//dl	= [FF16]
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		//dh	= Sound2Stage
+		imul	ecx, edi
+		test	dl, 0x80
+		jnz		Sound2_2_50_75_3
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound2_2_MixEbxEcx
+		neg		ecx
+		jmp		Sound2_2_MixEbxEcx
+
+Sound2_2_50_75_3:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound2_2_MixEbxEcx
+		neg		ecx
+		//jmp		Sound2_2_MixEbxEcx
+Sound2_2_MixEbxEcx:
+		add		ebx, ecx
+
+Sound2_2_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound2Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x02
+		jz		Sound2_2_NotLeft
+		mov		edx, dword ptr [ebp + Offset_SoundL]
+		add		edx, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edx
+Sound2_2_NotLeft:
+		test	cl, 0x20
+		jz		Sound2_2_NotRight
+		mov		edx, dword ptr [ebp + Offset_SoundR]
+		add		edx, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edx
+Sound2_2_NotRight:
+
+		pop		edi
+
+Sound2_2_Off:
+
+
+
+		mov		bl, byte ptr [ebp + Offset_Sound3Enabled]
+		test	bl, bl
+		jz		Sound3_2_Off
+
+		push	edi
+
+		mov		edx, dword ptr [ebp + Offset_Sound3Frequency]
+		//edx	= Sound3Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound3Ticks]
+		//ecx	= Sound3Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound3Ticks + Ticks
+		add		edx, 2048
+		//shl		edx, 3
+		//edx	= 2048 - Sound3Frequency
+		cmp		ecx, edx
+		jae		Sound3_2_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound3Ticks], ecx
+		//ecx	free
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		bl, cl
+		//bl	= Sound3Stage
+		and		cl, 1
+		shr		bl, 1
+		shl		cl, 2
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x30 + ebx]
+		shr		bl, cl
+		//bl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_2_HighVolume
+		test	ch, 0x20
+		jnz		Sound3_2_VolumeSet
+		mov		bl, 8
+		jmp		Sound3_2_VolumeSet
+Sound3_2_HighVolume:
+		shr		bl, 1
+		or		bl, 8
+		test	ch, 0x20
+		jz		Sound3_2_VolumeSet
+		shr		bl, 1
+		or		bl, 8
+		//jmp		Sound3_2_VolumeSet
+Sound3_2_VolumeSet:
+		shl		bl, 4
+		sub		ebx, 0x80
+		imul	ebx, edi
+		jmp		Sound3_2_ToBuffer
+
+Sound3_2_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound3_2_ChangeStage2
+
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound3Ticks], ecx
+		mov		edx, ecx
+		//ecx	free
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		bl, cl
+		//bl	= Sound3Stage
+		and		cl, 1
+		shr		bl, 1
+		shl		cl, 2
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x30 + ebx]
+		shr		bl, cl
+		//bl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_2_HighVolume2
+		test	ch, 0x20
+		jz		Sound3_2_VolumeSet2
+		mov		bl, 8
+		jmp		Sound3_2_VolumeSet2
+Sound3_2_HighVolume2:
+		shr		bl, 1
+		or		bl, 8
+		test	ch, 0x20
+		jz		Sound3_2_VolumeSet2
+		shr		bl, 1
+		or		bl, 8
+		//jmp		Sound3_2_VolumeSet2
+Sound3_2_VolumeSet2:
+		shl		bl, 4
+		sub		ebx, 0x80
+		imul	ebx, edi
+		jmp		Sound3_2_ChangeStage
+
+Sound3_2_ChangeStage2:
+		mov		edx, eax
+		xor		ebx, ebx
+Sound3_2_ChangeStage:
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		//cl	= Sound3Stage
+		mov		edi, edx
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound3Ticks], 0
+		inc		cl
+		and		cl, 31
+		mov		byte ptr [ebp + Offset_Sound3Stage], cl
+		xor		edx, edx
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		dl, cl
+		//dl	= Sound3Stage
+		and		cl, 1
+		shr		dl, 1
+		shl		cl, 2
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x30 + edx]
+		shr		dl, cl
+		//dl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_2_HighVolume3
+		test	ch, 0x20
+		jz		Sound3_2_VolumeSet3
+		mov		dl, 8
+		jmp		Sound3_2_VolumeSet3
+Sound3_2_HighVolume3:
+		shr		dl, 1
+		or		dl, 8
+		test	ch, 0x20
+		jz		Sound3_2_VolumeSet3
+		shr		dl, 1
+		or		dl, 8
+		//jmp		Sound3_2_VolumeSet3
+Sound3_2_VolumeSet3:
+		shl		dl, 4
+		sub		edx, 0x80
+		imul	edx, edi
+		add		ebx, edx
+		//jmp		Sound3_2_ToBuffer
+
+Sound3_2_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound2Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x04
+		jz		Sound3_2_NotLeft
+		mov		edi, dword ptr [ebp + Offset_SoundL]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edi
+Sound3_2_NotLeft:
+		test	cl, 0x40
+		jz		Sound3_2_NotRight
+		mov		edi, dword ptr [ebp + Offset_SoundR]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edi
+Sound3_2_NotRight:
+
+		pop		edi
+
+Sound3_2_Off:
+
+
+
+		mov		bl, byte ptr [ebp + Offset_Sound4Enabled]
+		test	bl, bl
+		jz		Sound4_2_Off
+
+		mov		ecx, dword ptr [ebp + Offset_Sound4Ticks]
+		//ecx	= Sound4Ticks
+		mov		edx, dword ptr [ebp + Offset_Sound4Frequency]
+		//edx	= Sound4Frequency
+		//neg		edx
+		add		ecx, edi
+		//ecx	= Sound2Ticks + Ticks
+		//add		edx, 2048
+		//shl		edx, 3
+		//edx	= Sound4Frequency
+		cmp		ecx, edx
+		jae		Sound4_2_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound4Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound4Volume]
+		//bl	= Sound4Volume
+		mov		cl, byte ptr [ebp + Offset_Sound4Bit]
+		//cl	= Sound4Bit
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		imul	ebx, edi
+		test	cl, cl
+		jz		Sound4_2_ToBuffer
+		neg		ebx
+		jmp		Sound4_2_ToBuffer
+
+Sound4_2_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound4_2_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound4Volume]
+		//bl	= Sound4Volume
+		mov		dl, byte ptr [ebp + Offset_Sound4Bit]
+		//dl	= Sound4Bit
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		imul	ebx, edi
+		test	dl, dl
+		jz		Sound4_2_ChangeStage
+		neg		ebx
+		jmp		Sound4_2_ChangeStage
+
+Sound4_2_ChangeStage2:
+		mov		ecx, eax
+		xor		ebx, ebx
+Sound4_2_ChangeStage:
+		mov		edi, ecx
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound4Ticks], 0
+		push	eax
+		call	rand
+		and		al, 1
+		mov		dl, al
+		mov		byte ptr [ebp + Offset_Sound4Bit], al
+		pop		eax
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound4Volume]
+		//cl	= Sound4Volume
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		imul	ecx, edi
+		test	dl, dl
+		jnz		Sound4_2_MixEbxEcx
+		neg		ecx
+		//jmp		Sound4_2_MixEbxEcx
+
+Sound4_2_MixEbxEcx:
+		add		ebx, ecx
+
+Sound4_2_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound4Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x08
+		jz		Sound4_2_NotLeft
+		mov		edx, dword ptr [ebp + Offset_SoundL]
+		add		edx, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edx
+Sound4_2_NotLeft:
+		test	cl, 0x80
+		jz		Sound4_2_NotRight
+		mov		edx, dword ptr [ebp + Offset_SoundR]
+		add		edx, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edx
+Sound4_2_NotRight:
+
+Sound4_2_Off:
+
+
+
+Sound_NoUpdate:
+		mov		ecx, ebp
+
+
+
+		//*******
+		//Divider
+
+		//ecx	= this
+		//eax	= Ticks
+		//esi	= Flags
+
+		mov		bl, byte ptr [ecx + Offset_DIV_Ticks]
+		//bl	= DIV_Ticks
+		sub		bl, al	//DIV_Ticks -= Ticks
+		jnc		DIV_NotEnoughTicks
 		mov		dl, byte ptr [ecx + FF00_ASM + 0x04]
 		//dl	= FF00(0x04)
-		add		al, 32	//DIV_Ticks += 32
+		add		bl, 32	//DIV_Ticks += 32
 		inc		dl
 		mov		byte ptr [ecx + FF00_ASM + 0x04], dl
 		//dl	free
 		//edx	free
-		jmp		DIV_Increased
-	}*/
+DIV_NotEnoughTicks:
+		mov		byte ptr [ecx + Offset_DIV_Ticks], bl
+		//bl	free
+		//ebx	free
 
-/*ExitLoop:
-	__asm
-	{
-		int		3
-		mov		ecx, this
-		mov		eax, dword ptr [ecx + Offset_Flags]
-		and		eax, ~(GB_EXITLOOPDIRECTLY | GB_EXITLOOP)
-		mov		dword ptr [ecx + Offset_Flags], eax
+		//ecx	= this
+		//eax	= Ticks
+		//esi	= Flags
+
+
+		//*****
+		//Timer
+
+		//ecx	= this
+		//eax	= Ticks
+		//esi	= Flags
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x07]
+		test	bl, 0x04
+		jz		TimerDisabled
+		mov		ebx, dword ptr [ecx + Offset_TIMA_Ticks]
+		//ebx	= TIMA_Ticks
+		add		ebx, eax
+		//eax	free
+		mov		edx, dword ptr [ecx + Offset_Hz]
+		//edx	= Hz
+		//mov		dword ptr [ecx + Offset_TIMA_Ticks], eax
+		cmp		ebx, edx
+		jb		TIMA_NotEnoughTicks
+
+		sub		ebx, edx
+		//edx	free
+		mov		dl, byte ptr [ecx + FF00_ASM + 0x05]
+		//dl	= FF00(0x05)
+		inc		dl
+		jnz		TIMA_NotZero
+		mov		dl, byte ptr [ecx + FF00_ASM + 0x06]
+		//dl	= FF00(0x06) (new value of FF00(0x05))
+		mov		dh, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		dh, 0x04
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], dh
+		//or		byte ptr [ecx + FF00_ASM + 0x0F], 0x04
+TIMA_NotZero:
+		mov		byte ptr [ecx + FF00_ASM + 0x05], dl
+		//dl	free
+		//edx	free
+
+TIMA_NotEnoughTicks:
+		mov		dword ptr [ecx + Offset_TIMA_Ticks], ebx
+		//ebx	free
+
+TimerDisabled:
+		//ecx	= this
+		//esi	= Flags
+
+
+		//**********
+		//Interrupts
+
+		//ecx	= this
+		//esi	= Flags
+
+		test	esi, GB_IE
+		jz		NoInterrupt
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x0F]
+		//ah	= FF00(0x0F)
+		mov		al, byte ptr [ecx + FF00_ASM + 0xFF]
+		and		al, ah
+		//al	= FF00(0xFF) & FF00(0x0F)
+		test	al, 0x0F
+		jz		InterruptServiced
+
+		and		esi, ~(GB_IE | GB_ENABLEIE | GB_HALT)
+		mov		dword ptr [ecx + Offset_Flags], esi
+
+
+		push	ecx
+		xor		ecx, ecx
+		shr		al, 1
+		jc		InterruptFound
+TestNextInterrupt:
+		inc		cl
+		shr		al, 1
+		jnc		TestNextInterrupt
+
+InterruptFound:
+		//al	free
+		mov		bl, 1
+		shl		bl, cl
+		not		bl
+		and		ah, bl
+		//ah	= new value of FF0F
+		lea		ebx, [ecx * 8 + 0x40]
+		//ebx	= interrupt address
+		pop		ecx
+		//ecx	= this
+
+		mov		edx, dword ptr [ecx + Offset_Reg_SP]
+		//edx	= Reg_SP
+		sub		dx, 2
+
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], ah
+		//ah	free
+		//eax	free
+
+		mov		eax, dword ptr [ecx + Offset_Reg_PC]
+		//eax	= Reg_PC
+
+		mov		word ptr [ecx + Offset_Reg_PC], bx
+		//ebx	free
+
+		mov		word ptr [ecx + Offset_Reg_SP], dx
+		call	Debug_LD_mem8
+		inc		dx
+		mov		al, ah
+		call	Debug_LD_mem8
+
+		//eax	free
+		//edx	free
+
+		jmp		InterruptServiced
+
+NoInterrupt:
+		//ecx	= this
+		//esi	= Flags
+
+		test	esi, GB_ENABLEIE
+		jz		InterruptServiced
+		or		esi, GB_IE
+
+InterruptServiced:
+		//ecx	= this
+		//esi	= Flags
+
+
+		//*********
+		//Exit loop
+
+		//ecx	= this
+		//esi	= Flags
+
+		test	esi, GB_EXITLOOP
+		jz		ContinueLoop
+
+ExitLoop:
+		and		esi, ~(GB_EXITLOOP | GB_EXITLOOPDIRECTLY)
+		mov		dword ptr [ecx + Offset_Flags], esi
+		//esi	free
+
+		pop		ebx
+		pop		edx
+		pop		edi
+		pop		esi
+		pop		ebp
+		ret
 	}
-	return;*/
-		//Serial transfer
-		/*if (SIOClocks)
-		{
-			if (SIOClocks <= Ticks)
-			{
-				SIOClocks = 0;
-
-				if (Connected)
-				{
-					SIO = SIO_SEND;
-					return;
-				}
-
-				//if (pFF00_C(0x02) & 0x01)
-				//{
-					/*GB->MEM_GB[0x2F01] = 0xFF;
-					GB->MEM_GB[0x2F02] &= ~0x80;
-					GB->MEM_GB[0x2F0F] |= 0x08;*/
-				//}
-/*			}
-			else
-			{
-				SIOClocks -= Ticks;
-			}
-		}*/
 }
 
+#undef		Sprites
+#undef		LineX
+#undef		Line
+#undef		LCD_X
+#undef		WndX
 
 
-void CGameBoy::DebugMainLoop()
+
+void __declspec(naked) CGameBoy::DebugMainLoop()
 {
-	BYTE			Ticks, Ticks2, Ticks3;
-	WORD			Sprites[10];
-	MSG				msg;
-
-
-	do
+	__asm
 	{
-		if (Flags & GB_HALT)
-		{
-			Ticks = 1;
-			nCycles++;
-		}
-		else
-		{
-			//Because OpCodes functions can change eax, ebx and edx, all these registers should be
-			//used within this __asm block. If not, an optimized compilation will result in strange errors.
-			__asm
-			{
-				mov		ecx, this
-				mov		edx, dword ptr [ecx + Offset_Reg_PC]
+		push	ebp
+		push	esi
+		push	edi
+		push	edx
+		push	ebx
 
-				call	RetrieveAccess
-				test	al, MEM_EXECUTE
-				jz		ExecuteAccessDenied
+		mov		esi, dword ptr [ecx + Offset_Flags]
 
-				test	al, MEM_READ
-				jz		ReadAccessDenied
+ContinueLoop:
+		//esi	= Flags
+		test	esi, GB_HALT
+		jz		NotHalt
 
-				call	ReadMem
-				and		eax, 0xFF
-				call	dword ptr [DebugOpCodes + 4 * eax]
+		mov		ebx, dword ptr [ecx + Offset_nCycles]
+		//ebx	= Cycles
+		mov		eax, 1
+		//eax	= Ticks
+		inc		ebx
+		mov		dword ptr [ecx + Offset_nCycles], ebx
+		//ebx	free
+		jmp		HaltComplete
 
-				test	byte ptr [ecx + FF00_ASM + 0x4D], 0x80
-				jnz		FastCPU
-				shl		al, 1
+NotHalt:
+		//esi	= Flags
+		mov		dword ptr [ecx + Offset_Flags], esi
+
+		mov		edx, dword ptr [ecx + Offset_Reg_PC]
+		//edx	= Reg_PC
+
+		call	RetrieveAccess
+		test	al, MEM_EXECUTE
+		jz		ExecuteAccessDenied
+
+		test	al, MEM_READ
+		jz		ReadAccessDenied
+
+		call	ReadMem
+		and		eax, 0xFF
+		call	dword ptr [DebugOpCodes + 4 * eax]
+
+		mov		esi, dword ptr [ecx + Offset_Flags]
+
+		test	byte ptr [ecx + FF00_ASM + 0x4D], 0x80
+		jnz		FastCPU
+		shl		al, 1
 FastCPU:
-				mov		ebx, dword ptr [ecx + Offset_nCycles]
-				mov		byte ptr [Ticks], al
-				add		ebx, eax
-				mov		dword ptr [ecx + Offset_nCycles], ebx
 
-				mov		edx, dword ptr [ecx + Offset_Reg_PC]
-				call	RetrieveAccess
-				test	al, MEM_BREAKPOINT
-				jz		NotBreakPoint
-				or		dword ptr [ecx + Offset_Flags], GB_EXITLOOP | GB_ERROR
+		test	esi, GB_EXITLOOPDIRECTLY
+		jnz		ExitLoop
+
+		mov		ebx, dword ptr [ecx + Offset_nCycles]
+		//ebx	= Cycles
+		add		ebx, eax
+		mov		dword ptr [ecx + Offset_nCycles], ebx
+		//ebx	free
+
+		push	eax
+		mov		edx, dword ptr [ecx + Offset_Reg_PC]
+		call	RetrieveAccess
+		test	al, MEM_BREAKPOINT
+		pop		eax
+		jz		NotBreakPoint
+		or		esi, GB_EXITLOOP | GB_ERROR
 NotBreakPoint:
-			}
 
-			if (Flags & GB_EXITLOOPDIRECTLY)
-			{
-				Flags &= ~(GB_EXITLOOPDIRECTLY | GB_EXITLOOP);
-				return;
-			}
-		}
+HaltComplete:
+		//eax	= Ticks
+		//esi	= Flags
+
+
+
 
 
 		//LCD
-		if (LCD_Ticks <= Ticks)
-		{
-			if (FF00_C(0x40) & 0x80) //LCD on
-			{
-				switch (FF00_C(0x41) & 3)
-				{
-				case 3: //Transfer to LCD
-					LCD_Ticks += 104;
+		mov		bl, byte ptr [ecx + Offset_LCD_Ticks]
+		//bl	= LCD_Ticks
+		cmp		bl, al
+		ja		LCD_NotEnoughTicks
 
-					FF00_C(0x41) &= ~0x03;		//H-Blank
-					MemStatus_CPU[0x8F41] |= MEM_CHANGED;
+		mov		dx, word ptr [ecx + FF00_ASM + 0x40]
+		//dl	= FF40
+		//dh	= FF41
+		test	dl, 0x80
+		jz		LCD_Off
 
-					//HDMA
-					if (Flags & GB_HDMA)
-					{
-						__asm
-						{
-							mov		ecx, this
+		test	dh, 2
+		jnz		LCD_Mode2or3
 
-							mov		bl, byte ptr [ecx + FF00_ASM + 0x4F]
-							and		ebx, 1
-							shl		ebx, 13
+		test	dh, 1
+		jnz		LCD_VBlank
 
-							mov		esi, dword ptr [ecx + FF00_ASM + 0x51]
-							mov		edi, dword ptr [ecx + FF00_ASM + 0x53]
-							dec		byte ptr [ecx + FF00_ASM + 0x55]
-							or		dword ptr [ecx + Offset_MemStatus_CPU + 0x8F51], MEM_CHANGED | (MEM_CHANGED << 8) | (MEM_CHANGED << 16) | (MEM_CHANGED << 24)
-							or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F55], MEM_CHANGED
-							rol		si, 8
-							rol		di, 8
-							and		esi, 0xFFF0
-							and		edi, 0x1FF0
 
-							add		edi, ebx
 
-							mov		eax, esi
-							add		eax, 0x0010
-							mov		byte ptr [ecx + FF00_ASM + 0x52], al
-							mov		byte ptr [ecx + FF00_ASM + 0x51], ah
-							mov		eax, edi
-							add		eax, 0x0010
-							mov		byte ptr [ecx + FF00_ASM + 0x54], al
-							mov		byte ptr [ecx + FF00_ASM + 0x53], ah
+//LCD_HBlank:
+		mov		bh, byte ptr [ecx + FF00_ASM + 0x44]
+		sub		bl, al
 
-							mov		eax, esi
-							shr		esi, 12
-							and		eax, 0x0FFF
-							mov		esi, [ecx + Offset_MEM + esi * 4]
+		cmp		bh, 143
+		ja		LCD_ExitHBlank
 
-							mov		edx, dword ptr [esi + eax]
-							mov		ebx, dword ptr [ecx + Offset_MemStatus_VRAM + edi]
-							mov		dword ptr [ecx + Offset_MEM_VRAM + edi], edx
-							or		ebx, MEM_CHANGED | (MEM_CHANGED << 8) | (MEM_CHANGED << 16) | (MEM_CHANGED << 24)
-							mov		dword ptr [ecx + Offset_MemStatus_VRAM + edi], ebx
-							mov		edx, dword ptr [esi + eax + 0x04]
-							mov		ebx, dword ptr [ecx + Offset_MemStatus_VRAM + edi + 0x04]
-							mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x04], edx
-							or		ebx, MEM_CHANGED | (MEM_CHANGED << 8) | (MEM_CHANGED << 16) | (MEM_CHANGED << 24)
-							mov		dword ptr [ecx + Offset_MemStatus_VRAM + edi + 0x04], ebx
-							mov		edx, dword ptr [esi + eax + 0x08]
-							mov		ebx, dword ptr [ecx + Offset_MemStatus_VRAM + edi + 0x08]
-							mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x08], edx
-							or		ebx, MEM_CHANGED | (MEM_CHANGED << 8) | (MEM_CHANGED << 16) | (MEM_CHANGED << 24)
-							mov		dword ptr [ecx + Offset_MemStatus_VRAM + edi + 0x08], ebx
-							mov		edx, dword ptr [esi + eax + 0x0C]
-							mov		ebx, dword ptr [ecx + Offset_MemStatus_VRAM + edi + 0x0C]
-							mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x0C], edx
-							or		ebx, MEM_CHANGED | (MEM_CHANGED << 8) | (MEM_CHANGED << 16) | (MEM_CHANGED << 24)
-							mov		dword ptr [ecx + Offset_MemStatus_VRAM + edi + 0x0C], ebx
+		add		bl, 40
+		inc		bh
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+		//bl	free
+		mov		byte ptr [ecx + FF00_ASM + 0x44], bh
+		//bh	free
+		//ebx	free
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F44], MEM_CHANGED
 
-							mov		bl, byte ptr [ecx + FF00_ASM + 0x55]
-							test	bl, 0x80
-							jz		HDMA_NotFinished
-							and		dword ptr [ecx + Offset_Flags], ~GB_HDMA
+		and		dh, ~3
+		or		dh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+		//dh	free
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F41], MEM_CHANGED
+
+		jmp		LCD_Done
+
+LCD_ExitHBlank:
+		add		bl, 228
+		mov		bh, byte ptr [ecx + FF00_ASM + 0x0F]
+		//bh	= [FF0F]
+		mov		byte ptr [ecx + FF00_ASM + 0x44], 145
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F44], MEM_CHANGED
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+		//bl	free
+
+		and		dh, ~3
+		or		dh, 1
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+		//dh	free
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F41], MEM_CHANGED
+
+		or		bh, 1
+		or		esi, GB_EXITLOOP
+
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
+
+		test	dh, 0x40
+		jz		LCD_Done
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x45]
+		cmp		bl, 144
+		jne		LCD_Done
+
+		or		bh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
+		//or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
+
+		jmp		LCD_Done
+
+
+
+LCD_VBlank:
+		mov		bh, [ecx + FF00_ASM + 0x44]
+		sub		bl, al
+
+		//bh	= [FF44]
+		test	bh, bh
+		jz		LCD_ExitVBlank
+
+		add		bl, 228
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+		//bl	free
+
+		cmp		bh, 154
+		ja		LCD_Line0
+
+		inc		bh
+		mov		byte ptr [ecx + FF00_ASM + 0x44], bh
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F44], MEM_CHANGED
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x45]
+		cmp		bh, bl
+		//bl	free
+		//bh	free
+		//ebx	free
+		jne		LCD_Done
+
+		//LYC interrupt
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		bl, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bl
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
+		jmp		LCD_Done
+
+LCD_Line0:
+		mov		byte ptr [ecx + FF00_ASM + 0x44], 0
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F44], MEM_CHANGED
+
+		test	dh, 0x40
+		//dh	free
+		jz		LCD_Done
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x45]
+		test	bl, bl
+		jnz		LCD_Done
+
+		//LYC interrupt
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		bl, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bl
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
+		jmp		LCD_Done
+
+LCD_ExitVBlank:
+		add		bl, 40
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+
+		and		dh, ~3
+		or		dh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F41], MEM_CHANGED
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x4A]
+		mov		byte ptr [ecx + Offset_WindowY], bl
+		mov		byte ptr [ecx + Offset_WindowTileY], 0
+		mov		byte ptr [ecx + Offset_WindowTileY2], 0
+
+		jmp		LCD_Done
+
+LCD_Mode2or3:
+		test	dh, 1
+		jz		LCD_OAM
+
+
+
+//LCD_ToLCD:
+		add		bl, 104
+		sub		bl, al
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+		//bl	free
+		//ebx	free
+
+		and		dh, ~3
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+		//dh	free
+		//edx	free
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F44], MEM_CHANGED
+
+		test	esi, GB_HDMA
+		jz		LCD_NoHDMA
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x4F]
+		//bl	= [FF4F]
+		and		ebx, 1
+		shl		ebx, 13
+
+		mov		ebp, dword ptr [ecx + FF00_ASM + 0x51]
+		//ebp	= [FF51-52]
+		mov		edi, dword ptr [ecx + FF00_ASM + 0x53]
+		//edi	= [FF53-54]
+		rol		bp, 8
+		rol		di, 8
+		and		ebp, 0xFFF0
+		and		edi, 0x1FF0
+
+		add		edi, ebx
+
+		mov		eax, ebp
+		add		eax, 0x0010
+		mov		byte ptr [ecx + FF00_ASM + 0x52], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F52], MEM_CHANGED
+		mov		byte ptr [ecx + FF00_ASM + 0x51], ah
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F51], MEM_CHANGED
+		mov		eax, edi
+		add		eax, 0x0010
+		mov		byte ptr [ecx + FF00_ASM + 0x54], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F54], MEM_CHANGED
+		mov		byte ptr [ecx + FF00_ASM + 0x53], ah
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F53], MEM_CHANGED
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x55]
+		//bl	= [FF55]
+
+		mov		eax, ebp
+		shr		ebp, 12
+		and		eax, 0x0FFF
+		mov		ebp, [ecx + Offset_MEM + ebp * 4]
+
+		dec		bl	//[FF55]--
+
+		mov		edx, [ebp + eax]
+		mov		dword ptr [ecx + Offset_MEM_VRAM + edi], edx
+		or		dword ptr [ecx + Offset_MemStatus_VRAM + edi], (MEM_CHANGED << 24) | (MEM_CHANGED << 16) | (MEM_CHANGED << 8) | MEM_CHANGED
+		mov		edx, [ebp + eax + 0x04]
+		mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x04], edx
+		or		dword ptr [ecx + Offset_MemStatus_VRAM + edi + 0x04], (MEM_CHANGED << 24) | (MEM_CHANGED << 16) | (MEM_CHANGED << 8) | MEM_CHANGED
+		mov		edx, [ebp + eax + 0x08]
+		mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x08], edx
+		or		dword ptr [ecx + Offset_MemStatus_VRAM + edi + 0x08], (MEM_CHANGED << 24) | (MEM_CHANGED << 16) | (MEM_CHANGED << 8) | MEM_CHANGED
+		mov		edx, [ebp + eax + 0x0C]
+		mov		dword ptr [ecx + Offset_MEM_VRAM + edi + 0x0C], edx
+		or		dword ptr [ecx + Offset_MemStatus_VRAM + edi + 0x0C], (MEM_CHANGED << 24) | (MEM_CHANGED << 16) | (MEM_CHANGED << 8) | MEM_CHANGED
+
+		mov		byte ptr [ecx + FF00_ASM + 0x55], bl
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F55], MEM_CHANGED
+		test	bl, 0x80
+		//bl	free
+		jz		HDMA_NotFinished
+		and		esi, ~GB_HDMA
 HDMA_NotFinished:
-						}
-					}
-					break;
 
-				case 1: //V-Blank
-					if (!FF00_C(0x44))
-					{
-						LCD_Ticks += 40;
-						FF00_C(0x41) = (FF00_C(0x41) & ~0x03) | 0x02;	//OAM-RAM search
-						MemStatus_CPU[0x8F41] |= MEM_CHANGED;
+LCD_NoHDMA:
+		jmp		LCD_Done
 
-						//++DrawLineMask &= 1;
 
-						WindowY = FF00_C(0x4A);
-						WindowTileY = 0;
-						WindowTileY2 = 0;
 
-						break;
-					}
+LCD_OAM:
+		//eax	= Ticks
+		//esi	= Flags
+		//dl	= [FF40]
+		//dh	= [FF41]
 
-					FF00_C(0x44)++;
-					MemStatus_CPU[0x8F44] |= MEM_CHANGED;
-					if (FF00_C(0x44) >= 154)
-					{
-						FF00_C(0x44) = 0;
-					}
+		sub		bl, al
+		add		bl, 84
+		or		dh, 3
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+		//bl	free
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F41], MEM_CHANGED
 
-					LCD_Ticks += 228;
+		mov		bx, word ptr [ecx + FF00_ASM + 0x44]
+		//bl	= [FF44]
+		//bh	= [FF45]
 
-					if (FF00_C(0x41) & 0x40 && FF00_C(0x44) == FF00_C(0x45))
-					{
-						//LYC coincidence interrupt
-						FF00_C(0x0F) |= 0x02;
-						MemStatus_CPU[0x8F0F] |= MEM_CHANGED;
-					}
-					break;
+		test	dh, 0x40
+		jz		LCD_NoLYC
 
-				case 0: //H-Blank
-					FF00_C(0x44)++;
-					MemStatus_CPU[0x8F44] |= MEM_CHANGED;
+		cmp		bl, bh
+		jne		LCD_NoLYC
 
-					if (FF00_C(0x44) >= 144)
-					{
-						LCD_Ticks += 228;
+		mov		bh, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		bh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
 
-						FF00_C(0x41) = (FF00_C(0x41) & ~0x03) | 0x01;		//V-Blank
-						MemStatus_CPU[0x8F41] |= MEM_CHANGED;
+LCD_NoLYC:
+		//eax	= Ticks
+		//esi	= Flags
+		//bl	= [FF44]
 
-						//V-Blank interrupt
-						FF00_C(0x0F) |= 1;
-						MemStatus_CPU[0x8F0F] |= MEM_CHANGED;
+		cmp		bl, 144
+		ja		LCD_Done
 
-						if (FF00_C(0x41) & 0x40 && FF00_C(0x45) == 144)
-						{
-							//LYC coincidence interrupt
-							FF00_C(0x0F) |= 2;
-						}
 
-						//Delay, refresh screen
-						Flags |= GB_EXITLOOP;
-					}
-					else
-					{
-						LCD_Ticks += 40;
+		//Set pointer to bitmap
+		movzx	edi, bl
+		//bl	free
+		imul	edi, (160 + 14) * 2
+		add		edi, dword ptr [ecx + Offset_pGBBitmap]
 
-						FF00_C(0x41) = (FF00_C(0x41) & ~0x03) | 0x02;		//OAM search
-						MemStatus_CPU[0x8F41] |= MEM_CHANGED;
-					}
-					break;
+		push	eax
+		push	ecx
+		push	esi
 
-				case 2: //OAM search
-					LCD_Ticks += 84;
-					FF00_C(0x41) |= 0x03;			//Transfer to LCD
-					MemStatus_CPU[0x8F41] |= MEM_CHANGED;
+		push	ebp
+		mov		ebp, esp
+		sub		esp, 28 + 2 * (160 + 14)
 
-					if (FF00_C(0x41) & 0x40 && FF00_C(0x44) == FF00_C(0x45))
-					{
-						//LYC coincidence interrupt
-						FF00_C(0x0F) |= 0x02;
-						MemStatus_CPU[0x8F0F] |= MEM_CHANGED;
-					}
+#define		LineX		(ebp - 4)
+#define		LCD_X		(ebp - 5)
+#define		WndX		(ebp - 6)
+#define		Sprites		(ebp - 26)
+#define		Line		(ebp - 28 - 2 * (160 + 14))
 
-					BYTE	LCD_X = FF00_C(0x43);
+		push	edi
+
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x43]
+		mov		byte ptr [LCD_X], bl
+
+		lea		ebx, [Line]
+		mov		dword ptr [LineX], ebx
+
+		//WORD			Sprites[10];
+				/*	BYTE	LCD_X = FF00_C(0x43);
 					WORD	Line[160 + 14];
 					WORD	*LineX;
 					LineX = Line;
-					if (/*DrawLineMask == (FF00_C(0x44) & 1) &&*/ FF00_C(0x44) < 144)
+					if (FF00_C(0x44) < 144)
 					{
-						BYTE	WndX;
-						__asm
-						{
-							mov		ecx, this
+						BYTE	WndX;*/
 
 
-							mov		dword ptr [Line], 0
-							mov		dword ptr [Line + 4], 0
-							mov		dword ptr [Line + 8], 0
-							mov		dword ptr [Line + 12], 0
+		mov		dword ptr [Line], 0
+		mov		dword ptr [Line + 4], 0
+		mov		dword ptr [Line + 8], 0
+		mov		dword ptr [Line + 12], 0
 
 
-							//Set pointer to bitmap
-							movzx	edi, byte ptr [ecx + FF00_ASM + 0x44]
-							imul	edi, (160 + 14) * 2
-							add		edi, dword ptr [ecx + Offset_pGBBitmap]
-							push	edi
+		test	esi, GB_ROM_COLOR
+		jz		Gfx_NoColor
 
 
-							test	byte ptr [ecx + Offset_Flags], GB_ROM_COLOR
-							jz		Gfx_NoColor
-
-
-							/////////////
-							//Background
-							/////////////
-
+		/////////////
+		//Background
+		/////////////
 
 							//Clip window
 							test	byte ptr [ecx + FF00_ASM + 0x40], 0x20
@@ -4864,1227 +5633,1748 @@ NC_Spr_NextSprite1:
 NC_Spr_NoDraw:
 Spr_NoDraw:
 Gfx_Done:
-						}
-					}
-				}
-				LCD_Ticks -= Ticks;
-			}
-			else
-			{
-				LCD_Ticks = 0;
-				if (FF00_C(0x44) != 0)
-				{
-					FF00_C(0x44) = 0;
-					MemStatus_CPU[0x8F44] |= MEM_CHANGED;
-				}
-				if (FF00_C(0x41) & 3)
-				{
-					FF00_C(0x41) &= ~0x03;
-					MemStatus_CPU[0x8F41] |= MEM_CHANGED;
-				}
 
-				if (PeekMessage(&msg, NULL, WM_QUIT, WM_QUIT, PM_NOREMOVE))
-				{
-					Flags |= GB_EXITLOOP;
-				}
-			}
-		}
-		else
+		add		esp, 28 + 2 * (160 + 14)
+		pop		ebp
+		pop		esi
+		pop		ecx
+		pop		eax
+
+		jmp		LCD_Done
+
+
+
+LCD_Off:
+		//eax	= Ticks
+		//esi	= Flags
+		//dl	= FF40
+		//dh	= FF41
+
+		and		dh, ~3
+		mov		byte ptr [ecx + Offset_LCD_Ticks], 0
+		mov		byte ptr [ecx + FF00_ASM + 0x44], 0
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F44], MEM_CHANGED
+		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F41], MEM_CHANGED
+
+		sub		esp, 32 //sizeof(MSG)
+		mov		edx, esp
+
+		push	eax
+		push	ecx
+		push	esi
+		push	PM_NOREMOVE
+		push	WM_QUIT
+		push	WM_QUIT
+		push	NULL
+		push	edx
+		call	dword ptr [PeekMessage]
+		mov		edx, eax
+		pop		esi
+		pop		ecx
+		pop		eax
+		add		esp, 32
+		test	edx, edx
+		jz		LCD_Done
+
+		or		esi, GB_EXITLOOP
+
+		jmp		LCD_Done
+
+		/*if (PeekMessage(&msg, NULL, WM_QUIT, WM_QUIT, PM_NOREMOVE))
 		{
-			LCD_Ticks -= Ticks;
-		}
+			Flags |= GB_EXITLOOP;
+		}*/
 
 
 
-		if (Sound1Enabled)
-		{
-			if (Sound1TimeOut)
-			{
-				if (Sound1TimeOut <= Ticks)
-				{
-					Sound1Enabled = false;
-					FF00_C(0x26) &= ~0x01;
-					MemStatus_CPU[0x8F26] |= MEM_CHANGED;
-				}
-				else
-				{
-					Sound1TimeOut -= Ticks;
-				}
-			}
-			if (Sound1Sweep)
-			{
-				if (Sound1Sweep <= Ticks)
-				{
-					Sound1Sweep = 0;
-
-					if (FF00_C(0x10) & 0x08)
-					{
-						if (Sound1Frequency >= (Sound1Frequency >> (FF00_C(0x10) & 0x07)))
-						{
-							Sound1Frequency -= (Sound1Frequency >> (FF00_C(0x10) & 0x07));
-						}
-						else
-						{
-							Sound1Frequency = 0;
-						}
-					}
-					else
-					{
-						Sound1Frequency += (Sound1Frequency >> (FF00_C(0x10) & 0x07));
-						if (Sound1Frequency > 2047)
-						{
-							Sound1Enabled = false;
-							FF00_C(0x26) &= ~0x01;
-							MemStatus_CPU[0x8F26] |= MEM_CHANGED;
-							Sound1Frequency = 2047;
-						}
-					}
-					FF00_C(0x13) = (BYTE)((~Sound1Frequency) & 0xFF);
-					MemStatus_CPU[0x8F13] |= MEM_CHANGED;
-					FF00_C(0x14) = (BYTE)(((~Sound1Frequency) & 0x0700) >> 8);
-					MemStatus_CPU[0x8F14] |= MEM_CHANGED;
-
-					Sound1Sweep = 8192 * ((FF00_C(0x10) & 0x70) >> 4);
-				}
-				else
-				{
-					Sound1Sweep -= Ticks;
-				}
-			}
-			if (Sound1Envelope)
-			{
-				if (Sound1Envelope <= Ticks)
-				{
-					if (FF00_C(0x12) & 0x08)
-					{
-						if ((FF00_C(0x12) & 0xF0) == 0xF0)
-						{
-							Sound1Enabled = false;
-							FF00_C(0x26) &= ~0x01;
-							MemStatus_CPU[0x8F26] |= MEM_CHANGED;
-						}
-						else
-						{
-							FF00_C(0x12) += 0x10;
-							Sound1Volume = FF00_C(0x12) >> 4;
-							Sound1Envelope = ((DWORD)FF00_C(0x12) & 0x07) * 16384;
-							MemStatus_CPU[0x8F12] |= MEM_CHANGED;
-						}
-					}
-					else
-					{
-						if (FF00_C(0x12) & 0xF0)
-						{
-							FF00_C(0x12) -= 0x10;
-							Sound1Volume = FF00_C(0x12) >> 4;
-							MemStatus_CPU[0x8F12] |= MEM_CHANGED;
-						}
-						Sound1Envelope = ((DWORD)FF00_C(0x12) & 0x07) * 16384;
-					}
-				}
-				else
-				{
-					Sound1Envelope -= Ticks;
-				}
-			}
+LCD_NotEnoughTicks:
+		sub		bl, al
+		mov		byte ptr [ecx + Offset_LCD_Ticks], bl
+LCD_Done:
+		//eax	= Ticks
+		//esi	= Flags
 
 
-			if (SoundTicks >= Ticks)
-			{
-				Ticks2 = Ticks;
-			}
-			else
-			{
-				Ticks2 = (BYTE)SoundTicks;
-			}
-			while (Ticks2 != 0)
-			{
-				Ticks2--;
-				Sound1Ticks++;
-				if (Sound1Ticks >= ((2048 - Sound1Frequency) << 3))
-				{
-					Sound1Ticks = 0;
-					Sound1Stage = ++Sound1Stage & 7;
-				}
-
-				switch (FF00_C(0x11) >> 6)
-				{
-				case 0:
-					if (Sound1Stage == 0)
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-					}
-					break;
-				case 1:
-					if (Sound1Stage <= 1)
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-					}
-					break;
-				case 2:
-					if (Sound1Stage <= 3)
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-					}
-					break;
-				case 3:
-					if (Sound1Stage <= 5)
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-						if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-					}
-					break;
-				}
-			}
-		}
-
-		if (Sound2Enabled)
-		{
-			if (Sound2TimeOut)
-			{
-				if (Sound2TimeOut <= Ticks)
-				{
-					Sound2Enabled = false;
-					FF00_C(0x26) &= ~0x02;
-					MemStatus_CPU[0x8F26] |= MEM_CHANGED;
-				}
-				else
-				{
-					Sound2TimeOut -= Ticks;
-				}
-			}
-			if (Sound2Envelope)
-			{
-				if (Sound2Envelope <= Ticks)
-				{
-					if (FF00_C(0x17) & 0x08)
-					{
-						if ((FF00_C(0x17) & 0xF0) == 0xF0)
-						{
-							Sound2Enabled = false;
-							FF00_C(0x26) &= ~0x02;
-							MemStatus_CPU[0x8F26] |= MEM_CHANGED;
-						}
-						else
-						{
-							FF00_C(0x17) += 0x10;
-							Sound2Volume = FF00_C(0x17) >> 4;
-							Sound2Envelope = ((DWORD)FF00_C(0x17) & 0x07) * 16384;
-							MemStatus_CPU[0x8F17] |= MEM_CHANGED;
-						}
-					}
-					else
-					{
-						if (FF00_C(0x17) & 0xF0)
-						{
-							FF00_C(0x17) -= 0x10;
-							Sound2Volume = FF00_C(0x17) >> 4;
-							MemStatus_CPU[0x8F17] |= MEM_CHANGED;
-						}
-						Sound2Envelope = ((DWORD)FF00_C(0x17) & 0x07) * 16384;
-					}
-				}
-				else
-				{
-					Sound2Envelope -= Ticks;
-				}
-			}
 
 
-			if (SoundTicks >= Ticks)
-			{
-				Ticks2 = Ticks;
-			}
-			else
-			{
-				Ticks2 = (BYTE)SoundTicks;
-			}
-			while (Ticks2 != 0)
-			{
-				Ticks2--;
-				Sound2Ticks++;
-				if (Sound2Ticks >= ((2048 - Sound2Frequency) << 3))
-				{
-					Sound2Ticks = 0;
-					Sound2Stage = ++Sound2Stage & 7;
-				}
-
-				switch (FF00_C(0x16) >> 6)
-				{
-				case 0:
-					if (Sound2Stage == 0)
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-					}
-					break;
-				case 1:
-					if (Sound2Stage <= 1)
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-					}
-					break;
-				case 2:
-					if (Sound2Stage <= 3)
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-					}
-					break;
-				case 3:
-					if (Sound2Stage <= 5)
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-						if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-					}
-					break;
-				}
-			}
-		}
-
-		if (Sound3Enabled)
-		{
-			if (Sound3TimeOut)
-			{
-				if (Sound3TimeOut <= Ticks)
-				{
-					Sound3Enabled = false;
-					FF00_C(0x1A) &= ~0x80;
-					MemStatus_CPU[0x8F1A] |= MEM_CHANGED;
-					FF00_C(0x26) &= ~0x04;
-					MemStatus_CPU[0x8F26] |= MEM_CHANGED;
-				}
-			}
-
-			Sound3TimeOut -= Ticks;
-
-			if (SoundTicks >= Ticks)
-			{
-				Ticks2 = Ticks;
-			}
-			else
-			{
-				Ticks2 = (BYTE)SoundTicks;
-			}
-			while (Ticks2 != 0)
-			{
-				Ticks2--;
-				Sound3Ticks++;
-				if (Sound3Ticks >= 2048 - Sound3Frequency)
-				{
-					Sound3Ticks = 0;
-					Sound3Stage = ++Sound3Stage & 31;
-				}
-
-				BYTE	SoundBit;
-
-				if (Sound3Stage & 1)
-				{
-					SoundBit = FF00_C(0x30 + (Sound3Stage >> 1)) & 0x0F;
-				}
-				else
-				{
-					SoundBit = FF00_C(0x30 + (Sound3Stage >> 1)) >> 4;
-				}
-				switch (FF00_C(0x1C) & 0x60)
-				{
-				case 0x00:
-					SoundBit = 8;
-					break;
-
-				case 0x20:
-					break;
-
-				case 0x40:
-					SoundBit = 8 | (SoundBit >> 1);
-					break;
-
-				case 0x60:
-					SoundBit = 0xC | (SoundBit >> 2);
-					break;
-				}
-
-				if (FF00_C(0x25) & 0x04)
-				{
-					Sound3L += (SoundBit << 4) - 0x80;
-				}
-				if (FF00_C(0x25) & 0x40)
-				{
-					Sound3R += (SoundBit << 4) - 0x80;
-				}
-			}
-		}
-
-		if (Sound4Enabled)
-		{
-			if (Sound4TimeOut)
-			{
-				if (Sound4TimeOut <= Ticks)
-				{
-					Sound4Enabled = false;
-					FF00_C(0x26) &= ~0x08;
-					MemStatus_CPU[0x8F26] |= MEM_CHANGED;
-				}
-				else
-				{
-					Sound4TimeOut -= Ticks;
-				}
-			}
-			if (Sound4Envelope)
-			{
-				if (Sound4Envelope <= Ticks)
-				{
-					if (FF00_C(0x21) & 0x08)
-					{
-						if ((FF00_C(0x21) & 0xF0) == 0xF0)
-						{
-							Sound4Enabled = false;
-							FF00_C(0x26) &= ~0x08;
-							MemStatus_CPU[0x8F26] |= MEM_CHANGED;
-						}
-						else
-						{
-							FF00_C(0x21) += 0x10;
-							Sound4Volume = FF00_C(0x21) >> 4;
-							Sound4Envelope = ((DWORD)FF00_C(0x21) & 0x07) * 16384;
-						}
-					}
-					else
-					{
-						if (FF00_C(0x21) & 0xF0)
-						{
-							FF00_C(0x21) -= 0x10;
-							MemStatus_CPU[0x8F21] |= MEM_CHANGED;
-							Sound4Volume = FF00_C(0x21) >> 4;
-						}
-						Sound4Envelope = ((DWORD)FF00_C(0x21) & 0x07) * 16384;
-					}
-				}
-				else
-				{
-					Sound4Envelope -= Ticks;
-				}
-			}
-
-			if (SoundTicks >= Ticks)
-			{
-				Ticks2 = Ticks;
-			}
-			else
-			{
-				Ticks2 = (BYTE)SoundTicks;
-			}
-			while (Ticks2 != 0)
-			{
-				Ticks2--;
-				Sound4Ticks++;
-				if (Sound4Ticks >= Sound4Frequency)
-				{
-					Sound4Ticks = 0;
-					Sound4Bit = rand() & 1;
-				}
-
-				if (Sound4Bit)
-				{
-					if (FF00_C(0x25) & 0x08)
-					{
-						Sound4L += Volume[Sound4Volume];
-					}
-					if (FF00_C(0x25) & 0x80)
-					{
-						Sound4R += Volume[Sound4Volume];
-					}
-				}
-				else
-				{
-					if (FF00_C(0x25) & 0x08)
-					{
-						Sound4L -= Volume[Sound4Volume];
-					}
-					if (FF00_C(0x25) & 0x80)
-					{
-						Sound4R -= Volume[Sound4Volume];
-					}
-				}
-			}
-		}
-
-		//__asm int 3
-		if (SoundTicks < Ticks)
-		{
-			Ticks2 = Ticks - (BYTE)SoundTicks;
-			SoundUpdate(this);
-
-			if (Sound1Enabled)
-			{
-				Ticks3 = Ticks2;
-				while (Ticks3 != 0)
-				{
-					Ticks3--;
-					Sound1Ticks++;
-					if (Sound1Ticks >= ((2048 - Sound1Frequency) << 3))
-					{
-						Sound1Ticks = 0;
-						Sound1Stage = ++Sound1Stage & 7;
-					}
 
 
-					switch (FF00_C(0x11) >> 6)
-					{
-					case 0:
-						if (Sound1Stage == 0)
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-						}
-						break;
-					case 1:
-						if (Sound1Stage <= 1)
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-						}
-						break;
-					case 2:
-						if (Sound1Stage <= 3)
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-						}
-						break;
-					case 3:
-						if (Sound1Stage <= 5)
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L += Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R += Volume[Sound1Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x01) Sound1L -= Volume[Sound1Volume];
-							if (FF00_C(0x25) & 0x10) Sound1R -= Volume[Sound1Volume];
-						}
-						break;
-					}
-				}
-			}
-			if (Sound2Enabled)
-			{
-				Ticks3 = Ticks2;
-				while (Ticks3 != 0)
-				{
-					Ticks3--;
-					Sound2Ticks++;
-					if (Sound2Ticks >= ((2048 - Sound2Frequency) << 3))
-					{
-						Sound2Ticks = 0;
-						Sound2Stage = ++Sound2Stage & 7;
-					}
 
-					switch (FF00_C(0x16) >> 6)
-					{
-					case 0:
-						if (Sound2Stage == 0)
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-						}
-						break;
-					case 1:
-						if (Sound2Stage <= 1)
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-						}
-						break;
-					case 2:
-						if (Sound2Stage <= 3)
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-						}
-						break;
-					case 3:
-						if (Sound2Stage <= 5)
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L += Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R += Volume[Sound2Volume];
-						}
-						else
-						{
-							if (FF00_C(0x25) & 0x02) Sound2L -= Volume[Sound2Volume];
-							if (FF00_C(0x25) & 0x20) Sound2R -= Volume[Sound2Volume];
-						}
-						break;
-					}
-				}
-			}
+		//*******
+		//Sound
 
-			if (Sound3Enabled)
-			{
-				Ticks3 = Ticks2;
-				while (Ticks3 != 0)
-				{
-					Ticks3--;
-					Sound3Ticks++;
-					if (Sound3Ticks >= 2048 - Sound3Frequency)
-					{
-						Sound3Ticks = 0;
-						Sound3Stage = ++Sound3Stage & 31;
-					}
+		//ecx	= this
+		//eax	= Ticks
+		//esi	= Flags
 
-					BYTE	Sound3Bit;
+		mov		ebp, ecx
+		//ebp	= this
+		//ecx	free
 
-					if (Sound3Stage & 1)
-					{
-						Sound3Bit = FF00_C(0x30 + (Sound3Stage >> 1)) & 0x0F;
-					}
-					else
-					{
-						Sound3Bit = FF00_C(0x30 + (Sound3Stage >> 1)) >> 4;
-					}
-					switch (FF00_C(0x1C) & 0x60)
-					{
-					case 0x00:
-						Sound3Bit = 8;
-						break;
+		mov		bl, byte ptr [ebp + Offset_Sound1Enabled]
+		test	bl, bl
+		jz		Sound1_Off
 
-					case 0x20:
-						break;
+		mov		ebx, dword ptr [ebp + Offset_Sound1TimeOut]
+		//bh	= Sound1TimeOut
+		test	ebx, ebx
+		jz		Sound1_NoTimeOut
 
-					case 0x40:
-						Sound3Bit = 8 | (Sound3Bit >> 1);
-						break;
+		cmp		ebx, eax
+		ja		Sound1_NotTimeOutYet
 
-					case 0x60:
-						Sound3Bit = 0xC | (Sound3Bit >> 2);
-						break;
-					}
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound1Enabled], 0
+		and		bl, ~1
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		jmp		Sound1_Off
 
-					if (FF00_C(0x25) & 0x04)
-					{
-						Sound3L += (Sound3Bit << 4) - 0x80;
-					}
-					if (FF00_C(0x25) & 0x40)
-					{
-						Sound3R += (Sound3Bit << 4) - 0x80;
-					}
-				}
-			}
+Sound1_NotTimeOutYet:
+		sub		ebx, eax
+		mov		dword ptr [ebp + Offset_Sound1TimeOut], ebx
+		//ebx	free
 
-			if (Sound4Enabled)
-			{
-				while (Ticks2 != 0)
-				{
-					Ticks2--;
-					Sound4Ticks++;
-					if (Sound4Ticks >= Sound4Frequency)
-					{
-						Sound4Ticks = 0;
-						Sound4Bit = rand() & 1;
-					}
+Sound1_NoTimeOut:
 
-					if (Sound4Bit)
-					{
-						if (FF00_C(0x25) & 0x08)
-						{
-							Sound4L += Volume[Sound4Volume];
-						}
-						if (FF00_C(0x25) & 0x80)
-						{
-							Sound4R += Volume[Sound4Volume];
-						}
-					}
-					else
-					{
-						if (FF00_C(0x25) & 0x08)
-						{
-							Sound4L -= Volume[Sound4Volume];
-						}
-						if (FF00_C(0x25) & 0x80)
-						{
-							Sound4R -= Volume[Sound4Volume];
-						}
-					}
-				}
-			}
-		}
-		SoundTicks -= Ticks;//*/
-		//__asm int 3
-/*
-004069CA 8B 7D FC             mov         edi,dword ptr [ebp-4]			//Ticks
-004069CD 8B 86 60 39 04 00    mov         eax,dword ptr [esi+43960h]	//SoundTicks
-004069D3 81 E7 FF 00 00 00    and         edi,0FFh
-004069D9 3B C7                cmp         eax,edi
-004069DB 89 7D EC             mov         dword ptr [ebp-14h],edi		//Ticks2
-004069DE 0F 83 D2 02 00 00    jae         00406CB6
-004069E4 8A C8                mov         cl,al
-004069E6 2A D9                sub         bl,cl
-004069E8 8B CE                mov         ecx,esi
-004069EA 88 5D F8             mov         byte ptr [ebp-8],bl
-004069ED E8 DE 04 00 00       call        00406ED0
-004069F2 8B 86 68 39 04 00    mov         eax,dword ptr [esi+43968h]
-004069F8 8B 4D F8             mov         ecx,dword ptr [ebp-8]
-004069FB 85 C0                test        eax,eax
-004069FD 0F 84 57 01 00 00    je          00406B5A
-00406A03 84 DB                test        bl,bl
-00406A05 0F 84 4F 01 00 00    je          00406B5A
-00406A0B 8B 96 78 39 04 00    mov         edx,dword ptr [esi+43978h]
-00406A11 33 C0                xor         eax,eax
-00406A13 8A 86 71 8F 00 00    mov         al,byte ptr [esi+8F71h]
-00406A19 BF 00 40 00 00       mov         edi,4000h
-00406A1E C1 E2 03             shl         edx,3
-00406A21 2B FA                sub         edi,edx
-00406A23 8B D1                mov         edx,ecx
-00406A25 C1 E8 06             shr         eax,6
-00406A28 89 45 E8             mov         dword ptr [ebp-18h],eax
-00406A2B 81 E2 FF 00 00 00    and         edx,0FFh
-00406A31 EB 03                jmp         00406A36
-00406A33 8B 45 E8             mov         eax,dword ptr [ebp-18h]
-00406A36 8B 9E 70 39 04 00    mov         ebx,dword ptr [esi+43970h]
-00406A3C 43                   inc         ebx
-00406A3D 3B DF                cmp         ebx,edi
-00406A3F 89 9E 70 39 04 00    mov         dword ptr [esi+43970h],ebx
-00406A45 72 1A                jb          00406A61
-00406A47 8B 9E 74 39 04 00    mov         ebx,dword ptr [esi+43974h]
-00406A4D C7 86 70 39 04 00 00 mov         dword ptr [esi+43970h],0
-00406A57 43                   inc         ebx
-00406A58 83 E3 07             and         ebx,7
-00406A5B 89 9E 74 39 04 00    mov         dword ptr [esi+43974h],ebx
-00406A61 83 F8 03             cmp         eax,3
-00406A64 0F 87 E3 00 00 00    ja          00406B4D
-00406A6A FF 24 85 00 6E 40 00 jmp         dword ptr [eax*4+406E00h]
-00406A71 8B 86 74 39 04 00    mov         eax,dword ptr [esi+43974h]
-00406A77 85 C0                test        eax,eax
-00406A79 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406A7F 75 06                jne         00406A87
-00406A81 A8 01                test        al,1
-00406A83 74 77                je          00406AFC
-00406A85 EB 62                jmp         00406AE9
-00406A87 A8 01                test        al,1
-00406A89 74 43                je          00406ACE
-00406A8B EB 2E                jmp         00406ABB
-00406A8D 8B 86 74 39 04 00    mov         eax,dword ptr [esi+43974h]
-00406A93 83 F8 01             cmp         eax,1
-00406A96 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406A9C 77 E9                ja          00406A87
-00406A9E EB E1                jmp         00406A81
-00406AA0 8B 86 74 39 04 00    mov         eax,dword ptr [esi+43974h]
-00406AA6 83 F8 03             cmp         eax,3
-00406AA9 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406AAF 77 06                ja          00406AB7
-00406AB1 A8 01                test        al,1
-00406AB3 74 47                je          00406AFC
-00406AB5 EB 32                jmp         00406AE9
-00406AB7 A8 01                test        al,1
-00406AB9 74 13                je          00406ACE
-00406ABB 8B 9E 7C 39 04 00    mov         ebx,dword ptr [esi+4397Ch]
-00406AC1 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406AC8 29 9E 8C 39 04 00    sub         dword ptr [esi+4398Ch],ebx
-00406ACE A8 10                test        al,10h
-00406AD0 74 7B                je          00406B4D
-00406AD2 EB 5E                jmp         00406B32
-00406AD4 8B 86 74 39 04 00    mov         eax,dword ptr [esi+43974h]
-00406ADA 83 F8 05             cmp         eax,5
-00406ADD 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406AE3 77 32                ja          00406B17
-00406AE5 A8 01                test        al,1
-00406AE7 74 13                je          00406AFC
-00406AE9 8B 9E 7C 39 04 00    mov         ebx,dword ptr [esi+4397Ch]
-00406AEF 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406AF6 01 9E 8C 39 04 00    add         dword ptr [esi+4398Ch],ebx
-00406AFC A8 10                test        al,10h
-00406AFE 74 4D                je          00406B4D
-00406B00 8B 86 7C 39 04 00    mov         eax,dword ptr [esi+4397Ch]
-00406B06 8B 9E 90 39 04 00    mov         ebx,dword ptr [esi+43990h]
-00406B0C 8B 04 85 60 22 41 00 mov         eax,dword ptr [eax*4+412260h]
-00406B13 03 D8                add         ebx,eax
-00406B15 EB 30                jmp         00406B47
-00406B17 A8 01                test        al,1
-00406B19 74 13                je          00406B2E
-00406B1B 8B 9E 7C 39 04 00    mov         ebx,dword ptr [esi+4397Ch]
-00406B21 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406B28 29 9E 8C 39 04 00    sub         dword ptr [esi+4398Ch],ebx
-00406B2E A8 10                test        al,10h
-00406B30 74 1B                je          00406B4D
-00406B32 8B 86 7C 39 04 00    mov         eax,dword ptr [esi+4397Ch]
-00406B38 8B 9E 90 39 04 00    mov         ebx,dword ptr [esi+43990h]
-00406B3E 8B 04 85 60 22 41 00 mov         eax,dword ptr [eax*4+412260h]
-00406B45 2B D8                sub         ebx,eax
-00406B47 89 9E 90 39 04 00    mov         dword ptr [esi+43990h],ebx
-00406B4D 4A                   dec         edx
-00406B4E 0F 85 DF FE FF FF    jne         00406A33
-00406B54 8B 7D EC             mov         edi,dword ptr [ebp-14h]
-00406B57 8A 5D F8             mov         bl,byte ptr [ebp-8]
-00406B5A 8B 86 6C 39 04 00    mov         eax,dword ptr [esi+4396Ch]
-00406B60 85 C0                test        eax,eax
-00406B62 0F 84 4E 01 00 00    je          00406CB6
-00406B68 84 DB                test        bl,bl
-00406B6A 0F 84 46 01 00 00    je          00406CB6
-00406B70 8B 86 9C 39 04 00    mov         eax,dword ptr [esi+4399Ch]
-00406B76 BA 00 40 00 00       mov         edx,4000h
-00406B7B C1 E0 03             shl         eax,3
-00406B7E 2B D0                sub         edx,eax
-00406B80 33 C0                xor         eax,eax
-00406B82 8A 86 76 8F 00 00    mov         al,byte ptr [esi+8F76h]
-00406B88 8B F8                mov         edi,eax
-00406B8A C1 EF 06             shr         edi,6
-00406B8D 81 E1 FF 00 00 00    and         ecx,0FFh
-00406B93 8B 9E 94 39 04 00    mov         ebx,dword ptr [esi+43994h]
-00406B99 43                   inc         ebx
-00406B9A 8B C3                mov         eax,ebx
-00406B9C 89 9E 94 39 04 00    mov         dword ptr [esi+43994h],ebx
-00406BA2 3B C2                cmp         eax,edx
-00406BA4 72 1A                jb          00406BC0
-00406BA6 8B 86 98 39 04 00    mov         eax,dword ptr [esi+43998h]
-00406BAC C7 86 94 39 04 00 00 mov         dword ptr [esi+43994h],0
-00406BB6 40                   inc         eax
-00406BB7 83 E0 07             and         eax,7
-00406BBA 89 86 98 39 04 00    mov         dword ptr [esi+43998h],eax
-00406BC0 83 FF 03             cmp         edi,3
-00406BC3 0F 87 E3 00 00 00    ja          00406CAC
-00406BC9 FF 24 BD 10 6E 40 00 jmp         dword ptr [edi*4+406E10h]
-00406BD0 8B 86 98 39 04 00    mov         eax,dword ptr [esi+43998h]
-00406BD6 85 C0                test        eax,eax
-00406BD8 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406BDE 75 06                jne         00406BE6
-00406BE0 A8 02                test        al,2
-00406BE2 74 77                je          00406C5B
-00406BE4 EB 62                jmp         00406C48
-00406BE6 A8 02                test        al,2
-00406BE8 74 43                je          00406C2D
-00406BEA EB 2E                jmp         00406C1A
-00406BEC 8B 86 98 39 04 00    mov         eax,dword ptr [esi+43998h]
-00406BF2 83 F8 01             cmp         eax,1
-00406BF5 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406BFB 77 E9                ja          00406BE6
-00406BFD EB E1                jmp         00406BE0
-00406BFF 8B 86 98 39 04 00    mov         eax,dword ptr [esi+43998h]
-00406C05 83 F8 03             cmp         eax,3
-00406C08 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406C0E 77 06                ja          00406C16
-00406C10 A8 02                test        al,2
-00406C12 74 47                je          00406C5B
-00406C14 EB 32                jmp         00406C48
-00406C16 A8 02                test        al,2
-00406C18 74 13                je          00406C2D
-00406C1A 8B 9E A0 39 04 00    mov         ebx,dword ptr [esi+439A0h]
-00406C20 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406C27 29 9E AC 39 04 00    sub         dword ptr [esi+439ACh],ebx
-00406C2D A8 20                test        al,20h
-00406C2F 74 7B                je          00406CAC
-00406C31 EB 5E                jmp         00406C91
-00406C33 8B 86 98 39 04 00    mov         eax,dword ptr [esi+43998h]
-00406C39 83 F8 05             cmp         eax,5
-00406C3C 8A 86 85 8F 00 00    mov         al,byte ptr [esi+8F85h]
-00406C42 77 32                ja          00406C76
-00406C44 A8 02                test        al,2
-00406C46 74 13                je          00406C5B
-00406C48 8B 9E A0 39 04 00    mov         ebx,dword ptr [esi+439A0h]
-00406C4E 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406C55 01 9E AC 39 04 00    add         dword ptr [esi+439ACh],ebx
-00406C5B A8 20                test        al,20h
-00406C5D 74 4D                je          00406CAC
-00406C5F 8B 86 A0 39 04 00    mov         eax,dword ptr [esi+439A0h]
-00406C65 8B 9E B0 39 04 00    mov         ebx,dword ptr [esi+439B0h]
-00406C6B 8B 04 85 60 22 41 00 mov         eax,dword ptr [eax*4+412260h]
-00406C72 03 D8                add         ebx,eax
-00406C74 EB 30                jmp         00406CA6
-00406C76 A8 02                test        al,2
-00406C78 74 13                je          00406C8D
-00406C7A 8B 9E A0 39 04 00    mov         ebx,dword ptr [esi+439A0h]
-00406C80 8B 1C 9D 60 22 41 00 mov         ebx,dword ptr [ebx*4+412260h]
-00406C87 29 9E AC 39 04 00    sub         dword ptr [esi+439ACh],ebx
-00406C8D A8 20                test        al,20h
-00406C8F 74 1B                je          00406CAC
-00406C91 8B 86 A0 39 04 00    mov         eax,dword ptr [esi+439A0h]
-00406C97 8B 9E B0 39 04 00    mov         ebx,dword ptr [esi+439B0h]
-00406C9D 8B 04 85 60 22 41 00 mov         eax,dword ptr [eax*4+412260h]
-00406CA4 2B D8                sub         ebx,eax
-00406CA6 89 9E B0 39 04 00    mov         dword ptr [esi+439B0h],ebx
-00406CAC 49                   dec         ecx
-00406CAD 0F 85 E0 FE FF FF    jne         00406B93
-00406CB3 8B 7D EC             mov         edi,dword ptr [ebp-14h]
-00406CB6 29 BE 60 39 04 00    sub         dword ptr [esi+43960h],edi
-*/
+		mov		ebx, dword ptr [ebp + Offset_Sound1Sweep]
+		test	ebx, ebx
+		jz		Sound1_NoSweep
+
+		sub		ebx, eax
+		ja		Sound1_NotSweepYet
+
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x10]
+		//cl	= [FF10]
+		mov		dword ptr [ebp + Offset_Sound1Sweep], 0
+		mov		ch, cl
+		//ch	= [FF10]
+		test	cl, 8
+		jz		Sound1_SweepIncrease
+
+		mov		ebx, dword ptr [ebp + Offset_Sound1Frequency]
+		and		cl, 7
+		mov		edx, ebx
+		shr		ebx, cl
+		cmp		edx, ebx
+		jae		Sound1_Sweep_NotZero
+
+		xor		ebx, ebx
+Sound1_Sweep_NotZero:
+
+		sub		edx, ebx
+		jmp		Sound1_Sweeped
+
+Sound1_SweepIncrease:
+		mov		ebx, dword ptr [ebp + Offset_Sound1Frequency]
+		and		cl, 7
+		mov		edx, ebx
+		shr		ebx, cl
+		add		edx, ebx
+		cmp		edx, 2047
+		jb		Sound1_Sweep_NotAbove2047
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound1Enabled], 0
+		and		bl, ~1
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		mov		edx, 2047
+Sound1_Sweep_NotAbove2047:
+
+Sound1_Sweeped:
+		//edx	= Sound1Frequency
+		//ch	= [FF10]
+		mov		dword ptr [ebp + Offset_Sound1Frequency], edx
+		not		edx
+		and		dh, 7
+		and		ch, 0x70
+		xor		ebx, ebx
+		mov		byte ptr [ebp + FF00_ASM + 0x13], dl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F13], MEM_CHANGED
+		mov		byte ptr [ebp + FF00_ASM + 0x14], dh
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F14], MEM_CHANGED
+		mov		bl, ch
+		shl		ebx, 9
+Sound1_NotSweepYet:
+		mov		dword ptr [ebp + Offset_Sound1Sweep], ebx
+Sound1_NoSweep:
+
+		mov		ebx, dword ptr [ebp + Offset_Sound1Envelope]
+		test	ebx, ebx
+		jz		Sound1_NoEnvelope
+
+		sub		ebx, eax
+		ja		Sound1_Envelope_NotYet
+
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x12]
+		//dl	= [FF12]
+		test	dl, 8
+		jz		Sound1_Envelope_Decrease
+
+		cmp		dl, 0xF0
+		jae		Sound1_Envelope_Max
+
+		xor		ebx, ebx
+		mov		bl, dl
+		add		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x12], dl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F12], MEM_CHANGED
+		shr		dl, 4
+		and		bl, 7
+		mov		byte ptr [ebp + Offset_Sound1Volume], dl
+		shl		ebx, 14
+		jmp		Sound1_Envelope_Done
+
+Sound1_Envelope_Max:
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound1Enabled], 0
+		and		bl, ~1
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		jmp		Sound1_Off
+
+Sound1_Envelope_Decrease:
+		xor		ebx, ebx
+		mov		bl, dl
+		test	dl, 0xF0
+		jz		Sound1_Envelope_Min
+		sub		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x12], dl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F12], MEM_CHANGED
+		shr		dl, 4
+		mov		byte ptr [ebp + Offset_Sound1Volume], dl
+Sound1_Envelope_Min:
+		and		bl, 7
+		shl		ebx, 14
+		//jmp		Sound1_Envelope_Done
+
+Sound1_Envelope_NotYet:
+Sound1_Envelope_Done:
+		//ebx	= Sound1Envelope
+		mov		dword ptr [ebp + Offset_Sound1Envelope], ebx
+		//ebx	free
+Sound1_NoEnvelope:
+
+		mov		edi, dword ptr [ebp + Offset_SoundTicks]
+		cmp		eax, edi
+		ja		Sound1_TicksSet
+		mov		edi, eax
+Sound1_TicksSet:
+
+		mov		edx, dword ptr [ebp + Offset_Sound1Frequency]
+		//edx	= Sound1Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound1Ticks]
+		//ecx	= Sound1Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound1Ticks + Ticks
+		add		edx, 2048
+		shl		edx, 3
+		//edx	= (2048 - Sound1Frequency) << 3
+		cmp		ecx, edx
+		jae		Sound1_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound1Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x11]
+		//cl	= [FF11]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		ch, byte ptr [ebp + Offset_Sound1Stage]
+		//ch	= Sound1Stage
+		imul	ebx, edi
+		test	cl, 0x80
+		jnz		Sound1_50_75
+
+		shr		cl, 6
+		and		cl, 1
+		cmp		ch, cl
+		jbe		Sound1_ToBuffer
+		neg		ebx
+		jmp		Sound1_ToBuffer
+
+Sound1_50_75:
+		shr		cl, 6
+		add		cl, cl
+		dec		cl
+		cmp		ch, cl
+		jbe		Sound1_ToBuffer
+		neg		ebx
+		jmp		Sound1_ToBuffer
+
+Sound1_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound1_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x11]
+		//dl	= [FF11]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		dh, byte ptr [ebp + Offset_Sound1Stage]
+		//dh	= Sound1Stage
+		imul	ebx, edi
+		test	dl, 0x80
+		jnz		Sound1_50_75_2
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound1_ChangeStage
+		neg		ebx
+		jmp		Sound1_ChangeStage
+
+Sound1_50_75_2:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound1_ChangeStage
+		neg		ebx
+		jmp		Sound1_ChangeStage
+
+Sound1_ChangeStage2:
+		mov		ecx, eax
+		mov		dh, byte ptr [ebp + Offset_Sound1Stage]
+		xor		ebx, ebx
+Sound1_ChangeStage:
+		mov		edi, ecx
+		//dh	= Sound1Stage
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound1Ticks], 0
+		inc		dh
+		and		dh, 7
+		mov		byte ptr [ebp + Offset_Sound1Stage], dh
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x11]
+		//dl	= [FF11]
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		//dh	= Sound1Stage
+		imul	ecx, edi
+		test	dl, 0x80
+		jnz		Sound1_50_75_3
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound1_MixEbxEcx
+		neg		ecx
+		jmp		Sound1_MixEbxEcx
+
+Sound1_50_75_3:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound1_MixEbxEcx
+		neg		ecx
+		//jmp		Sound1_MixEbxEcx
+Sound1_MixEbxEcx:
+		add		ebx, ecx
+
+Sound1_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound1Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x01
+		jz		Sound1_NotLeft
+		mov		edi, dword ptr [ebp + Offset_SoundL]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edi
+Sound1_NotLeft:
+		test	cl, 0x10
+		jz		Sound1_NotRight
+		mov		edi, dword ptr [ebp + Offset_SoundR]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edi
+Sound1_NotRight:
+
+Sound1_Off:
 
 
-		__asm
-		{
-			xor		ebx, ebx
-			mov		ecx, this
-			//ecx	= this
-			mov		bl, byte ptr [Ticks]
-			//ebx	= Ticks
+
+		mov		bl, byte ptr [ebp + Offset_Sound2Enabled]
+		test	bl, bl
+		jz		Sound2_Off
+
+		mov		ebx, dword ptr [ebp + Offset_Sound2TimeOut]
+		//bh	= Sound2TimeOut
+		test	ebx, ebx
+		jz		Sound2_NoTimeOut
+
+		cmp		ebx, eax
+		ja		Sound2_NotTimeOutYet
+
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound2Enabled], 0
+		and		bl, ~2
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		jmp		Sound2_Off
+
+Sound2_NotTimeOutYet:
+		sub		ebx, eax
+		mov		dword ptr [ebp + Offset_Sound2TimeOut], ebx
+		//ebx	free
+
+Sound2_NoTimeOut:
+
+		mov		ebx, dword ptr [ebp + Offset_Sound2Envelope]
+		test	ebx, ebx
+		jz		Sound2_NoEnvelope
+
+		sub		ebx, eax
+		ja		Sound2_Envelope_NotYet
+
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x17]
+		//dl	= [FF17]
+		test	dl, 8
+		jz		Sound2_Envelope_Decrease
+
+		cmp		dl, 0xF0
+		jae		Sound2_Envelope_Max
+
+		xor		ebx, ebx
+		mov		bl, dl
+		add		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x17], dl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F17], MEM_CHANGED
+		shr		dl, 4
+		and		bl, 7
+		mov		byte ptr [ebp + Offset_Sound2Volume], dl
+		shl		ebx, 14
+		jmp		Sound2_Envelope_Done
+
+Sound2_Envelope_Max:
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound2Enabled], 0
+		and		bl, ~2
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		jmp		Sound2_Off
+
+Sound2_Envelope_Decrease:
+		xor		ebx, ebx
+		mov		bl, dl
+		test	dl, 0xF0
+		jz		Sound2_Envelope_Min
+		sub		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x17], dl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F17], MEM_CHANGED
+		shr		dl, 4
+		mov		byte ptr [ebp + Offset_Sound2Volume], dl
+Sound2_Envelope_Min:
+		and		bl, 7
+		shl		ebx, 14
+		//jmp		Sound2_Envelope_Done
+
+Sound2_Envelope_NotYet:
+Sound2_Envelope_Done:
+		//ebx	= Sound2Envelope
+		mov		dword ptr [ebp + Offset_Sound2Envelope], ebx
+		//ebx	free
+Sound2_NoEnvelope:
+
+		mov		edi, dword ptr [ebp + Offset_SoundTicks]
+		cmp		eax, edi
+		ja		Sound2_TicksSet
+		mov		edi, eax
+Sound2_TicksSet:
+
+		mov		edx, dword ptr [ebp + Offset_Sound2Frequency]
+		//edx	= Sound2Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound2Ticks]
+		//ecx	= Sound2Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound2Ticks + Ticks
+		add		edx, 2048
+		shl		edx, 3
+		//edx	= (2048 - Sound2Frequency) << 3
+		cmp		ecx, edx
+		jae		Sound2_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound2Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x16]
+		//cl	= [FF16]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		ch, byte ptr [ebp + Offset_Sound2Stage]
+		//ch	= Sound2Stage
+		imul	ebx, edi
+		test	cl, 0x80
+		jnz		Sound2_50_75
+
+		shr		cl, 6
+		and		cl, 1
+		cmp		ch, cl
+		jbe		Sound2_ToBuffer
+		neg		ebx
+		jmp		Sound2_ToBuffer
+
+Sound2_50_75:
+		shr		cl, 6
+		add		cl, cl
+		dec		cl
+		cmp		ch, cl
+		jbe		Sound2_ToBuffer
+		neg		ebx
+		jmp		Sound2_ToBuffer
+
+Sound2_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound2_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x16]
+		//dl	= [FF16]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		dh, byte ptr [ebp + Offset_Sound2Stage]
+		//dh	= Sound2Stage
+		imul	ebx, edi
+		test	dl, 0x80
+		jnz		Sound2_50_75_2
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound2_ChangeStage
+		neg		ebx
+		jmp		Sound2_ChangeStage
+
+Sound2_50_75_2:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound2_ChangeStage
+		neg		ebx
+		jmp		Sound2_ChangeStage
+
+Sound2_ChangeStage2:
+		mov		ecx, eax
+		mov		dh, byte ptr [ebp + Offset_Sound2Stage]
+		xor		ebx, ebx
+Sound2_ChangeStage:
+		mov		edi, ecx
+		//dh	= Sound2Stage
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound2Ticks], 0
+		inc		dh
+		and		dh, 7
+		mov		byte ptr [ebp + Offset_Sound2Stage], dh
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x16]
+		//dl	= [FF16]
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		//dh	= Sound2Stage
+		imul	ecx, edi
+		test	dl, 0x80
+		jnz		Sound2_50_75_3
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound2_MixEbxEcx
+		neg		ecx
+		jmp		Sound2_MixEbxEcx
+
+Sound2_50_75_3:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound2_MixEbxEcx
+		neg		ecx
+		//jmp		Sound2_MixEbxEcx
+Sound2_MixEbxEcx:
+		add		ebx, ecx
+
+Sound2_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound2Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x02
+		jz		Sound2_NotLeft
+		mov		edi, dword ptr [ebp + Offset_SoundL]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edi
+Sound2_NotLeft:
+		test	cl, 0x20
+		jz		Sound2_NotRight
+		mov		edi, dword ptr [ebp + Offset_SoundR]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edi
+Sound2_NotRight:
+
+Sound2_Off:
 
 
-			/*/*****
-			//Sound
 
-			//ecx	= this
-			//ebx	= Ticks
+		mov		bl, byte ptr [ebp + Offset_Sound3Enabled]
+		test	bl, bl
+		jz		Sound3_Off
 
-			push	ebx
-			mov		al, byte ptr [ecx + Offset_SoundTicks]
-			//al	= SoundTicks
-			sub		bl, al
-			//ebx	= Ticks2 (new value)
-			//al	free
-			jb		Sound_NotEnoughTicks
-//#ifdef _DEBUG
-			push	ebx
-			push	ecx
-//#endif //_DEBUG
-			call	SoundUpdate
-//#ifdef _DEBUG
-			pop		ecx
-			pop		ebx
-//#endif //_DEBUG
-			test	bl, bl
-			jz		SoundDone
-			mov		al, byte ptr [ecx + Offset_Sound1Enabled]
-			//al	= Sound1Enabled
-			test	al, al
-			//al	free
-			jz		Sound1Done
-			mov		eax, dword ptr [ecx + Offset_Sound1Ticks]
-			//eax	= Sound1Ticks
-			mov		edx, dword ptr [ecx + Offset_Sound1Frequency]
-			//edx	= Sound1Frequency
-			shl		edx, 3
-			//edx	= Sound1Frequency * 8
-			neg		edx
-			//edx	= -Sound1Frequency * 8
-			add		edx, 2048 * 8
-			//edx	= (2048 - Sound1Frequency) * 8
-			cmp		edx, eax
-			ja		Sound1NoStageChange
+		mov		ebx, dword ptr [ebp + Offset_Sound3TimeOut]
+		//bh	= Sound3TimeOut
+		test	ebx, ebx
+		jz		Sound3_NoTimeOut
 
-			mov		dword ptr [ecx + Offset_Sound1Ticks], eax
+		cmp		ebx, eax
+		ja		Sound3_NotTimeOutYet
 
-			mov		dh, byte ptr [ecx + Offset_Sound1Stage]
-			inc		dh
-			and		dh, 7
-			mov		byte ptr [ecx + Offset_Sound1Stage], dh
-			/*xor		edx, edx
-			//edx	= 0
-			mov		dl, byte ptr [ecx + Offset_Sound1Volume]
-			//edx	= Sound1Volume
-			mov		esi, dword ptr [Volume + edx * 4]*/
-			//esi	= Volume
-			//edx	free
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		bh, byte ptr [ebp + FF00_ASM + 0x1A]
+		mov		byte ptr [ebp + Offset_Sound3Enabled], 0
+		and		bx, ~0x8004
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		mov		byte ptr [ebp + FF00_ASM + 0x1A], bh
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F1A], MEM_CHANGED
+		jmp		Sound3_Off
 
-			//l, r (edx)
+Sound3_NotTimeOutYet:
+		sub		ebx, eax
+		mov		dword ptr [ebp + Offset_Sound3TimeOut], ebx
+		//ebx	free
 
-			/*sub		eax, edi
-			//edi	free
-			jc		Sound1Done
-			mov		dword ptr [ecx + Offset_Sound1Ticks], 0
-			Sound1Stage = ++Sound1Stage & 7*/
-/*			xor		esi, esi
-			jmp		Sound1StateChanged
+Sound3_NoTimeOut:
 
-Sound1NoStageChange:
-			//edx	free
-			xor		edx, edx
-			//edx	= 0
-			mov		dl, byte ptr [ecx + Offset_Sound1Volume]
-			//edx	= Sound1Volume
-			mov		esi, dword ptr [Volume + edx * 4]
-			//esi	= Volume
-			//edx	free
-			mov		dword ptr [ecx + Offset_Sound1Ticks], eax
-			mov		dh, byte ptr [ecx + Offset_Sound1Stage]
-			//dh	= Sound1Stage
-			test	dh, dh
-			jz		Sound1Up
-			shr		dh, 1
+		mov		edi, dword ptr [ebp + Offset_SoundTicks]
+		cmp		eax, edi
+		ja		Sound3_TicksSet
+		mov		edi, eax
+Sound3_TicksSet:
 
-			mov		dl, byte ptr [ecx + FF00_ASM + 0x11]
-			//dl	= FF00(0x11)
-			shr		dl, 6
-			cmp		dh, dl
-			//edx	free
-			jb		Sound1Up
+		mov		edx, dword ptr [ebp + Offset_Sound3Frequency]
+		//edx	= Sound3Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound3Ticks]
+		//ecx	= Sound3Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound3Ticks + Ticks
+		add		edx, 2048
+		//shl		edx, 3
+		//edx	= 2048 - Sound3Frequency
+		cmp		ecx, edx
+		jae		Sound3_StageWillChange
 
-//Sound1Down:
-			neg		esi
+		//edi	= Ticks
 
-Sound1Up:
-			//edx	free
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound3Ticks], ecx
+		//ecx	free
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		bl, cl
+		//bl	= Sound3Stage
+		and		cl, 1
+		shr		bl, 1
+		shl		cl, 2
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x30 + ebx]
+		shr		bl, cl
+		//bl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_HighVolume
+		test	ch, 0x20
+		jnz		Sound3_VolumeSet
+		mov		bl, 8
+		jmp		Sound3_VolumeSet
+Sound3_HighVolume:
+		shr		bl, 1
+		or		bl, 8
+		test	ch, 0x20
+		jz		Sound3_VolumeSet
+		shr		bl, 1
+		or		bl, 8
+		//jmp		Sound3_VolumeSet
+Sound3_VolumeSet:
+		shl		bl, 4
+		sub		ebx, 0x80
+		imul	ebx, edi
+		jmp		Sound3_ToBuffer
 
-			imul	esi, ebx
-			//eax	= L, R
-Sound1StateChanged:
-			//mov		edx, dword ptr [ecx + Offset_Sound1L]
-			//add		edx, esi
-			mov		dword ptr [ecx + Offset_Sound1L], esi
-Sound1Done:
-			//bl	= Ticks2
+Sound3_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound3_ChangeStage2
 
-			//Sound2
-Sound_NotEnoughTicks:
-SoundDone:
-			pop		ebx
-			//ebx	= Ticks
-			mov		al, byte ptr [ecx + Offset_SoundTicks]
-			sub		al, bl
-			mov		byte ptr [ecx + Offset_SoundTicks], al
-			//*/
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound3Ticks], ecx
+		mov		edx, ecx
+		//ecx	free
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		bl, cl
+		//bl	= Sound3Stage
+		and		cl, 1
+		shr		bl, 1
+		shl		cl, 2
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x30 + ebx]
+		shr		bl, cl
+		//bl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_HighVolume2
+		test	ch, 0x20
+		jz		Sound3_VolumeSet2
+		mov		bl, 8
+		jmp		Sound3_VolumeSet2
+Sound3_HighVolume2:
+		shr		bl, 1
+		or		bl, 8
+		test	ch, 0x20
+		jz		Sound3_VolumeSet2
+		shr		bl, 1
+		or		bl, 8
+		//jmp		Sound3_VolumeSet2
+Sound3_VolumeSet2:
+		shl		bl, 4
+		sub		ebx, 0x80
+		imul	ebx, edi
+		jmp		Sound3_ChangeStage
+
+Sound3_ChangeStage2:
+		mov		edx, eax
+		xor		ebx, ebx
+Sound3_ChangeStage:
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		//cl	= Sound3Stage
+		mov		edi, edx
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound3Ticks], 0
+		inc		cl
+		and		cl, 31
+		mov		byte ptr [ebp + Offset_Sound3Stage], cl
+		xor		edx, edx
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		dl, cl
+		//dl	= Sound3Stage
+		and		cl, 1
+		shr		dl, 1
+		shl		cl, 2
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x30 + edx]
+		shr		dl, cl
+		//dl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_HighVolume3
+		test	ch, 0x20
+		jz		Sound3_VolumeSet3
+		mov		dl, 8
+		jmp		Sound3_VolumeSet3
+Sound3_HighVolume3:
+		shr		dl, 1
+		or		dl, 8
+		test	ch, 0x20
+		jz		Sound3_VolumeSet3
+		shr		dl, 1
+		or		dl, 8
+		//jmp		Sound3_VolumeSet3
+Sound3_VolumeSet3:
+		shl		dl, 4
+		sub		edx, 0x80
+		imul	edx, edi
+		add		ebx, edx
+		//jmp		Sound3_ToBuffer
+
+Sound3_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound2Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x04
+		jz		Sound3_NotLeft
+		mov		edi, dword ptr [ebp + Offset_SoundL]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edi
+Sound3_NotLeft:
+		test	cl, 0x40
+		jz		Sound3_NotRight
+		mov		edi, dword ptr [ebp + Offset_SoundR]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edi
+Sound3_NotRight:
+
+Sound3_Off:
 
 
-			//*******
-			//Divider
 
-			//ecx	= this
-			//ebx	= Ticks
+		mov		bl, byte ptr [ebp + Offset_Sound4Enabled]
+		test	bl, bl
+		jz		Sound4_Off
 
-			mov		al, byte ptr [ecx + Offset_DIV_Ticks]
-			//al	= DIV_Ticks
-			sub		al, bl	//DIV_Ticks -= Ticks
-			jnc		DIV_NotEnoughTicks
-			mov		dl, byte ptr [ecx + FF00_ASM + 0x04]
-			//dl	= FF00(0x04)
-			add		al, 32	//DIV_Ticks += 32
-			inc		dl
-			mov		byte ptr [ecx + FF00_ASM + 0x04], dl
-			//dl	free
-			//edx	free
-			or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F04], MEM_CHANGED
+		mov		ebx, dword ptr [ebp + Offset_Sound4TimeOut]
+		//bh	= Sound4TimeOut
+		test	ebx, ebx
+		jz		Sound4_NoTimeOut
+
+		cmp		ebx, eax
+		ja		Sound4_NotTimeOutYet
+
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound4Enabled], 0
+		and		bl, ~8
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		jmp		Sound4_Off
+
+Sound4_NotTimeOutYet:
+		sub		ebx, eax
+		mov		dword ptr [ebp + Offset_Sound4TimeOut], ebx
+		//ebx	free
+
+Sound4_NoTimeOut:
+
+		mov		ebx, dword ptr [ebp + Offset_Sound4Envelope]
+		test	ebx, ebx
+		jz		Sound4_NoEnvelope
+
+		sub		ebx, eax
+		ja		Sound4_Envelope_NotYet
+
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x21]
+		//dl	= [FF21]
+		test	dl, 8
+		jz		Sound4_Envelope_Decrease
+
+		cmp		dl, 0xF0
+		jae		Sound4_Envelope_Max
+
+		xor		ebx, ebx
+		mov		bl, dl
+		add		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x21], dl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F21], MEM_CHANGED
+		shr		dl, 4
+		and		bl, 7
+		mov		byte ptr [ebp + Offset_Sound4Volume], dl
+		shl		ebx, 14
+		jmp		Sound4_Envelope_Done
+
+Sound4_Envelope_Max:
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x26]
+		mov		byte ptr [ebp + Offset_Sound4Enabled], 0
+		and		bl, ~8
+		mov		byte ptr [ebp + FF00_ASM + 0x26], bl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F26], MEM_CHANGED
+		jmp		Sound4_Off
+
+Sound4_Envelope_Decrease:
+		xor		ebx, ebx
+		mov		bl, dl
+		test	dl, 0xF0
+		jz		Sound4_Envelope_Min
+		sub		dl, 0x10
+		mov		byte ptr [ebp + FF00_ASM + 0x21], dl
+		or		byte ptr [ebp + Offset_MemStatus_CPU + 0x8F21], MEM_CHANGED
+		shr		dl, 4
+		mov		byte ptr [ebp + Offset_Sound4Volume], dl
+Sound4_Envelope_Min:
+		and		bl, 7
+		shl		ebx, 14
+		//jmp		Sound4_Envelope_Done
+
+Sound4_Envelope_NotYet:
+Sound4_Envelope_Done:
+		//ebx	= Sound4Envelope
+		mov		dword ptr [ebp + Offset_Sound4Envelope], ebx
+		//ebx	free
+Sound4_NoEnvelope:
+
+		mov		edi, dword ptr [ebp + Offset_SoundTicks]
+		cmp		eax, edi
+		ja		Sound4_TicksSet
+		mov		edi, eax
+Sound4_TicksSet:
+
+		mov		ecx, dword ptr [ebp + Offset_Sound4Ticks]
+		//ecx	= Sound4Ticks
+		mov		edx, dword ptr [ebp + Offset_Sound4Frequency]
+		//edx	= Sound4Frequency
+		//neg		edx
+		add		ecx, edi
+		//ecx	= Sound4Ticks + Ticks
+		//add		edx, 2048
+		//shl		edx, 3
+		////edx	= (2048 - Sound4Frequency) << 3
+		cmp		ecx, edx
+		jae		Sound4_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound4Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound4Volume]
+		//bl	= Sound2Volume
+		mov		cl, byte ptr [ebp + Offset_Sound4Bit]
+		//cl	= Sound4Bit
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		imul	ebx, edi
+		test	cl, cl
+		jz		Sound4_ToBuffer
+		neg		ebx
+		jmp		Sound4_ToBuffer
+
+Sound4_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound4_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound4Volume]
+		//bl	= Sound4Volume
+		mov		dl, byte ptr [ebp + Offset_Sound4Bit]
+		//dl	= Sound4Bit
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		imul	ebx, edi
+		test	dl, dl
+		jz		Sound4_ChangeStage
+		neg		ebx
+		jmp		Sound4_ChangeStage
+
+Sound4_ChangeStage2:
+		mov		ecx, eax
+		xor		ebx, ebx
+Sound4_ChangeStage:
+		mov		edi, ecx
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound4Ticks], 0
+		push	eax
+		call	rand
+		and		al, 1
+		mov		dl, al
+		//dl	= Sound4Bit
+		mov		byte ptr [ebp + Offset_Sound4Bit], al
+		pop		eax
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound4Volume]
+		//cl	= Sound4Volume
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		imul	ecx, edi
+		test	dl, dl
+		jz		Sound4_MixEbxEcx
+		neg		ecx
+		//jmp		Sound4_MixEbxEcx
+
+Sound4_MixEbxEcx:
+		add		ebx, ecx
+
+Sound4_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound4Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x08
+		jz		Sound4_NotLeft
+		mov		edi, dword ptr [ebp + Offset_SoundL]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edi
+Sound4_NotLeft:
+		test	cl, 0x80
+		jz		Sound4_NotRight
+		mov		edi, dword ptr [ebp + Offset_SoundR]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edi
+Sound4_NotRight:
+
+Sound4_Off:
+
+
+
+		mov		dl, byte ptr [ebp + Offset_SoundTicks]
+		sub		dl, al
+		mov		byte ptr [ebp + Offset_SoundTicks], dl
+		jae		Sound_NoUpdate
+
+		mov		ecx, ebp
+
+		add		edx, eax
+		and		edx, 0xFF
+		mov		edi, eax
+		sub		edi, edx
+
+		push	eax
+		push	esi
+		push	edi
+		call	SoundUpdate
+		pop		edi
+		pop		esi
+		pop		eax
+
+
+
+		mov		bl, byte ptr [ebp + Offset_Sound1Enabled]
+		test	bl, bl
+		jz		Sound1_2_Off
+
+		push	edi
+
+		mov		edx, dword ptr [ebp + Offset_Sound1Frequency]
+		//edx	= Sound1Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound1Ticks]
+		//ecx	= Sound1Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound1Ticks + Ticks
+		add		edx, 2048
+		shl		edx, 3
+		//edx	= (2048 - Sound1Frequency) << 3
+		cmp		ecx, edx
+		jae		Sound1_2_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound1Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x11]
+		//cl	= [FF11]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		ch, byte ptr [ebp + Offset_Sound1Stage]
+		//ch	= Sound1Stage
+		imul	ebx, edi
+		test	cl, 0x80
+		jnz		Sound1_2_50_75
+
+		shr		cl, 6
+		and		cl, 1
+		cmp		ch, cl
+		jbe		Sound1_2_ToBuffer
+		neg		ebx
+		jmp		Sound1_2_ToBuffer
+
+Sound1_2_50_75:
+		shr		cl, 6
+		add		cl, cl
+		dec		cl
+		cmp		ch, cl
+		jbe		Sound1_2_ToBuffer
+		neg		ebx
+		jmp		Sound1_2_ToBuffer
+
+Sound1_2_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound1_2_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x11]
+		//dl	= [FF11]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		dh, byte ptr [ebp + Offset_Sound1Stage]
+		//dh	= Sound1Stage
+		imul	ebx, edi
+		test	dl, 0x80
+		jnz		Sound1_2_50_75_2
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound1_2_ChangeStage
+		neg		ebx
+		jmp		Sound1_2_ChangeStage
+
+Sound1_2_50_75_2:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound1_2_ChangeStage
+		neg		ebx
+		jmp		Sound1_2_ChangeStage
+
+Sound1_2_ChangeStage2:
+		mov		ecx, eax
+		mov		dh, byte ptr [ebp + Offset_Sound1Stage]
+		xor		ebx, ebx
+Sound1_2_ChangeStage:
+		mov		edi, ecx
+		//dh	= Sound1Stage
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound1Ticks], 0
+		inc		dh
+		and		dh, 7
+		mov		byte ptr [ebp + Offset_Sound1Stage], dh
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound1Volume]
+		//bl	= Sound1Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x11]
+		//dl	= [FF11]
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		//dh	= Sound1Stage
+		imul	ecx, edi
+		test	dl, 0x80
+		jnz		Sound1_2_50_75_3
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound1_2_MixEbxEcx
+		neg		ecx
+		jmp		Sound1_2_MixEbxEcx
+
+Sound1_2_50_75_3:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound1_2_MixEbxEcx
+		neg		ecx
+		//jmp		Sound1_2_MixEbxEcx
+Sound1_2_MixEbxEcx:
+		add		ebx, ecx
+
+Sound1_2_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound1Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x01
+		jz		Sound1_2_NotLeft
+		mov		dword ptr [ebp + Offset_SoundL], ebx
+Sound1_2_NotLeft:
+		test	cl, 0x10
+		jz		Sound1_2_NotRight
+		mov		dword ptr [ebp + Offset_SoundR], ebx
+Sound1_2_NotRight:
+		pop		edi
+Sound1_2_Off:
+
+
+
+		mov		bl, byte ptr [ebp + Offset_Sound2Enabled]
+		test	bl, bl
+		jz		Sound2_2_Off
+
+		push	edi
+
+		mov		edx, dword ptr [ebp + Offset_Sound2Frequency]
+		//edx	= Sound2Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound2Ticks]
+		//ecx	= Sound2Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound2Ticks + Ticks
+		add		edx, 2048
+		shl		edx, 3
+		//edx	= (2048 - Sound2Frequency) << 3
+		cmp		ecx, edx
+		jae		Sound2_2_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound2Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x16]
+		//cl	= [FF16]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		ch, byte ptr [ebp + Offset_Sound2Stage]
+		//ch	= Sound2Stage
+		imul	ebx, edi
+		test	cl, 0x80
+		jnz		Sound2_2_50_75
+
+		shr		cl, 6
+		and		cl, 1
+		cmp		ch, cl
+		jbe		Sound2_2_ToBuffer
+		neg		ebx
+		jmp		Sound2_2_ToBuffer
+
+Sound2_2_50_75:
+		shr		cl, 6
+		add		cl, cl
+		dec		cl
+		cmp		ch, cl
+		jbe		Sound2_2_ToBuffer
+		neg		ebx
+		jmp		Sound2_2_ToBuffer
+
+Sound2_2_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound2_2_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x16]
+		//dl	= [FF16]
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		mov		dh, byte ptr [ebp + Offset_Sound2Stage]
+		//dh	= Sound2Stage
+		imul	ebx, edi
+		test	dl, 0x80
+		jnz		Sound2_2_50_75_2
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound2_2_ChangeStage
+		neg		ebx
+		jmp		Sound2_2_ChangeStage
+
+Sound2_2_50_75_2:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound2_2_ChangeStage
+		neg		ebx
+		jmp		Sound2_2_ChangeStage
+
+Sound2_2_ChangeStage2:
+		mov		ecx, eax
+		mov		dh, byte ptr [ebp + Offset_Sound2Stage]
+		xor		ebx, ebx
+Sound2_2_ChangeStage:
+		mov		edi, ecx
+		//dh	= Sound2Stage
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound2Ticks], 0
+		inc		dh
+		and		dh, 7
+		mov		byte ptr [ebp + Offset_Sound2Stage], dh
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound2Volume]
+		//bl	= Sound2Volume
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x16]
+		//dl	= [FF16]
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		//dh	= Sound2Stage
+		imul	ecx, edi
+		test	dl, 0x80
+		jnz		Sound2_2_50_75_3
+
+		shr		dl, 6
+		and		dl, 1
+		cmp		dh, dl
+		jbe		Sound2_2_MixEbxEcx
+		neg		ecx
+		jmp		Sound2_2_MixEbxEcx
+
+Sound2_2_50_75_3:
+		shr		dl, 6
+		add		dl, dl
+		dec		dl
+		cmp		dh, dl
+		jbe		Sound2_2_MixEbxEcx
+		neg		ecx
+		//jmp		Sound2_2_MixEbxEcx
+Sound2_2_MixEbxEcx:
+		add		ebx, ecx
+
+Sound2_2_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound2Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x02
+		jz		Sound2_2_NotLeft
+		mov		edx, dword ptr [ebp + Offset_SoundL]
+		add		edx, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edx
+Sound2_2_NotLeft:
+		test	cl, 0x20
+		jz		Sound2_2_NotRight
+		mov		edx, dword ptr [ebp + Offset_SoundR]
+		add		edx, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edx
+Sound2_2_NotRight:
+
+		pop		edi
+
+Sound2_2_Off:
+
+
+
+		mov		bl, byte ptr [ebp + Offset_Sound3Enabled]
+		test	bl, bl
+		jz		Sound3_2_Off
+
+		push	edi
+
+		mov		edx, dword ptr [ebp + Offset_Sound3Frequency]
+		//edx	= Sound3Frequency
+		mov		ecx, dword ptr [ebp + Offset_Sound3Ticks]
+		//ecx	= Sound3Ticks
+		neg		edx
+		add		ecx, edi
+		//ecx	= Sound3Ticks + Ticks
+		add		edx, 2048
+		//shl		edx, 3
+		//edx	= 2048 - Sound3Frequency
+		cmp		ecx, edx
+		jae		Sound3_2_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound3Ticks], ecx
+		//ecx	free
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		bl, cl
+		//bl	= Sound3Stage
+		and		cl, 1
+		shr		bl, 1
+		shl		cl, 2
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x30 + ebx]
+		shr		bl, cl
+		//bl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_2_HighVolume
+		test	ch, 0x20
+		jnz		Sound3_2_VolumeSet
+		mov		bl, 8
+		jmp		Sound3_2_VolumeSet
+Sound3_2_HighVolume:
+		shr		bl, 1
+		or		bl, 8
+		test	ch, 0x20
+		jz		Sound3_2_VolumeSet
+		shr		bl, 1
+		or		bl, 8
+		//jmp		Sound3_2_VolumeSet
+Sound3_2_VolumeSet:
+		shl		bl, 4
+		sub		ebx, 0x80
+		imul	ebx, edi
+		jmp		Sound3_2_ToBuffer
+
+Sound3_2_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound3_2_ChangeStage2
+
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound3Ticks], ecx
+		mov		edx, ecx
+		//ecx	free
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		bl, cl
+		//bl	= Sound3Stage
+		and		cl, 1
+		shr		bl, 1
+		shl		cl, 2
+		mov		bl, byte ptr [ebp + FF00_ASM + 0x30 + ebx]
+		shr		bl, cl
+		//bl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_2_HighVolume2
+		test	ch, 0x20
+		jz		Sound3_2_VolumeSet2
+		mov		bl, 8
+		jmp		Sound3_2_VolumeSet2
+Sound3_2_HighVolume2:
+		shr		bl, 1
+		or		bl, 8
+		test	ch, 0x20
+		jz		Sound3_2_VolumeSet2
+		shr		bl, 1
+		or		bl, 8
+		//jmp		Sound3_2_VolumeSet2
+Sound3_2_VolumeSet2:
+		shl		bl, 4
+		sub		ebx, 0x80
+		imul	ebx, edi
+		jmp		Sound3_2_ChangeStage
+
+Sound3_2_ChangeStage2:
+		mov		edx, eax
+		xor		ebx, ebx
+Sound3_2_ChangeStage:
+		mov		cl, byte ptr [ebp + Offset_Sound3Stage]
+		//cl	= Sound3Stage
+		mov		edi, edx
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound3Ticks], 0
+		inc		cl
+		and		cl, 31
+		mov		byte ptr [ebp + Offset_Sound3Stage], cl
+		xor		edx, edx
+		mov		ch, byte ptr [ebp + FF00_ASM + 0x1C]
+		//ch	= [FF1C]
+		mov		dl, cl
+		//dl	= Sound3Stage
+		and		cl, 1
+		shr		dl, 1
+		shl		cl, 2
+		mov		dl, byte ptr [ebp + FF00_ASM + 0x30 + edx]
+		shr		dl, cl
+		//dl	= wave data
+		test	ch, 0x40
+		jnz		Sound3_2_HighVolume3
+		test	ch, 0x20
+		jz		Sound3_2_VolumeSet3
+		mov		dl, 8
+		jmp		Sound3_2_VolumeSet3
+Sound3_2_HighVolume3:
+		shr		dl, 1
+		or		dl, 8
+		test	ch, 0x20
+		jz		Sound3_2_VolumeSet3
+		shr		dl, 1
+		or		dl, 8
+		//jmp		Sound3_2_VolumeSet3
+Sound3_2_VolumeSet3:
+		shl		dl, 4
+		sub		edx, 0x80
+		imul	edx, edi
+		add		ebx, edx
+		//jmp		Sound3_2_ToBuffer
+
+Sound3_2_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound2Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x04
+		jz		Sound3_2_NotLeft
+		mov		edi, dword ptr [ebp + Offset_SoundL]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edi
+Sound3_2_NotLeft:
+		test	cl, 0x40
+		jz		Sound3_2_NotRight
+		mov		edi, dword ptr [ebp + Offset_SoundR]
+		add		edi, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edi
+Sound3_2_NotRight:
+
+		pop		edi
+
+Sound3_2_Off:
+
+
+
+		mov		bl, byte ptr [ebp + Offset_Sound4Enabled]
+		test	bl, bl
+		jz		Sound4_2_Off
+
+		mov		ecx, dword ptr [ebp + Offset_Sound4Ticks]
+		//ecx	= Sound4Ticks
+		mov		edx, dword ptr [ebp + Offset_Sound4Frequency]
+		//edx	= Sound4Frequency
+		//neg		edx
+		add		ecx, edi
+		//ecx	= Sound2Ticks + Ticks
+		//add		edx, 2048
+		//shl		edx, 3
+		//edx	= Sound4Frequency
+		cmp		ecx, edx
+		jae		Sound4_2_StageWillChange
+
+		//edi	= Ticks
+
+		//edx	free
+		xor		ebx, ebx
+		mov		dword ptr [ebp + Offset_Sound4Ticks], ecx
+		//ecx	free
+		mov		bl, byte ptr [ebp + Offset_Sound4Volume]
+		//bl	= Sound4Volume
+		mov		cl, byte ptr [ebp + Offset_Sound4Bit]
+		//cl	= Sound4Bit
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		imul	ebx, edi
+		test	cl, cl
+		jz		Sound4_2_ToBuffer
+		neg		ebx
+		jmp		Sound4_2_ToBuffer
+
+Sound4_2_StageWillChange:
+		sub		ecx, edx
+		//edx	free
+		sub		edi, ecx
+		jbe		Sound4_2_ChangeStage2
+
+		xor		ebx, ebx
+		mov		bl, byte ptr [ebp + Offset_Sound4Volume]
+		//bl	= Sound4Volume
+		mov		dl, byte ptr [ebp + Offset_Sound4Bit]
+		//dl	= Sound4Bit
+		mov		ebx, dword ptr [Volume + 4 * ebx]
+		imul	ebx, edi
+		test	dl, dl
+		jz		Sound4_2_ChangeStage
+		neg		ebx
+		jmp		Sound4_2_ChangeStage
+
+Sound4_2_ChangeStage2:
+		mov		ecx, eax
+		xor		ebx, ebx
+Sound4_2_ChangeStage:
+		mov		edi, ecx
+		//edi	= Ticks
+		mov		dword ptr [ebp + Offset_Sound4Ticks], 0
+		push	eax
+		call	rand
+		and		al, 1
+		mov		dl, al
+		mov		byte ptr [ebp + Offset_Sound4Bit], al
+		pop		eax
+		xor		ecx, ecx
+		mov		cl, byte ptr [ebp + Offset_Sound4Volume]
+		//cl	= Sound4Volume
+		mov		ecx, dword ptr [Volume + 4 * ecx]
+		imul	ecx, edi
+		test	dl, dl
+		jnz		Sound4_2_MixEbxEcx
+		neg		ecx
+		//jmp		Sound4_2_MixEbxEcx
+
+Sound4_2_MixEbxEcx:
+		add		ebx, ecx
+
+Sound4_2_ToBuffer:
+		//ebx	= Ticks * +-Volume[Sound4Volume]
+		mov		cl, byte ptr [ebp + FF00_ASM + 0x25]
+		test	cl, 0x08
+		jz		Sound4_2_NotLeft
+		mov		edx, dword ptr [ebp + Offset_SoundL]
+		add		edx, ebx
+		mov		dword ptr [ebp + Offset_SoundL], edx
+Sound4_2_NotLeft:
+		test	cl, 0x80
+		jz		Sound4_2_NotRight
+		mov		edx, dword ptr [ebp + Offset_SoundR]
+		add		edx, ebx
+		mov		dword ptr [ebp + Offset_SoundR], edx
+Sound4_2_NotRight:
+
+Sound4_2_Off:
+
+
+
+Sound_NoUpdate:
+		mov		ecx, ebp
+
+
+
+		//*******
+		//Divider
+
+		//ecx	= this
+		//eax	= Ticks
+		//esi	= Flags
+
+		mov		bl, byte ptr [ecx + Offset_DIV_Ticks]
+		//bl	= DIV_Ticks
+		sub		bl, al	//DIV_Ticks -= Ticks
+		jnc		DIV_NotEnoughTicks
+		mov		dl, byte ptr [ecx + FF00_ASM + 0x04]
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F04], MEM_CHANGED
+		//dl	= FF00(0x04)
+		add		bl, 32	//DIV_Ticks += 32
+		inc		dl
+		mov		byte ptr [ecx + FF00_ASM + 0x04], dl
+		//dl	free
+		//edx	free
 DIV_NotEnoughTicks:
-			mov		byte ptr [ecx + Offset_DIV_Ticks], al
-			//al	free
-			//eax	free
+		mov		byte ptr [ecx + Offset_DIV_Ticks], bl
+		//bl	free
+		//ebx	free
 
-			//ecx	= this
-			//ebx	= Ticks
+		//ecx	= this
+		//eax	= Ticks
+		//esi	= Flags
 
 
-			//*****
-			//Timer
+		//*****
+		//Timer
 
-			//ecx	= this
-			//ebx	= Ticks
-			mov		al, byte ptr [ecx + FF00_ASM + 0x07]
-			test	al, 0x04
-			jz		TimerDisabled
-			mov		eax, dword ptr [ecx + Offset_TIMA_Ticks]
-			//eax	= TIMA_Ticks
-			add		eax, ebx
-			//ebx	free
-			mov		edx, dword ptr [ecx + Offset_Hz]
-			//edx	= Hz
-			//mov		dword ptr [ecx + Offset_TIMA_Ticks], eax
-			cmp		eax, edx
-			jb		TIMA_NotEnoughTicks
+		//ecx	= this
+		//eax	= Ticks
+		//esi	= Flags
 
-			sub		eax, edx
-			//edx	free
-			mov		dl, byte ptr [ecx + FF00_ASM + 0x05]
-			//dl	= FF00(0x05)
-			inc		dl
-			jnz		TIMA_NotZero
-			mov		dl, byte ptr [ecx + FF00_ASM + 0x06]
-			//dl	= FF00(0x06) (new value of FF00(0x05))
-			mov		dh, byte ptr [ecx + FF00_ASM + 0x0F]
-			or		dh, 0x04
-			mov		byte ptr [ecx + FF00_ASM + 0x0F], dh
-			or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
+		mov		bl, byte ptr [ecx + FF00_ASM + 0x07]
+		test	bl, 0x04
+		jz		TimerDisabled
+		mov		ebx, dword ptr [ecx + Offset_TIMA_Ticks]
+		//ebx	= TIMA_Ticks
+		add		ebx, eax
+		//eax	free
+		mov		edx, dword ptr [ecx + Offset_Hz]
+		//edx	= Hz
+		//mov		dword ptr [ecx + Offset_TIMA_Ticks], eax
+		cmp		ebx, edx
+		jb		TIMA_NotEnoughTicks
+
+		sub		ebx, edx
+		//edx	free
+		mov		dl, byte ptr [ecx + FF00_ASM + 0x05]
+		//dl	= FF00(0x05)
+		inc		dl
+		jnz		TIMA_NotZero
+		mov		dl, byte ptr [ecx + FF00_ASM + 0x06]
+		//dl	= FF00(0x06) (new value of FF00(0x05))
+		mov		dh, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		dh, 0x04
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], dh
+		//or		byte ptr [ecx + FF00_ASM + 0x0F], 0x04
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
 TIMA_NotZero:
-			mov		byte ptr [ecx + FF00_ASM + 0x05], dl
-			or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F05], MEM_CHANGED
-			//dl	free
-			//edx	free
+		mov		byte ptr [ecx + FF00_ASM + 0x05], dl
+		//dl	free
+		//edx	free
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F05], MEM_CHANGED
 
 TIMA_NotEnoughTicks:
-			mov		dword ptr [ecx + Offset_TIMA_Ticks], eax
-			//eax	free
+		mov		dword ptr [ecx + Offset_TIMA_Ticks], ebx
+		//ebx	free
 
 TimerDisabled:
-			//ecx	= this
+		//ecx	= this
+		//esi	= Flags
 
 
-			//**********
-			//Interrupts
+		//**********
+		//Interrupts
 
-			//ecx	= this
+		//ecx	= this
+		//esi	= Flags
 
-			mov		edx, dword ptr [ecx + Offset_Flags]
-			//edx	= Flags
-			test	edx, GB_IE
-			jz		NoInterrupt
-			mov		ah, byte ptr [ecx + FF00_ASM + 0x0F]
-			//ah	= FF00(0x0F)
-			mov		al, byte ptr [ecx + FF00_ASM + 0xFF]
-			and		al, ah
-			//al	= FF00(0xFF) & FF00(0x0F)
-			test	al, 0x0F
-			jz		InterruptServiced
+		test	esi, GB_IE
+		jz		NoInterrupt
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x0F]
+		//ah	= FF00(0x0F)
+		mov		al, byte ptr [ecx + FF00_ASM + 0xFF]
+		and		al, ah
+		//al	= FF00(0xFF) & FF00(0x0F)
+		test	al, 0x0F
+		jz		InterruptServiced
 
-			and		edx, ~(GB_IE | GB_ENABLEIE | GB_HALT)
-			mov		dword ptr [ecx + Offset_Flags], edx
-			//edx	free
+		and		esi, ~(GB_IE | GB_ENABLEIE | GB_HALT)
+		mov		dword ptr [ecx + Offset_Flags], esi
 
 
-			push	ecx
-			xor		ecx, ecx
-			shr		al, 1
-			jc		InterruptFound
+		push	ecx
+		xor		ecx, ecx
+		shr		al, 1
+		jc		InterruptFound
 TestNextInterrupt:
-			inc		cl
-			shr		al, 1
-			jnc		TestNextInterrupt
+		inc		cl
+		shr		al, 1
+		jnc		TestNextInterrupt
 
 InterruptFound:
-			//al	free
-			mov		bl, 1
-			shl		bl, cl
-			not		bl
-			and		ah, bl
-			//ah	= new value of FF0F
-			lea		ebx, [ecx * 8 + 0x40]
-			//ebx	= interrupt address
-			pop		ecx
-			//ecx	= this
+		//al	free
+		mov		bl, 1
+		shl		bl, cl
+		not		bl
+		and		ah, bl
+		//ah	= new value of FF0F
+		lea		ebx, [ecx * 8 + 0x40]
+		//ebx	= interrupt address
+		pop		ecx
+		//ecx	= this
 
-			mov		edx, dword ptr [ecx + Offset_Reg_SP]
-			//edx	= Reg_SP
-			sub		dx, 2
-			call	CheckWriteAccessWord
-			jc		Interrupt_WriteAccessDenied
+		mov		edx, dword ptr [ecx + Offset_Reg_SP]
+		//edx	= Reg_SP
+		sub		dx, 2
+		call	CheckWriteAccessWord
+		jc		Interrupt_WriteAccessDenied
 
-			mov		byte ptr [ecx + FF00_ASM + 0x0F], ah
-			//ah	free
-			//eax	free
-			or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], ah
+		//ah	free
+		//eax	free
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
 
-			mov		eax, dword ptr [ecx + Offset_Reg_PC]
-			//eax	= Reg_PC
+		mov		eax, dword ptr [ecx + Offset_Reg_PC]
+		//eax	= Reg_PC
 
-			mov		word ptr [ecx + Offset_Reg_PC], bx
-			//ebx	free
+		mov		word ptr [ecx + Offset_Reg_PC], bx
+		//ebx	free
 
-			mov		word ptr [ecx + Offset_Reg_SP], dx
-			call	Debug_LD_mem8
-			inc		dx
-			mov		al, ah
-			call	Debug_LD_mem8
+		mov		word ptr [ecx + Offset_Reg_SP], dx
+		call	Debug_LD_mem8
+		inc		dx
+		mov		al, ah
+		call	Debug_LD_mem8
 
-			//eax	free
-			//edx	free
+		mov		edx, ebx
+		//edx	= Reg_PC (new)
+		//ebx	free
 
-			jmp		InterruptServiced
+		call	RetrieveAccess
+		//al	= access
+		//edx	free
+		test	al, MEM_BREAKPOINT
+		//al	free
+		jz		Int_NotBreakPoint
+		or		esi, GB_EXITLOOP | GB_ERROR
+Int_NotBreakPoint:
+
+		jmp		InterruptServiced
 
 NoInterrupt:
-			//ecx	= this
-			//edx	= Flags
+		//ecx	= this
+		//esi	= Flags
 
-			and		edx, GB_ENABLEIE
-			jz		InterruptServiced
-			shl		edx, 1
-			mov		eax, dword ptr [ecx + Offset_Flags]
-			//eax	= Flags
-			or		edx, eax
-			//eax	free
-			mov		dword ptr [ecx + Offset_Flags], edx
-			//edx	free
+		test	esi, GB_ENABLEIE
+		jz		InterruptServiced
+		or		esi, GB_IE
 
 InterruptServiced:
-			//ecx	= this
+		//ecx	= this
+		//esi	= Flags
 
 
-			/*/*********
-			//Exit loop
+		//*********
+		//Exit loop
 
-			//ecx	= this
+		//ecx	= this
+		//esi	= Flags
 
-			mov		dl, byte ptr [ecx + Offset_Flags]
-			//edx	= Flags
-			test	dl, GB_EXITLOOP
-			jz		ContinueLoop
-			and		dl, ~GB_EXITLOOP
-			mov		byte ptr [ecx + Offset_Flags], dl
-			//ecx	free
-			//edx	free//*/
-		}
+		test	esi, GB_EXITLOOP
+		jz		ContinueLoop
+
+ExitLoop:
+		and		esi, ~GB_EXITLOOP
+		mov		dword ptr [ecx + Offset_Flags], esi
+		//esi	free
+
+		pop		ebx
+		pop		edx
+		pop		edi
+		pop		esi
+		pop		ebp
+		ret
 	}
-	while (!(Flags & GB_EXITLOOP));
-
-	Flags &= ~GB_EXITLOOP;
-	return;
 
 /*BreakPoint:
 	SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
@@ -6119,7 +7409,7 @@ ExecuteAccessDenied:
 		PostThreadMessage(ThreadId, WM_QUIT, 0, 0);
 	}
 	Flags |= GB_ERROR;
-	return;
+	__asm jmp ExitLoop;
 
 ReadAccessDenied:
 	SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
@@ -6137,7 +7427,7 @@ ReadAccessDenied:
 		PostThreadMessage(ThreadId, WM_QUIT, 0, 0);
 	}
 	Flags |= GB_ERROR;
-	return;
+	__asm jmp ExitLoop;
 
 Interrupt_WriteAccessDenied:
 	SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
@@ -6155,7 +7445,8 @@ Interrupt_WriteAccessDenied:
 		PostThreadMessage(ThreadId, WM_QUIT, 0, 0);
 	}
 	Flags |= GB_ERROR;
-	return;
+	__asm jmp ExitLoop;
+
 		//Serial transfer
 		/*if (SIOClocks)
 		{
@@ -6222,22 +7513,10 @@ void __fastcall SoundUpdate(CGameBoy *GB)
 	}
 
 
-	l = ((signed)GB->Sound1L) / ((signed)96);
-	r = ((signed)GB->Sound1R) / ((signed)96);
-	GB->Sound1L = 0;
-	GB->Sound1R = 0;
-	l += ((signed)GB->Sound2L) / ((signed)96);
-	r += ((signed)GB->Sound2R) / ((signed)96);
-	GB->Sound2L = 0;
-	GB->Sound2R = 0;
-	l += ((signed)GB->Sound3L) / ((signed)96);
-	r += ((signed)GB->Sound3R) / ((signed)96);
-	GB->Sound3L = 0;
-	GB->Sound3R = 0;
-	l += ((signed)GB->Sound4L) / ((signed)96);
-	r += ((signed)GB->Sound4R) / ((signed)96);
-	GB->Sound4L = 0;
-	GB->Sound4R = 0;
+	l = ((signed)GB->SoundL) / ((signed)96);
+	r = ((signed)GB->SoundR) / ((signed)96);
+	GB->SoundL = 0;
+	GB->SoundR = 0;
 
 
 	l >>= 2;
@@ -6275,7 +7554,7 @@ void __fastcall SoundUpdate(CGameBoy *GB)
 		waveOutWrite(GB->hWaveOut, &GB->SoundBuffer->wh, sizeof(GB->SoundBuffer->wh));
 		if (!(GB->SoundBuffer = new SOUNDBUFFER))
 		{
-			MessageBox(hWnd, "Insufficient memory for sound.", NULL, MB_OK | MB_ICONERROR);
+			MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
 			GB->CloseSound();
 		}
 		LeaveCriticalSection(&cs);
@@ -6473,13 +7752,13 @@ BOOL CGameBoy::RestoreSound()
 		{
 			LeaveCriticalSection(&cs);
 			CloseSound();
-			MessageBox(hWnd, "Not enough memory for sound.", NULL, MB_OK | MB_ICONWARNING);
+			MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
 			return true;
 		}
 	}
 	SoundBufferPosition = 0;
-	Sound1L = Sound1R = 0;
-	Sound2L = Sound2R = 0;
+	SoundL = SoundR = 0;
+	SoundL = SoundR = 0;
 	LeaveCriticalSection(&cs);
 
 	return false;

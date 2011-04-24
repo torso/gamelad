@@ -88,17 +88,41 @@
 
 #define		Offset_pGBBitmap		0x03A13C //4
 
-#define		Offset_SoundTicks		0x03A140 //1
-#define		Offset_Sound1Enabled	0x03A141 //1
-#define		Offset_Sound2Enabled	0x03A142 //1
-#define		Offset_Sound3Enabled	0x03A143 //1
-#define		Offset_Sound1Ticks		0x03A144 //4
-#define		Offset_Sound1Frequency	0x03A148 //4
-#define		Offset_Sound1Volume		0x03A14C //4
-#define		Offset_Sound1Stage		0x03A150 //1
-#define		Offset_Sound2Stage		0x03A151 //1
-#define		Offset_Sound1L			0x03A154 //4
-#define		Offset_Sound1R			0x03A158 //4
+#define		Offset_WindowTileY		0x03A140 //1
+#define		Offset_WindowY			0x03A141 //1
+#define		Offset_WindowTileY2		0x03A142 //1
+
+#define		Offset_SoundTicks		0x03A143 //1
+#define		Offset_Sound1Enabled	0x03A144 //1
+#define		Offset_Sound2Enabled	0x03A145 //1
+#define		Offset_Sound3Enabled	0x03A146 //1
+#define		Offset_Sound4Enabled	0x03A147 //1
+#define		Offset_Sound1Stage		0x03A148 //1
+#define		Offset_Sound2Stage		0x03A149 //1
+#define		Offset_Sound3Stage		0x03A14A //1
+#define		Offset_Sound4Bit		0x03A14B //1
+#define		Offset_Sound1Volume		0x03A14C //1
+#define		Offset_Sound2Volume		0x03A14D //1
+#define		Offset_Sound4Volume		0x03A14E //1
+#define		Offset_SoundL			0x03A150 //4
+#define		Offset_SoundR			0x03A154 //4
+#define		Offset_Sound1Ticks		0x03A158 //4
+#define		Offset_Sound1TimeOut	0x03A15C //4
+#define		Offset_Sound1Frequency	0x03A160 //4
+#define		Offset_Sound1Envelope	0x03A164 //4
+#define		Offset_Sound1Sweep		0x03A168 //4
+#define		Offset_Sound2Ticks		0x03A16C //4
+#define		Offset_Sound2TimeOut	0x03A170 //4
+#define		Offset_Sound2Frequency	0x03A174 //4
+#define		Offset_Sound2Envelope	0x03A178 //4
+#define		Offset_Sound3Ticks		0x03A17C //4
+#define		Offset_Sound3TimeOut	0x03A180 //4
+#define		Offset_Sound3Frequency	0x03A184 //4
+#define		Offset_Sound4Ticks		0x03A188 //4
+#define		Offset_Sound4TimeOut	0x03A18C //4
+#define		Offset_Sound4Frequency	0x03A190 //4
+#define		Offset_Sound4Envelope	0x03A194 //4
+
 
 #define		FF00_C(Offset)			MEM_CPU[0x8F00 + Offset]
 #define		pFF00_C(GB, Offset)		GB->MEM_CPU[0x8F00 + Offset]
@@ -209,29 +233,23 @@ public:
 
 	//DWORD			SIOClocks;
 
-
-	BYTE			SoundTicks;
-	BYTE			Sound1Enabled, Sound2Enabled, Sound3Enabled;
-	DWORD			Sound1Ticks, Sound1Frequency, Sound1Volume;
-	BYTE			Sound1Stage, Sound2Stage;
-	int				Sound1L, Sound1R;
-
-	DWORD			Sound1TimeOut, Sound1Sweep, Sound1Envelope;
-	DWORD			Sound2Ticks, Sound2Frequency, Sound2Volume;
-	DWORD			Sound2TimeOut, Sound2Envelope;
-	int				Sound2L, Sound2R;
-
-	DWORD			Sound3TimeOut;
-	DWORD			Sound3Ticks, Sound3Frequency;
-	int				Sound3L, Sound3R;
-	BYTE			Sound3Stage;
-	BYTE			Sound4Enabled, Sound4Bit;
-	DWORD			Sound4Ticks, Sound4TimeOut, Sound4Frequency, Sound4Volume, Sound4Envelope;
-	int				Sound4L, Sound4R;
-
-
 	signed char		WindowTileY;
 	BYTE			WindowY, WindowTileY2;
+
+
+	BYTE			SoundTicks;
+	BYTE			Sound1Enabled, Sound2Enabled, Sound3Enabled, Sound4Enabled;
+	BYTE			Sound1Stage, Sound2Stage, Sound3Stage, Sound4Bit;
+
+	BYTE			Sound1Volume, Sound2Volume, Sound4Volume;
+
+	int				SoundL, SoundR;
+
+	DWORD			Sound1Ticks, Sound1TimeOut, Sound1Frequency, Sound1Envelope, Sound1Sweep;
+	DWORD			Sound2Ticks, Sound2TimeOut, Sound2Frequency, Sound2Envelope;
+	DWORD			Sound3Ticks, Sound3TimeOut, Sound3Frequency;
+	DWORD			Sound4Ticks, Sound4TimeOut, Sound4Frequency, Sound4Envelope;
+
 
 	BOOL			FastFwd;
 
@@ -250,6 +268,12 @@ public:
 	char			Battery[MAX_PATH];
 	unsigned int	SaveRamSize;
 	BOOL			BatteryAvailable;
+
+#ifdef	CDEBUGINFO_H
+	CDebugInfo		*pDebugInfo;
+#else	//CDEBUGINFO_H
+	void			*pDebugInfo;
+#endif	//CDEBUGINFO_H
 
 	LARGE_INTEGER	LastTimerCount;
 	LONGLONG		DelayTime;

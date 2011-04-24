@@ -6,6 +6,7 @@
 #include	"Game Lad.h"
 #include	"Emulation.h"
 #include	"Debugger.h"
+#include	"Error.h"
 
 
 
@@ -28,7 +29,7 @@ CGameBoy *CGameBoyList::NewGameBoy(char *pszROMFilename, char *pszBatteryFilenam
 
 	if (!(LastGameBoy = new GameBoy))
 	{
-		MessageBox(NULL, "Insufficient memory.", NULL, MB_OK | MB_ICONERROR);
+		MessageBox(NULL, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
 		return NULL;
 	}
 	LastGameBoy->pNext = FirstGameBoy;
@@ -38,7 +39,7 @@ CGameBoy *CGameBoyList::NewGameBoy(char *pszROMFilename, char *pszBatteryFilenam
 	{
 		FirstGameBoy = LastGameBoy->pNext;
 		delete LastGameBoy;
-		MessageBox(NULL, "Insufficient memory.", NULL, MB_OK | MB_ICONERROR);
+		MessageBox(NULL, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
 		return NULL;
 	}
 	if (LastGameBoy->pGameBoy->Init(pszROMFilename, pszBatteryFilename))
@@ -240,6 +241,52 @@ void DisplayErrorMessage(HWND hWin, DWORD dwErrCode)
 		NULL, dwErrCode, 0, (LPTSTR)&lpMsgBuf, 0, NULL);
 	MessageBox(hWin, (LPCTSTR)lpMsgBuf, NULL, MB_OK | MB_ICONERROR);
 	LocalFree(lpMsgBuf);
+}
+
+
+
+void FatalError(DWORD ErrorNo, char *pszText)
+{
+	if (ErrorNo == FATAL_ERROR_OUTOFMEMORY)
+	{
+		MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
+	}
+}
+
+
+
+BOOL HexToNum(char *pc)
+{
+	if (*pc < '0')
+	{
+		return true;
+	}
+	if (*pc <= '9')
+	{
+		*pc = *pc - '0';
+	}
+	else if (*pc < 'A')
+	{
+		return true;
+	}
+	else if (*pc <= 'F')
+	{
+		*pc = *pc - 'A' + 10;
+	}
+	else if (*pc < 'a')
+	{
+		return true;
+	}
+	else if (*pc <= 'f')
+	{
+		*pc = *pc - 'a' + 10;
+	}
+	else
+	{
+		return true;
+	}
+
+	return false;
 }
 
 
@@ -932,6 +979,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	HWND				hTempWnd;
 	PROPSHEETPAGE		psp[2];
 	PROPSHEETHEADER		psh;
+	RECT				rct;
 
 
 	switch (uMsg)
@@ -1102,73 +1150,101 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SendMessage((HWND)SendMessage(hClientWnd, WM_MDIGETACTIVE, 0, 0), uMsg, wParam, lParam);
 			return 0;
 
-		case ID_VIEW_MEMORY:
-			if (!hMemory)
+		case ID_VIEW_REGISTERS:
+			if (!hRegisters)
 			{
-				if (!(hMemory = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Memory", "Memory", WS_VISIBLE | WS_CAPTION | WS_BORDER, CW_USEDEFAULT, CW_USEDEFAULT, 42 * FixedFontWidth + 1 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE) + GetSystemMetrics(SM_CXVSCROLL), 32 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE), hClientWnd, NULL, hInstance, NULL)))
+				if (!(hRegisters = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Registers", "Registers", WS_VISIBLE | WS_CAPTION | WS_BORDER, Registers.x, Registers.y, Registers.Width, Registers.Height, hClientWnd, NULL, hInstance, NULL)))
 				{
 					DisplayErrorMessage(NULL);
 				}
 			}
-			return 0;
-
-		case ID_VIEW_REGISTERS:
-			if (!hRegisters)
+			else
 			{
-				if (!(hRegisters = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Registers", "Registers", WS_VISIBLE | WS_CAPTION | WS_BORDER, CW_USEDEFAULT, CW_USEDEFAULT, 14 * FixedFontWidth + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 14 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE), hClientWnd, NULL, hInstance, NULL)))
-				{
-					DisplayErrorMessage(NULL);
-				}
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hRegisters, 0);
 			}
 			return 0;
 
 		case ID_VIEW_DISASSEMBLY:
 			if (!hDisAsm)
 			{
-				if (!(hDisAsm = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "DisAsm", "Disassembly", WS_VISIBLE | WS_CAPTION | WS_BORDER | WS_VSCROLL /*| WS_HSCROLL*/, CW_USEDEFAULT, CW_USEDEFAULT, 32 * FixedFontWidth + 15 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE) + GetSystemMetrics(SM_CXVSCROLL), 32 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE), hClientWnd, NULL, hInstance, NULL)))
+				if (!(hDisAsm = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "DisAsm", "Disassembly", WS_VISIBLE | WS_CAPTION | WS_BORDER | WS_VSCROLL /*| WS_HSCROLL*/, DisAsm.x, DisAsm.y, DisAsm.Width, DisAsm.Height, hClientWnd, NULL, hInstance, NULL)))
 				{
 					DisplayErrorMessage(NULL);
 				}
+			}
+			else
+			{
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hDisAsm, 0);
+			}
+			return 0;
+
+		case ID_VIEW_MEMORY:
+			if (!hMemory)
+			{
+				if (!(hMemory = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Memory", "Memory", WS_VISIBLE | WS_CAPTION | WS_BORDER, Memory.x, Memory.y, Memory.Width, Memory.Height, hClientWnd, NULL, hInstance, NULL)))
+				{
+					DisplayErrorMessage(NULL);
+				}
+			}
+			else
+			{
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hMemory, 0);
 			}
 			return 0;
 
 		case ID_VIEW_TILES:
 			if (!hTiles)
 			{
-				if (!(hTiles = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Tiles", "Tiles", WS_VISIBLE | WS_CAPTION | WS_BORDER | WS_VSCROLL | WS_HSCROLL, CW_USEDEFAULT, CW_USEDEFAULT, 100, 100, hClientWnd, NULL, hInstance, NULL)))
+				if (!(hTiles = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Tiles", "Tiles", WS_VISIBLE | WS_CAPTION | WS_BORDER | WS_VSCROLL | WS_HSCROLL, Tiles.x, Tiles.y, Tiles.Width, Tiles.Height, hClientWnd, NULL, hInstance, NULL)))
 				{
 					DisplayErrorMessage(NULL);
 				}
+			}
+			else
+			{
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hTiles, 0);
 			}
 			return 0;
 
 		case ID_VIEW_TILEMAP:
 			if (!hTileMap)
 			{
-				if (!(hTileMap = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "TileMap", "Tile Map", WS_VISIBLE | WS_CAPTION | WS_BORDER | WS_VSCROLL | WS_HSCROLL, CW_USEDEFAULT, CW_USEDEFAULT, 100, 100, hClientWnd, NULL, hInstance, NULL)))
+				if (!(hTileMap = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "TileMap", "Tile Map", WS_VISIBLE | WS_CAPTION | WS_BORDER | WS_VSCROLL | WS_HSCROLL, TileMap.x, TileMap.y, TileMap.Width, TileMap.Height, hClientWnd, NULL, hInstance, NULL)))
 				{
 					DisplayErrorMessage(NULL);
 				}
+			}
+			else
+			{
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hTileMap, 0);
 			}
 			return 0;
 
 		case ID_VIEW_PALETTES:
 			if (!hPalettes)
 			{
-				if (!(hPalettes = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Palettes", "Palettes", WS_VISIBLE | WS_CAPTION | WS_BORDER /*| WS_VSCROLL | WS_HSCROLL*/, CW_USEDEFAULT, CW_USEDEFAULT, 362 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 345 + FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) +  2 * GetSystemMetrics(SM_CYEDGE), hClientWnd, NULL, hInstance, NULL)))
+				if (!(hPalettes = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Palettes", "Palettes", WS_VISIBLE | WS_CAPTION | WS_BORDER /*| WS_VSCROLL | WS_HSCROLL*/, Palettes.x, Palettes.y, Palettes.Width, Palettes.Height, hClientWnd, NULL, hInstance, NULL)))
 				{
 					DisplayErrorMessage(NULL);
 				}
+			}
+			else
+			{
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hPalettes, 0);
 			}
 			return 0;
 
 		case ID_VIEW_HARDWARE:
 			if (!hHardware)
 			{
-				if (!(hHardware = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Hardware", "Hardware", WS_VISIBLE | WS_CAPTION | WS_BORDER | WS_VSCROLL | WS_HSCROLL, CW_USEDEFAULT, CW_USEDEFAULT, 19 * FixedFontWidth + 4 * GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXVSCROLL), 3 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 4 * GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CYHSCROLL), hClientWnd, NULL, hInstance, NULL)))
+				if (!(hHardware = CreateWindowEx(WS_EX_MDICHILD | WS_EX_TOOLWINDOW | WS_EX_PALETTEWINDOW | WS_EX_CLIENTEDGE, "Hardware", "Hardware", WS_VISIBLE | WS_CAPTION | WS_BORDER | WS_VSCROLL | WS_HSCROLL, Hardware.x, Hardware.y, Hardware.Width, Hardware.Height, hClientWnd, NULL, hInstance, NULL)))
 				{
 					DisplayErrorMessage(NULL);
 				}
+			}
+			else
+			{
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hHardware, 0);
 			}
 			return 0;
 
@@ -1224,6 +1300,38 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				SendMessage(hDisAsm, WM_COMMAND, wParam, lParam);
 			}
 			return 0;
+
+		case ID_MEMORY_ROM:
+		case ID_MEMORY_VBK_BANK0:
+		case ID_MEMORY_VBK_BANK1:
+		case ID_MEMORY_RAM_BANK0:
+		case ID_MEMORY_RAM_BANK1:
+		case ID_MEMORY_RAM_BANK2:
+		case ID_MEMORY_RAM_BANK3:
+		case ID_MEMORY_RAM_BANK4:
+		case ID_MEMORY_RAM_BANK5:
+		case ID_MEMORY_RAM_BANK6:
+		case ID_MEMORY_RAM_BANK7:
+		case ID_MEMORY_RAM_BANK8:
+		case ID_MEMORY_RAM_BANK9:
+		case ID_MEMORY_RAM_BANK10:
+		case ID_MEMORY_RAM_BANK11:
+		case ID_MEMORY_RAM_BANK12:
+		case ID_MEMORY_RAM_BANK13:
+		case ID_MEMORY_RAM_BANK14:
+		case ID_MEMORY_RAM_BANK15:
+		case ID_MEMORY_SVBK_BANK1:
+		case ID_MEMORY_SVBK_BANK2:
+		case ID_MEMORY_SVBK_BANK3:
+		case ID_MEMORY_SVBK_BANK4:
+		case ID_MEMORY_SVBK_BANK5:
+		case ID_MEMORY_SVBK_BANK6:
+		case ID_MEMORY_SVBK_BANK7:
+			if (hTempWnd = (HWND)SendMessage(hClientWnd, WM_MDIGETACTIVE, 0, 0))
+			{
+				return SendMessage(hTempWnd, uMsg, wParam, lParam);
+			}
+			break;
 
 		case ID_EMULATION_RESET:
 			if (pGameBoy = GameBoyList.GetActive())
@@ -1429,24 +1537,88 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			mii.fState = MFS_GRAYED;
 		}
 		SetMenuItemInfo((HMENU)wParam, ID_FILE_CLOSE, false, &mii);
-		if (hTempWnd && (hTempWnd == hMemory || hTempWnd == hDisAsm) && GameBoyList.GetActive())
+		if (hTempWnd && (hTempWnd == hTileMap || hTempWnd == hTiles))
 		{
 			mii.fState = MFS_ENABLED;
+		}
+		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 2), 10, true, &mii);
+		if (hTempWnd && (hTempWnd == hMemory || hTempWnd == hDisAsm) && pGameBoy)
+		{
+			mii.fState = MFS_ENABLED;
+			CreateBankMenu(pGameBoy, GetSubMenu(GetSubMenu((HMENU)wParam, 2), 9), 0);
 		}
 		else
 		{
 			mii.fState = MFS_GRAYED;
 		}
+		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 2), 9, true, &mii);
 		SetMenuItemInfo((HMENU)wParam, ID_EDIT_GOTO, false, &mii);
-		if (hTempWnd && (hTempWnd == hTileMap || hTempWnd == hTiles))
-		{
-			mii.fState = MFS_ENABLED;
-		}
-		SetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_100, false, &mii);
-		SetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_200, false, &mii);
-		SetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_300, false, &mii);
-		SetMenuItemInfo((HMENU)wParam, ID_VIEW_ZOOM_400, false, &mii);
 		return 0;
+
+	/*case WM_NCCALCSIZE:
+		if (wParam)
+		{
+			DefFrameProc(hWin, hClientWnd, uMsg, wParam, lParam);
+			((NCCALCSIZE_PARAMS *)lParam)->rgrc[0].left += Registers.Width;
+			//((NCCALCSIZE_PARAMS *)lParam)->rgrc[0].top += ;
+			//((NCCALCSIZE_PARAMS *)lParam)->rgrc[0].right -= ;
+			//((NCCALCSIZE_PARAMS *)lParam)->rgrc[0].bottom -= ;
+			return WVR_HREDRAW | WVR_VREDRAW;
+		}
+		else
+		{
+			DefFrameProc(hWin, hClientWnd, uMsg, wParam, lParam);
+			((RECT *)lParam)->left += Registers.Width;
+			return 0;
+		}
+
+	case WM_NCPAINT:
+		DefFrameProc(hWin, hClientWnd, uMsg, wParam, lParam);
+		HDC		hdc;
+		SetLastError(NOERROR);
+		if (!(hdc = GetWindowDC(hWin)))
+		{
+			DisplayErrorMessage(hWin);
+			return 0;
+		}
+		//rct.right = rct.left + Registers.Width;
+		//rct.bottom = rct.top + Registers.Height;
+		RECT	Rect2, Rect3;
+		POINT	pt;
+		GetWindowRect(hWin, &rct);
+		GetClientRect(hWin, &Rect2);
+		pt.x = 0;
+		pt.y = 0;
+		ClientToScreen(hWin, &pt);
+		Rect2.left = pt.x - rct.left;
+		Rect2.top = pt.y - rct.top;
+		rct.right -= rct.left;
+		rct.bottom -= rct.top;
+		rct.left = 0;
+		rct.top = 0;
+
+		//rct
+		//	right	= width of window
+		Rect3.left = GetSystemMetrics(SM_CXSIZEFRAME);
+		Rect3.top = GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CYCAPTION);
+		Rect3.right = Rect2.left;
+		Rect3.bottom = rct.bottom - GetSystemMetrics(SM_CYSIZEFRAME);
+		FillRect(hdc, &Rect3, (HBRUSH)(COLOR_BTNFACE + 1));
+		rct.left = GetSystemMetrics(SM_CXSIZEFRAME);
+		rct.top = GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CYCAPTION);
+		rct.right = rct.left + Registers.Width - 1;
+		rct.bottom = rct.top + Registers.Height - 1;
+		FillRect(hdc, &rct, (HBRUSH)(COLOR_WINDOW + 1));
+		PaintRegisters(hdc, &rct);
+
+		//Draw Border around client area
+		Rect2.bottom += Rect2.top + GetSystemMetrics(SM_CYEDGE);
+		Rect2.right += Rect2.left + GetSystemMetrics(SM_CXEDGE);
+		Rect2.left -= GetSystemMetrics(SM_CXEDGE);
+		Rect2.top -= GetSystemMetrics(SM_CYEDGE);
+		DrawEdge(hdc, &Rect2, EDGE_SUNKEN, BF_ADJUST | BF_RECT);
+		ReleaseDC(hWin, hdc);
+		return 0;*/
 
 	case WM_CREATE:
 		ccs.hWindowMenu = GetSubMenu(GetMenu(hWin), 5);
@@ -1456,7 +1628,6 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			DisplayErrorMessage(NULL);
 			return 1;
 		}
-		//DefaultClientWndProc = (WNDPROC)SetWindowLong(hClientWnd, GWL_WNDPROC, (long)ClientWndProc);
 		return 0;
 
 	case WM_CLOSE:
@@ -1467,6 +1638,22 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		break;
 
 	case WM_DESTROY:
+		Main.Appearance = GetWindowLong(hWin, GWL_STYLE) & WS_MAXIMIZE ? 2 : 0;
+		if (!(Main.Appearance & 2) && !(GetWindowLong(hWin, GWL_STYLE) & WS_MINIMIZE))
+		{
+			GetWindowRect(hWin, &rct);
+			Main.x = rct.left;
+			Main.y = rct.top;
+			Main.Width = rct.right - rct.left;
+			Main.Height = rct.bottom - rct.top;
+		}
+		Registers.Appearance = hRegisters ? 1 : 0;
+		DisAsm.Appearance = hDisAsm ? 1 : 0;
+		Memory.Appearance = hMemory ? 1 : 0;
+		Tiles.Appearance = hTiles ? 1 : 0;
+		TileMap.Appearance = hTileMap ? 1 : 0;
+		Palettes.Appearance = hPalettes ? 1 : 0;
+		Hardware.Appearance = hHardware ? 1 : 0;
 		PostQuitMessage(0);
 	}
 
@@ -1475,7 +1662,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 
 
-void UpdateRegister()
+void UpdateRegistry()
 {
 	HKEY		hKey;
 	DWORD		Value, dw, dwErrCode;
@@ -1563,6 +1750,162 @@ void UpdateRegister()
 
 
 
+void LoadWindowSettings(HKEY hKey, char *pszWindowName, WINDOWSETTINGS *pWindowSettings)
+{
+	char		szKey[50];
+	DWORD		dwLength;
+	DWORD		Value, ValueSize, ValueType;
+
+
+	strcpy(szKey, pszWindowName);
+	dwLength = strlen(szKey);
+
+	strcat(szKey, "Appearance");
+	ValueSize = sizeof(Value);
+	if (!RegQueryValueEx(hKey, szKey, NULL, &ValueType, (BYTE *)&Value, &ValueSize))
+	{
+		if (ValueType == REG_DWORD)
+		{
+			pWindowSettings->Appearance = Value & 3;
+		}
+	}
+	szKey[dwLength] = '\0';
+	strcat(szKey, "X");
+	ValueSize = sizeof(Value);
+	if (!RegQueryValueEx(hKey, szKey, NULL, &ValueType, (BYTE *)&Value, &ValueSize))
+	{
+		if (ValueType == REG_DWORD)
+		{
+			pWindowSettings->x = Value;
+		}
+	}
+	szKey[dwLength] = '\0';
+	strcat(szKey, "Y");
+	ValueSize = sizeof(Value);
+	if (!RegQueryValueEx(hKey, szKey, NULL, &ValueType, (BYTE *)&Value, &ValueSize))
+	{
+		if (ValueType == REG_DWORD)
+		{
+			pWindowSettings->y = Value;
+		}
+	}
+	szKey[dwLength] = '\0';
+	strcat(szKey, "Width");
+	ValueSize = sizeof(Value);
+	if (!RegQueryValueEx(hKey, szKey, NULL, &ValueType, (BYTE *)&Value, &ValueSize))
+	{
+		if (ValueType == REG_DWORD)
+		{
+			pWindowSettings->Width = Value;
+		}
+	}
+	szKey[dwLength] = '\0';
+	strcat(szKey, "Height");
+	ValueSize = sizeof(Value);
+	if (!RegQueryValueEx(hKey, szKey, NULL, &ValueType, (BYTE *)&Value, &ValueSize))
+	{
+		if (ValueType == REG_DWORD)
+		{
+			pWindowSettings->Height = Value;
+		}
+	}
+	if (pWindowSettings->Zoom != 0)
+	{
+		szKey[dwLength] = '\0';
+		strcat(szKey, "Zoom");
+		ValueSize = sizeof(Value);
+		if (!RegQueryValueEx(hKey, szKey, NULL, &ValueType, (BYTE *)&Value, &ValueSize))
+		{
+			if (ValueType == REG_DWORD)
+			{
+				if (Value > 4)
+				{
+					Value = 4;
+				}
+				if (Value < 1)
+				{
+					Value = 1;
+				}
+				pWindowSettings->Zoom = Value;
+			}
+		}
+	}
+}
+
+
+
+BOOL SaveWindowSettings(HKEY hKey, char *pszWindowName, WINDOWSETTINGS *pWindowSettings)
+{
+	char		szKey[50];
+	DWORD		dwLength;
+	DWORD		Value, dwErrCode;
+
+
+	strcpy(szKey, pszWindowName);
+	dwLength = strlen(szKey);
+
+	strcat(szKey, "Appearance");
+	Value = pWindowSettings->Appearance;
+	if (dwErrCode = RegSetValueEx(hKey, szKey, 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
+	{
+		RegCloseKey(hKey);
+		DisplayErrorMessage(NULL, dwErrCode);
+		return true;
+	}
+	szKey[dwLength] = '\0';
+	strcat(szKey, "X");
+	Value = pWindowSettings->x;
+	if (dwErrCode = RegSetValueEx(hKey, szKey, 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
+	{
+		RegCloseKey(hKey);
+		DisplayErrorMessage(NULL, dwErrCode);
+		return true;
+	}
+	szKey[dwLength] = '\0';
+	strcat(szKey, "Y");
+	Value = pWindowSettings->y;
+	if (dwErrCode = RegSetValueEx(hKey, szKey, 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
+	{
+		RegCloseKey(hKey);
+		DisplayErrorMessage(NULL, dwErrCode);
+		return true;
+	}
+	szKey[dwLength] = '\0';
+	strcat(szKey, "Width");
+	Value = pWindowSettings->Width;
+	if (dwErrCode = RegSetValueEx(hKey, szKey, 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
+	{
+		RegCloseKey(hKey);
+		DisplayErrorMessage(NULL, dwErrCode);
+		return true;
+	}
+	szKey[dwLength] = '\0';
+	strcat(szKey, "Height");
+	Value = pWindowSettings->Height;
+	if (dwErrCode = RegSetValueEx(hKey, szKey, 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
+	{
+		RegCloseKey(hKey);
+		DisplayErrorMessage(NULL, dwErrCode);
+		return true;
+	}
+	if (pWindowSettings->Zoom != 0)
+	{
+		szKey[dwLength] = '\0';
+		strcat(szKey, "Zoom");
+		Value = pWindowSettings->Zoom;
+		if (dwErrCode = RegSetValueEx(hKey, szKey, 0, REG_DWORD, (BYTE *)&Value, sizeof(DWORD)))
+		{
+			RegCloseKey(hKey);
+			DisplayErrorMessage(NULL, dwErrCode);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+
 void LoadCustomSettings()
 {
 	HKEY		hKey;
@@ -1602,6 +1945,7 @@ void LoadCustomSettings()
 		}
 		RegCloseKey(hKey);
 	}
+
 	if (!RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad\\Settings\\Player1", 0, KEY_EXECUTE, &hKey))
 	{
 		ValueSize = sizeof(Value);
@@ -1677,6 +2021,94 @@ void LoadCustomSettings()
 			}
 		}
 		RegCloseKey(hKey);
+	}
+
+
+	Main.Appearance = 0;
+	Main.x = CW_USEDEFAULT;
+	Main.y = CW_USEDEFAULT;
+	Main.Width = CW_USEDEFAULT;
+	Main.Height = CW_USEDEFAULT;
+	Main.Zoom = 0;
+	Registers.Appearance = 0;
+	Registers.x = CW_USEDEFAULT;
+	Registers.y = CW_USEDEFAULT;
+	Registers.Width = 12 * FixedFontWidth + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE);
+	Registers.Height = 14 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE);
+	Registers.Zoom = 0;
+	DisAsm.Appearance = 0;
+	DisAsm.x = CW_USEDEFAULT;
+	DisAsm.y = CW_USEDEFAULT;
+	DisAsm.Width = 32 * FixedFontWidth + 15 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE) + GetSystemMetrics(SM_CXVSCROLL);
+	DisAsm.Height = 32 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE);
+	DisAsm.Zoom = 0;
+	Memory.Appearance = 0;
+	Memory.x = CW_USEDEFAULT;
+	Memory.y = CW_USEDEFAULT;
+	Memory.Width = 42 * FixedFontWidth + 1 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE) + GetSystemMetrics(SM_CXVSCROLL);
+	Memory.Height = 32 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE);
+	Memory.Zoom = 0;
+	Tiles.Appearance = 0;
+	Tiles.x = CW_USEDEFAULT;
+	Tiles.y = CW_USEDEFAULT;
+	Tiles.Width = 0;
+	Tiles.Height = 0;
+	Tiles.Zoom = 1;
+	TileMap.Appearance = 0;
+	TileMap.x = CW_USEDEFAULT;
+	TileMap.y = CW_USEDEFAULT;
+	TileMap.Width = 0;
+	TileMap.Height = 0;
+	TileMap.Zoom = 1;
+	Palettes.Appearance = 0;
+	Palettes.x = CW_USEDEFAULT;
+	Palettes.y = CW_USEDEFAULT;
+	Palettes.Width = 362 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE);
+	Palettes.Height = 345 + FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE);
+	Palettes.Zoom = 0;
+	Hardware.Appearance = 0;
+	Hardware.x = CW_USEDEFAULT;
+	Hardware.y = CW_USEDEFAULT;
+	Hardware.Width = 19 * FixedFontWidth + 4 * GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXVSCROLL);
+	Hardware.Height = 3 * FixedFontHeight + GetSystemMetrics(SM_CYSMCAPTION) + 4 * GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CYHSCROLL);
+	Hardware.Zoom = 0;
+
+	if (!RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad\\Settings\\Windows", 0, KEY_EXECUTE, &hKey))
+	{
+		LoadWindowSettings(hKey, "", &Main);
+		LoadWindowSettings(hKey, "Registers", &Registers);
+		LoadWindowSettings(hKey, "Disassembly", &DisAsm);
+		LoadWindowSettings(hKey, "Memory", &Memory);
+		LoadWindowSettings(hKey, "Tiles", &Tiles);
+		LoadWindowSettings(hKey, "TileMap", &TileMap);
+		LoadWindowSettings(hKey, "Palettes", &Palettes);
+		LoadWindowSettings(hKey, "Hardware", &Hardware);
+		RegCloseKey(hKey);
+	}
+
+	if (Main.x >= (unsigned)GetSystemMetrics(SM_CXFULLSCREEN) - 30)
+	{
+		Main.x = CW_USEDEFAULT;
+	}
+	if (Main.y >= (unsigned)GetSystemMetrics(SM_CYFULLSCREEN) - 20)
+	{
+		Main.y = CW_USEDEFAULT;
+	}
+	if (Tiles.Width == 0)
+	{
+		Tiles.Width = 46 + Tiles.Zoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE);
+	}
+	if (Tiles.Height == 0)
+	{
+		Tiles.Height = 34 + Tiles.Zoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION);
+	}
+	if (TileMap.Width == 0)
+	{
+		TileMap.Width = 83 + TileMap.Zoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE);
+	}
+	if (TileMap.Height == 0)
+	{
+		TileMap.Height = 40 + TileMap.Zoom * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION);
 	}
 }
 
@@ -1787,6 +2219,48 @@ void SaveCustomSettings()
 		return;
 	}
 	RegCloseKey(hKey);
+
+
+	if (dwErrCode = RegCreateKeyEx(HKEY_CURRENT_USER, "Software\\Game Lad\\Settings\\Windows", 0, "REG_DWORD", REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, &dw))
+	{
+		DisplayErrorMessage(NULL, dwErrCode);
+		return;
+	}
+
+	if (SaveWindowSettings(hKey, "", &Main))
+	{
+		return;
+	}
+	if (SaveWindowSettings(hKey, "Registers", &Registers))
+	{
+		return;
+	}
+	if (SaveWindowSettings(hKey, "Disassembly", &DisAsm))
+	{
+		return;
+	}
+	if (SaveWindowSettings(hKey, "Memory", &Memory))
+	{
+		return;
+	}
+	if (SaveWindowSettings(hKey, "Tiles", &Tiles))
+	{
+		return;
+	}
+	if (SaveWindowSettings(hKey, "TileMap", &TileMap))
+	{
+		return;
+	}
+	if (SaveWindowSettings(hKey, "Palettes", &Palettes))
+	{
+		return;
+	}
+	if (SaveWindowSettings(hKey, "Hardware", &Hardware))
+	{
+		return;
+	}
+
+	RegCloseKey(hKey);
 }
 
 
@@ -1818,8 +2292,21 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	}
 
 
+	//Load fonts used
+	hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+	hFixedFont = (HFONT)GetStockObject(ANSI_FIXED_FONT);
+
+	//Get size of the fonts
+	hdc = GetDC(hWnd);
+	SelectObject(hdc, hFixedFont);
+	GetTextMetrics(hdc, &tm);
+	ReleaseDC(hWnd, hdc);
+	FixedFontWidth = tm.tmMaxCharWidth;
+	FixedFontHeight = tm.tmHeight;
+
+
 	//Set Game Lad specific keys in the system registry
-	UpdateRegister();
+	UpdateRegistry();
 
 
 	LoadCustomSettings();
@@ -1868,26 +2355,13 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	//Create main window
 	if (!(hWnd = CreateWindowEx(WS_EX_CLIENTEDGE | WS_EX_ACCEPTFILES, "Game Lad", "Game Lad",
 		WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
-		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+		Main.x, Main.y, Main.Width, Main.Height,
 		NULL, LoadMenu(hInstance, MAKEINTRESOURCE(IDR_MENU)), hInstance, NULL)))
 	{
 		DestroyMenu(hPopupMenu);
 		DisplayErrorMessage(NULL);
 		return 1;
 	}
-
-
-	//Load fonts used
-	hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-	hFixedFont = (HFONT)GetStockObject(ANSI_FIXED_FONT);
-
-	//Get size of the fonts
-	hdc = GetDC(hWnd);
-	SelectObject(hdc, hFixedFont);
-	GetTextMetrics(hdc, &tm);
-	ReleaseDC(hWnd, hdc);
-	FixedFontWidth = tm.tmMaxCharWidth;
-	FixedFontHeight = tm.tmHeight;
 
 
 	if (CreateDebugWindows())
@@ -1922,8 +2396,38 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	}
 
 
+	if (Registers.Appearance & 1)
+	{
+		SendMessage(hWnd, WM_COMMAND, ID_VIEW_REGISTERS, 0);
+	}
+	if (DisAsm.Appearance & 1)
+	{
+		SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+	}
+	if (Memory.Appearance & 1)
+	{
+		SendMessage(hWnd, WM_COMMAND, ID_VIEW_MEMORY, 0);
+	}
+	if (Tiles.Appearance & 1)
+	{
+		SendMessage(hWnd, WM_COMMAND, ID_VIEW_TILES, 0);
+	}
+	if (TileMap.Appearance & 1)
+	{
+		SendMessage(hWnd, WM_COMMAND, ID_VIEW_TILEMAP, 0);
+	}
+	if (Palettes.Appearance & 1)
+	{
+		SendMessage(hWnd, WM_COMMAND, ID_VIEW_PALETTES, 0);
+	}
+	if (Hardware.Appearance & 1)
+	{
+		SendMessage(hWnd, WM_COMMAND, ID_VIEW_HARDWARE, 0);
+	}
+
+
 	//Show window
-	ShowWindow(hWnd, nCmdShow);
+	ShowWindow(hWnd, Main.Appearance & 2 ? SW_SHOWMAXIMIZED : nCmdShow);
 	UpdateWindow(hWnd);
 
 

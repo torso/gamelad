@@ -1,3 +1,8 @@
+#ifndef		CLIST_H
+#define		CLIST_H
+
+
+
 typedef		BOOL (CALLBACK *CLIST_CREATECALLBACK)(void **);
 typedef		void (CALLBACK *CLIST_DELETECALLBACK)(void *);
 
@@ -26,28 +31,33 @@ struct LIST
 class CList
 {
 private:
-	LIST		*pList, *pFirstList;
-	LISTELEMENT	*pCurrentItem;
-	DWORD		MaxItemNo;
+	LIST					*pList, *pFirstList;
+	LISTELEMENT				*pCurrentItem;
+	DWORD					MaxItemNo;
 	CLIST_CREATECALLBACK	CreateCallback;
 	CLIST_DELETECALLBACK	DeleteCallback;
 
-	LISTELEMENT	*GetListNo(DWORD dwNumber);
+	void					Init(CLIST_CREATECALLBACK _CreateCallback, CLIST_DELETECALLBACK _DeleteCallback);
+	LISTELEMENT				*GetListNo(DWORD dwNumber);
 
 public:
-	DWORD		dwUserData;
+	DWORD					dwUserData;
 
 	CList(CLIST_CREATECALLBACK _CreateCallback, CLIST_DELETECALLBACK _DeleteCallback);
 	CList();
 	~CList();
 
-	void		*NewItem(DWORD dwSize);
-	void		*NewItem(DWORD dwSize, void *pv);
-	void		PreviousItemToCurrent();
-	void		*GetCurrentItem();
-	DWORD		GetCurrentItemNo();
-	DWORD		GetMaxItemNo();
-	void		*GetItem(DWORD dwNumber);
-	DWORD		GetSizeofItem(DWORD dwNumber);
+	void					*NewItem(DWORD dwSize);
+	void					*NewItem(DWORD dwSize, void *pv);
+	void					PreviousItemToCurrent();
+	void					*GetCurrentItem();
+	DWORD					GetCurrentItemNo();
+	DWORD					GetMaxItemNo();
+	void					*GetItem(DWORD dwNumber);
+	DWORD					GetSizeofItem(DWORD dwNumber);
 };
+
+
+
+#endif		//CLIST_H
 

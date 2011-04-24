@@ -27,7 +27,7 @@ DWORD WINAPI GameLoop(void *pGameBoy)
 
 
 	((CGameBoy *)pGameBoy)->PrepareEmulation(false);
-	MemoryFlags = 0;
+	MemoryFlags = DisAsmFlags = 0;
 
 #ifdef TIMEDEMO
 	QueryPerformanceFrequency(&TimerFrequency);
@@ -58,11 +58,12 @@ DWORD WINAPI GameLoop(void *pGameBoy)
 		if (((CGameBoy *)pGameBoy)->Flags & GB_INVALIDOPCODE)
 		{
 			((CGameBoy *)pGameBoy)->CloseSound();
-			MessageBox(hWnd, ultoa((BYTE)ReadMem((CGameBoy *)pGameBoy, ((CGameBoy *)pGameBoy)->Reg_PC), NumBuffer, 16), "Invalid OP code", MB_OK | MB_ICONERROR);
+			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 			if (GameBoyList.GetActive() == pGameBoy)
 			{
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			}
+			MessageBox(hWnd, "Invalid OP code", "Game Lad", MB_OK | MB_ICONWARNING);
 			((CGameBoy *)pGameBoy)->hThread = NULL;
 			return 0;
 		}
@@ -115,7 +116,7 @@ DWORD WINAPI DebugGameLoop(void *pGameBoy)
 
 
 	((CGameBoy *)pGameBoy)->PrepareEmulation(true);
-	MemoryFlags = 0;
+	MemoryFlags = DisAsmFlags = 0;
 
 	while (true)
 	{
@@ -140,11 +141,12 @@ DWORD WINAPI DebugGameLoop(void *pGameBoy)
 		if (((CGameBoy *)pGameBoy)->Flags & GB_INVALIDOPCODE)
 		{
 			((CGameBoy *)pGameBoy)->CloseSound();
-			MessageBox(hWnd, ultoa((BYTE)ReadMem((CGameBoy *)pGameBoy, ((CGameBoy *)pGameBoy)->Reg_PC), NumBuffer, 16), "Invalid OP code", MB_OK | MB_ICONERROR);
+			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 			if (GameBoyList.GetActive() == pGameBoy)
 			{
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			}
+			MessageBox(hWnd, "Invalid OP code", "Game Lad", MB_OK | MB_ICONWARNING);
 			((CGameBoy *)pGameBoy)->hThread = NULL;
 			return 0;
 		}
@@ -206,7 +208,7 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 
 
 	((EMULATIONINFO *)pEmulationInfo)->GameBoy1->PrepareEmulation(true);
-	MemoryFlags = 0;
+	MemoryFlags = DisAsmFlags = 0;
 
 	while (true)
 	{
@@ -233,11 +235,12 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 		if (((EMULATIONINFO *)pEmulationInfo)->GameBoy1->Flags & GB_INVALIDOPCODE)
 		{
 			((EMULATIONINFO *)pEmulationInfo)->GameBoy1->CloseSound();
-			MessageBox(hWnd, ultoa((BYTE)ReadMem(((EMULATIONINFO *)pEmulationInfo)->GameBoy1, ((EMULATIONINFO *)pEmulationInfo)->GameBoy1->Reg_PC), NumBuffer, 16), "Invalid OP code", MB_OK | MB_ICONERROR);
+			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 			if (GameBoyList.GetActive() == ((EMULATIONINFO *)pEmulationInfo)->GameBoy1)
 			{
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			}
+			MessageBox(hWnd, "Invalid OP code", "Game Lad", MB_OK | MB_ICONWARNING);
 			((EMULATIONINFO *)pEmulationInfo)->GameBoy1->hThread = NULL;
 			delete pEmulationInfo;
 			return 0;
@@ -350,27 +353,6 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 
 
 
-		/*pByte = DisAsmGameBoy->Reg_SP;
-		do
-		{
-			DisAsmGameBoy->Flags |= GB_EXITLOOP;
-			DisAsmGameBoy->DebugMainLoop();
-		}
-		while (pByte >= DisAsmGameBoy->Reg_SP && !(DisAsmGameBoy->Flags & GB_ERROR));
-		DisAsmGameBoy->Flags &= ~(GB_EXITLOOP | GB_ERROR);
-		DisAsmCaretByte = DisAsmGameBoy->Reg_PC;
-		//SendMessage(hWin, WM_APP_SCROLLTOCURSOR, 0, 0);
-
-		PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);*/
-		/*do
-		{
-			DisAsmGameBoy->Flags = GB_EXITLOOP;
-			DisAsmGameBoy->DebugMainLoop();
-		}
-		while (DisAsmCaretByte != DisAsmGameBoy->Reg_PC && !(DisAsmGameBoy->Flags & GB_ERROR));
-		DisAsmGameBoy->Flags &= ~(GB_EXITLOOP | GB_ERROR);
-
-		PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);*/
 /*void GameLoop(CGameBoy *GameBoy1, CGameBoy *GameBoy2)
 {
 	MSG				msg;
@@ -378,18 +360,6 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 
 
 	StopEmulation = false;
-
-	if (QueryPerformanceFrequency(&TimerFrequency))
-	{
-		TimerFrequency.QuadPart /= 60;
-		QueryPerformanceCounter(&TimerCounter2);
-	}
-	else
-	{
-		MessageBox(hWnd, "No high resolution timer available.", "Game Lad", MB_OK | MB_ICONERROR);
-		return;
-	}
-
 
 /*	Connected = false;
 
@@ -472,199 +442,6 @@ DWORD WINAPI StepGameLoop(void *pEmulationInfo)
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
-
-		if (StopEmulation)
-		{
-			return;
-		}
-
-		ZeroMemory(&GameBoy1->KeysDown, sizeof(GameBoy1->KeysDown));
-		/*if (GameBoy2)
-		{
-			ZeroMemory(&GameBoy2->KeysDown, sizeof(GameBoy2->KeysDown));
-		}*/
-
-/*		GetKeyboardState((BYTE *)&KbdBuffer);
-#ifdef _DEBUG
-		if (KbdBuffer[VK_END] & 0x80)
-		{
-			PostQuitMessage(__LINE__);
-			return;
-		}
-#endif //_DEBUG
-		if (KbdBuffer[VK_ESCAPE] & 0x80)
-		{
-			return;
-		}
-
-		if (KbdBuffer[VK_UP] & 0x80)
-		{
-			GameBoy1->KeysDown.Up = true;
-		}
-		if (KbdBuffer[VK_DOWN] & 0x80)
-		{
-			GameBoy1->KeysDown.Down = true;
-		}
-		if (KbdBuffer[VK_RIGHT] & 0x80)
-		{
-			GameBoy1->KeysDown.Right = true;
-		}
-		if (KbdBuffer[VK_LEFT] & 0x80)
-		{
-			GameBoy1->KeysDown.Left = true;
-		}
-		if (KbdBuffer['X'] & 0x80)
-		{
-			GameBoy1->KeysDown.A = true;
-		}
-		if (KbdBuffer['Z'] & 0x80)
-		{
-			GameBoy1->KeysDown.B = true;
-		}
-		if (KbdBuffer[VK_RETURN] & 0x80)
-		{
-			GameBoy1->KeysDown.Start = true;
-		}
-		if (KbdBuffer[VK_RSHIFT] & 0x80)
-		{
-			GameBoy1->KeysDown.Select = true;
-		}
-
-		/*if (GameBoy2)
-		{
-			if (KbdBuffer[VK_L] & 0x80)
-			{
-				GameBoy2->KeysDown.Up = true;
-			}
-			if (KbdBuffer[VK_PERIOD] & 0x80)
-			{
-				GameBoy2->KeysDown.Down = true;
-			}
-			if (KbdBuffer[VK_SLASH] & 0x80)
-			{
-				GameBoy2->KeysDown.Right = true;
-			}
-			if (KbdBuffer[VK_COMMA] & 0x80)
-			{
-				GameBoy2->KeysDown.Left = true;
-			}
-			if (KbdBuffer[VK_S] & 0x80)
-			{
-				GameBoy2->KeysDown.A = true;
-			}
-			if (KbdBuffer[VK_A] & 0x80)
-			{
-				GameBoy2->KeysDown.B = true;
-			}
-			if (KbdBuffer[VK_N] & 0x80)
-			{
-				GameBoy2->KeysDown.Start = true;
-			}
-			if (KbdBuffer[VK_M] & 0x80)
-			{
-				GameBoy2->KeysDown.Select = true;
-			}
-		}*/
-		/*if (lpdidKeyboard)
-		{
-			if (lpdidKeyboard->GetDeviceState(sizeof(KbdBuffer), &KbdBuffer))
-			{
-				CloseGfx(0);
-				return;
-			}
-
-#ifdef _DEBUG
-			if (KbdBuffer[DIK_END] & 0x80)
-			{
-				CloseGfx(0);
-				PostQuitMessage(__LINE__);
-				return;
-			}
-#endif //_DEBUG
-			if (KbdBuffer[DIK_ESCAPE] & 0x80)
-			{
-				CloseGfx(0);
-				return;
-			}
-			if (KbdBuffer[DIK_GRAVE] & 0x80)
-			{
-				FrameSkip = 9;
-			}
-			else
-			{
-				FrameSkip = DefaultFrameSkip;
-			}
-			if (GameBoy1)
-			{
-				if (KbdBuffer[DIK_UP] & 0x80)
-				{
-					GameBoy1->KeysDown.Up = true;
-				}
-				if (KbdBuffer[DIK_DOWN] & 0x80)
-				{
-					GameBoy1->KeysDown.Down = true;
-				}
-				if (KbdBuffer[DIK_RIGHT] & 0x80)
-				{
-					GameBoy1->KeysDown.Right = true;
-				}
-				if (KbdBuffer[DIK_LEFT] & 0x80)
-				{
-					GameBoy1->KeysDown.Left = true;
-				}
-				if (KbdBuffer[DIK_X] & 0x80)
-				{
-					GameBoy1->KeysDown.A = true;
-				}
-				if (KbdBuffer[DIK_Z] & 0x80)
-				{
-					GameBoy1->KeysDown.B = true;
-				}
-				if (KbdBuffer[DIK_RETURN] & 0x80 || KbdBuffer[DIK_NUMPADENTER] & 0x80)
-				{
-					GameBoy1->KeysDown.Start = true;
-				}
-				if (KbdBuffer[DIK_RSHIFT] & 0x80)
-				{
-					GameBoy1->KeysDown.Select = true;
-				}
-			}
-			if (GameBoy2)
-			{
-				if (KbdBuffer[DIK_L] & 0x80)
-				{
-					GameBoy2->KeysDown.Up = true;
-				}
-				if (KbdBuffer[DIK_PERIOD] & 0x80)
-				{
-					GameBoy2->KeysDown.Down = true;
-				}
-				if (KbdBuffer[DIK_SLASH] & 0x80)
-				{
-					GameBoy2->KeysDown.Right = true;
-				}
-				if (KbdBuffer[DIK_COMMA] & 0x80)
-				{
-					GameBoy2->KeysDown.Left = true;
-				}
-				if (KbdBuffer[DIK_S] & 0x80)
-				{
-					GameBoy2->KeysDown.A = true;
-				}
-				if (KbdBuffer[DIK_A] & 0x80)
-				{
-					GameBoy2->KeysDown.B = true;
-				}
-				if (KbdBuffer[DIK_N] & 0x80)
-				{
-					GameBoy2->KeysDown.Start = true;
-				}
-				if (KbdBuffer[DIK_M] & 0x80)
-				{
-					GameBoy2->KeysDown.Select = true;
-				}
-			}
-		} //lpdidKeyboard*/
 
 /*		GameBoy1->MainLoop(true);
 		/*if (GameBoy2)

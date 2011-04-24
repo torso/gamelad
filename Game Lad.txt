@@ -1,4 +1,4 @@
-Game Lad 1.01
+Game Lad 1.1
 
 Written by Torbjörn Söderstedt
 
@@ -9,6 +9,20 @@ All information about this program is available online at http://gamelad.emuunli
 
 What's New
 ----------
+
+Version 1.1
+*Faster!
+*Edit memory
+*Sym file support
+*View different banks in disassembly window
+*Window positions are stored
+*The number of ticks remaining of the entire V-Blank period are shown in the registers window,
+ instead of the number of ticks until the next line
+*Breakpoints at interrupt addresses now works
+*When debugging, the access for internal RAM (0xD000-0xDFFF) is restored correctly
+*16-bit memory contents is shown in registers window if execution was stopped at a ld [mem], sp
+*Zoom commands were deactivated while a Game Boy window was active
+*The edit and the emulation menus have different access keys
 
 Version 1.01
 *You can view any bank in the memory viewer

@@ -705,11 +705,9 @@ DMA:
 
 VRAMBankSelect:
 		//VRAM bank select
-		and		byte ptr [ecx + FF00_ASM + 0x4F], ~1
-
 		push	eax
 		and		eax, 1
-		or		byte ptr [ecx + FF00_ASM + 0x4F], al
+		mov		byte ptr [ecx + FF00_ASM + 0x4F], al
 		shl		eax, 13
 		add		eax, Offset_MEM_VRAM
 		add		eax, ecx

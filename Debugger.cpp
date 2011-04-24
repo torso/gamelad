@@ -2,6 +2,7 @@
 #include	"resource.h"
 
 #define		DEBUGGER_CPP
+#include	"CDebugInfo.h"
 #include	"Game Lad.h"
 #include	"Debugger.h"
 #include	"Emulation.h"
@@ -66,6 +67,7 @@ struct _OpCodeNames
 #define		OCF_ADDRESS_SP	0x20000000
 #define		OCF_ADDRESS_C	0x80000000
 #define		OCF_ADDRESS		0x00000080
+#define		OCF_ADDRESS_16	0x10000000
 #define		OCF_COND_NZ		0x00000100
 #define		OCF_COND_Z		0x00000200
 #define		OCF_COND_NC		0x00000400
@@ -90,7 +92,7 @@ const _OpCodeNames	OpCodeNames[256] = {
 							"dec  b", "", 0,
 							"ld   b, ", "", OCF_DATA8,
 							"rlca", "", 0,
-							"ld   [", "], sp", OCF_DATA16 | OCF_ADDRESS,	//0x08
+							"ld   [", "], sp", OCF_DATA16 | OCF_ADDRESS | OCF_ADDRESS_16,	//0x08
 							"add  hl, bc", "", 0,
 							"ld   a, [bc]", "", OCF_ADDRESS_BC,
 							"dec  bc", "", 0,
@@ -425,8 +427,6 @@ char *ToHex(unsigned int n, BOOL Word)
 
 
 
-DWORD		TileMapZoom = 1;
-
 LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CGameBoy		*pGameBoy;
@@ -537,13 +537,13 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 					}
 				}
 
-				if (TileMapZoom == 1)
+				if (TileMap.Zoom == 1)
 				{
 					BitBlt(Paint.hdc, 5 + 9 * ((pMapTile - 0x1800) & 0x1F) + (pMapTile >= 0x1C00 ? 300 : 0) - x, 5 + 9 * (((pMapTile - 0x1800) & ~0x1F) >> 5) - (pMapTile >= 0x1C00 ? 288 : 0) - y, 8, 8, hdc, 0, 0, SRCCOPY);
 				}
 				else
 				{
-					StretchBlt(Paint.hdc, 5 + TileMapZoom * 8 * ((pMapTile - 0x1800) & 0x1F) + ((pMapTile - 0x1800) & 0x1F) + (pMapTile >= 0x1C00 ? 42 + TileMapZoom * 256 : 0) - x, 5 + TileMapZoom * 8 * (((pMapTile - 0x1800) & ~0x1F) >> 5) + (((pMapTile - 0x1800) & ~0x1F) >> 5) - (pMapTile >= 0x1C00 ? 32 + TileMapZoom * 256 : 0) - y, TileMapZoom * 8, TileMapZoom * 8, hdc, 0, 0, 8, 8, SRCCOPY);
+					StretchBlt(Paint.hdc, 5 + TileMap.Zoom * 8 * ((pMapTile - 0x1800) & 0x1F) + ((pMapTile - 0x1800) & 0x1F) + (pMapTile >= 0x1C00 ? 42 + TileMap.Zoom * 256 : 0) - x, 5 + TileMap.Zoom * 8 * (((pMapTile - 0x1800) & ~0x1F) >> 5) + (((pMapTile - 0x1800) & ~0x1F) >> 5) - (pMapTile >= 0x1C00 ? 32 + TileMap.Zoom * 256 : 0) - y, TileMap.Zoom * 8, TileMap.Zoom * 8, hdc, 0, 0, 8, 8, SRCCOPY);
 				}
 
 				pMapTile++;
@@ -680,20 +680,20 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		switch (LOWORD(wParam))
 		{
 		case ID_VIEW_ZOOM_100:
-			if (TileMapZoom != 1)
+			if (TileMap.Zoom != 1)
 			{
-				TileMapZoom = 1;
+				TileMap.Zoom = 1;
 				GetWindowRect(hWnd, &Rect2);
 				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMapZoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMap.Zoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
 				si.cbSize = sizeof(si);
 				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
 				si.nPos = 0;
 				si.nMin = 0;
-				si.nMax = 82 + TileMapZoom * 512;
+				si.nMax = 82 + TileMap.Zoom * 512;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 39 + TileMapZoom * 256;
+				si.nMax = 39 + TileMap.Zoom * 256;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_VERT, &si, true);
 				InvalidateRect(hWin, NULL, true);
@@ -701,20 +701,20 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			return 0;
 
 		case ID_VIEW_ZOOM_200:
-			if (TileMapZoom != 2)
+			if (TileMap.Zoom != 2)
 			{
-				TileMapZoom = 2;
+				TileMap.Zoom = 2;
 				GetWindowRect(hWnd, &Rect2);
 				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMapZoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + TileMapZoom * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMap.Zoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + TileMap.Zoom * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
 				si.cbSize = sizeof(si);
 				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
 				si.nPos = 0;
 				si.nMin = 0;
-				si.nMax = 82 + TileMapZoom * 512;
+				si.nMax = 82 + TileMap.Zoom * 512;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 39 + TileMapZoom * 256;
+				si.nMax = 39 + TileMap.Zoom * 256;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_VERT, &si, true);
 				InvalidateRect(hWin, NULL, true);
@@ -722,20 +722,20 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			return 0;
 
 		case ID_VIEW_ZOOM_300:
-			if (TileMapZoom != 3)
+			if (TileMap.Zoom != 3)
 			{
-				TileMapZoom = 3;
+				TileMap.Zoom = 3;
 				GetWindowRect(hWnd, &Rect2);
 				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMapZoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + TileMapZoom * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMap.Zoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + TileMap.Zoom * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
 				si.cbSize = sizeof(si);
 				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
 				si.nPos = 0;
 				si.nMin = 0;
-				si.nMax = 82 + TileMapZoom * 512;
+				si.nMax = 82 + TileMap.Zoom * 512;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 39 + TileMapZoom * 256;
+				si.nMax = 39 + TileMap.Zoom * 256;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_VERT, &si, true);
 				InvalidateRect(hWin, NULL, true);
@@ -743,20 +743,20 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			return 0;
 
 		case ID_VIEW_ZOOM_400:
-			if (TileMapZoom != 4)
+			if (TileMap.Zoom != 4)
 			{
-				TileMapZoom = 4;
+				TileMap.Zoom = 4;
 				GetWindowRect(hWnd, &Rect2);
 				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMapZoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + TileMapZoom * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMap.Zoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + TileMap.Zoom * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
 				si.cbSize = sizeof(si);
 				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
 				si.nPos = 0;
 				si.nMin = 0;
-				si.nMax = 82 + TileMapZoom * 512;
+				si.nMax = 82 + TileMap.Zoom * 512;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 39 + TileMapZoom * 256;
+				si.nMax = 39 + TileMap.Zoom * 256;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_VERT, &si, true);
 				InvalidateRect(hWin, NULL, true);
@@ -765,31 +765,35 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		}
 		break;
 
-	case WM_NCLBUTTONDBLCLK:
-		if (wParam == HTCAPTION)
+	case WM_SYSCOMMAND:
+		//Window cannot be maximized
+		if ((wParam & 0xFFF0) == SC_MAXIMIZE)
 		{
 			return 0;
 		}
 		break;
 
 	case WM_CREATE:
-		GetWindowRect(hWnd, &Rect2);
-		GetWindowRect(hWin, &rct);
-		MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 83 + TileMapZoom * 512 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 40 + TileMapZoom * 256 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
 		si.cbSize = sizeof(si);
 		si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
 		si.nPos = 0;
 		si.nMin = 0;
-		si.nMax = 82 + TileMapZoom * 512;
+		si.nMax = 82 + TileMap.Zoom * 512;
 		si.nPage = si.nMax + 1;
 		SetScrollInfo(hWin, SB_HORZ, &si, true);
-		si.nMax = 39 + TileMapZoom * 256;
+		si.nMax = 39 + TileMap.Zoom * 256;
 		si.nPage = si.nMax + 1;
 		SetScrollInfo(hWin, SB_VERT, &si, true);
 		return 0;
 
 	case WM_DESTROY:
 		hTileMap = NULL;
+		GetWindowRect(hClientWnd, &Rect2);
+		GetWindowRect(hWin, &rct);
+		TileMap.x = rct.left - Rect2.left;
+		TileMap.y = rct.top - Rect2.top;
+		TileMap.Width = rct.right - rct.left;
+		TileMap.Height = rct.bottom - rct.top;
 		return 0;
 	}
 
@@ -802,6 +806,7 @@ LRESULT CALLBACK PalettesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 {
 	CGameBoy		*pGameBoy;
 	PAINTSTRUCT		Paint;
+	RECT			rct, Rect2;
 	BYTE			x, y;
 	HBRUSH			hBrush, hOldBrush;
 	DWORD			Color;
@@ -896,8 +901,9 @@ LRESULT CALLBACK PalettesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 		}
 		return 0;
 
-	case WM_NCLBUTTONDBLCLK:
-		if (wParam == HTCAPTION)
+	case WM_SYSCOMMAND:
+		//Window cannot be maximized
+		if ((wParam & 0xFFF0) == SC_MAXIMIZE)
 		{
 			return 0;
 		}
@@ -905,6 +911,12 @@ LRESULT CALLBACK PalettesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 	case WM_DESTROY:
 		hPalettes = NULL;
+		GetWindowRect(hClientWnd, &Rect2);
+		GetWindowRect(hWin, &rct);
+		Palettes.x = rct.left - Rect2.left;
+		Palettes.y = rct.top - Rect2.top;
+		Palettes.Width = rct.right - rct.left;
+		Palettes.Height = rct.bottom - rct.top;
 		return 0;
 	}
 
@@ -912,8 +924,6 @@ LRESULT CALLBACK PalettesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 }
 
 
-
-DWORD		TileZoom = 1;
 
 LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -1004,13 +1014,13 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						}
 					}
 
-					if (TileZoom == 1)
+					if (Tiles.Zoom == 1)
 					{
 						BitBlt(Paint.hdc, 5 + 9 * (pTile & 0x0F) + (Bank ? 149 : 0) - x, 5 + 9 * ((pTile & ~0xF) >> 4) - y, 8, 8, hdc, 0, 0, SRCCOPY);
 					}
 					else
 					{
-						StretchBlt(Paint.hdc, 5 + TileZoom * 8 * (pTile & 0x0F) + (pTile & 0x0F) + (Bank ? 21 + TileZoom * 128 : 0) - x, 5 + TileZoom * 8 * ((pTile & ~0xF) >> 4) + ((pTile & ~0xF) >> 4) - y, TileZoom * 8, TileZoom * 8, hdc, 0, 0, 8, 8, SRCCOPY);
+						StretchBlt(Paint.hdc, 5 + Tiles.Zoom * 8 * (pTile & 0x0F) + (pTile & 0x0F) + (Bank ? 21 + Tiles.Zoom * 128 : 0) - x, 5 + Tiles.Zoom * 8 * ((pTile & ~0xF) >> 4) + ((pTile & ~0xF) >> 4) - y, Tiles.Zoom * 8, Tiles.Zoom * 8, hdc, 0, 0, 8, 8, SRCCOPY);
 					}
 
 					pTile++;
@@ -1153,20 +1163,20 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		switch (LOWORD(wParam))
 		{
 		case ID_VIEW_ZOOM_100:
-			if (TileZoom != 1)
+			if (Tiles.Zoom != 1)
 			{
-				TileZoom = 1;
+				Tiles.Zoom = 1;
 				GetWindowRect(hWnd, &Rect2);
 				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + TileZoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + TileZoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + Tiles.Zoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + Tiles.Zoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
 				si.cbSize = sizeof(si);
 				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
 				si.nPos = 0;
 				si.nMin = 0;
-				si.nMax = 43 + TileZoom * 256;
+				si.nMax = 43 + Tiles.Zoom * 256;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 31 + TileZoom * 194;
+				si.nMax = 31 + Tiles.Zoom * 194;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_VERT, &si, true);
 				InvalidateRect(hWin, NULL, true);
@@ -1174,20 +1184,20 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return 0;
 
 		case ID_VIEW_ZOOM_200:
-			if (TileZoom != 2)
+			if (Tiles.Zoom != 2)
 			{
-				TileZoom = 2;
+				Tiles.Zoom = 2;
 				GetWindowRect(hWnd, &Rect2);
 				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + TileZoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + TileZoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + Tiles.Zoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + Tiles.Zoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
 				si.cbSize = sizeof(si);
 				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
 				si.nPos = 0;
 				si.nMin = 0;
-				si.nMax = 43 + TileZoom * 256;
+				si.nMax = 43 + Tiles.Zoom * 256;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 31 + TileZoom * 194;
+				si.nMax = 31 + Tiles.Zoom * 194;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_VERT, &si, true);
 				InvalidateRect(hWin, NULL, true);
@@ -1195,20 +1205,20 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return 0;
 
 		case ID_VIEW_ZOOM_300:
-			if (TileZoom != 3)
+			if (Tiles.Zoom != 3)
 			{
-				TileZoom = 3;
+				Tiles.Zoom = 3;
 				GetWindowRect(hWnd, &Rect2);
 				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + TileZoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + TileZoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + Tiles.Zoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + Tiles.Zoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
 				si.cbSize = sizeof(si);
 				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
 				si.nPos = 0;
 				si.nMin = 0;
-				si.nMax = 43 + TileZoom * 256;
+				si.nMax = 43 + Tiles.Zoom * 256;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 31 + TileZoom * 194;
+				si.nMax = 31 + Tiles.Zoom * 194;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_VERT, &si, true);
 				InvalidateRect(hWin, NULL, true);
@@ -1216,20 +1226,20 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return 0;
 
 		case ID_VIEW_ZOOM_400:
-			if (TileZoom != 4)
+			if (Tiles.Zoom != 4)
 			{
-				TileZoom = 4;
+				Tiles.Zoom = 4;
 				GetWindowRect(hWnd, &Rect2);
 				GetWindowRect(hWin, &rct);
-				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + TileZoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + TileZoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
+				MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + Tiles.Zoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + Tiles.Zoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
 				si.cbSize = sizeof(si);
 				si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
 				si.nPos = 0;
 				si.nMin = 0;
-				si.nMax = 43 + TileZoom * 256;
+				si.nMax = 43 + Tiles.Zoom * 256;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_HORZ, &si, true);
-				si.nMax = 31 + TileZoom * 194;
+				si.nMax = 31 + Tiles.Zoom * 194;
 				si.nPage = si.nMax + 1;
 				SetScrollInfo(hWin, SB_VERT, &si, true);
 				InvalidateRect(hWin, NULL, true);
@@ -1238,31 +1248,35 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		}
 		break;
 
-	case WM_NCLBUTTONDBLCLK:
-		if (wParam == HTCAPTION)
+	case WM_SYSCOMMAND:
+		//Window cannot be maximized
+		if ((wParam & 0xFFF0) == SC_MAXIMIZE)
 		{
 			return 0;
 		}
 		break;
 
 	case WM_CREATE:
-		GetWindowRect(hWnd, &Rect2);
-		GetWindowRect(hWin, &rct);
-		MoveWindow(hWin, rct.left - Rect2.left - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXEDGE), rct.top - Rect2.top - GetSystemMetrics(SM_CYSIZEFRAME) - GetSystemMetrics(SM_CYEDGE) - GetSystemMetrics(SM_CYCAPTION) - GetSystemMetrics(SM_CYMENU), 46 + TileZoom * 256 + 2 * GetSystemMetrics(SM_CXSIZEFRAME) + 2 * GetSystemMetrics(SM_CXEDGE), 34 + TileZoom * 194 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + 2 * GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION), true);
 		si.cbSize = sizeof(si);
 		si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
 		si.nPos = 0;
 		si.nMin = 0;
-		si.nMax = 43 + TileZoom * 256;
+		si.nMax = 43 + Tiles.Zoom * 256;
 		si.nPage = si.nMax + 1;
 		SetScrollInfo(hWin, SB_HORZ, &si, true);
-		si.nMax = 31 + TileZoom * 194;
+		si.nMax = 31 + Tiles.Zoom * 194;
 		si.nPage = si.nMax + 1;
 		SetScrollInfo(hWin, SB_VERT, &si, true);
 		return 0;
 
 	case WM_DESTROY:
 		hTiles = NULL;
+		GetWindowRect(hClientWnd, &Rect2);
+		GetWindowRect(hWin, &rct);
+		Tiles.x = rct.left - Rect2.left;
+		Tiles.y = rct.top - Rect2.top;
+		Tiles.Width = rct.right - rct.left;
+		Tiles.Height = rct.bottom - rct.top;
 		return 0;
 	}
 
@@ -1276,42 +1290,6 @@ int			MemoryCaretX, MemoryCaretY;
 WORD		MemoryTopByte;
 
 BYTE		MemoryROM, MemoryRAM, MemorySVBK, MemoryVBK;
-
-
-
-BOOL HexToNum(char *pc)
-{
-	if (*pc < '0')
-	{
-		return true;
-	}
-	if (*pc <= '9')
-	{
-		*pc = *pc - '0';
-	}
-	else if (*pc < 'A')
-	{
-		return true;
-	}
-	else if (*pc <= 'F')
-	{
-		*pc = *pc - 'A' + 10;
-	}
-	else if (*pc < 'a')
-	{
-		return true;
-	}
-	else if (*pc <= 'f')
-	{
-		*pc = *pc - 'a' + 10;
-	}
-	else
-	{
-		return true;
-	}
-
-	return false;
-}
 
 
 
@@ -1329,7 +1307,7 @@ BOOL CALLBACK SetAddressEnumChildProc(HWND hWin, LPARAM lParam)
 
 
 
-BOOL CALLBACK MemoryGotoEnumChildProc(HWND hWin, LPARAM lParam)
+BOOL CALLBACK GotoEnumChildProc(HWND hWin, LPARAM lParam)
 {
 	char		szText[6];
 
@@ -1390,7 +1368,7 @@ BOOL CALLBACK MemoryGotoEnumChildProc(HWND hWin, LPARAM lParam)
 
 
 
-BOOL CALLBACK RomBankEnumChildProc(HWND hWin, LPARAM lParam)
+BOOL CALLBACK MemoryRomBankEnumChildProc(HWND hWin, LPARAM lParam)
 {
 	char		szText[4];
 
@@ -1451,7 +1429,7 @@ BOOL CALLBACK MemoryGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		{
 		case IDOK:
 			NewNumber = MemoryTopByte;
-			EnumChildWindows(hWin, MemoryGotoEnumChildProc, (LPARAM)&NewNumber);
+			EnumChildWindows(hWin, GotoEnumChildProc, (LPARAM)&NewNumber);
 			if (MemoryTopByte == NewNumber)
 			{
 				EndDialog(hWin, true);
@@ -1484,7 +1462,7 @@ BOOL CALLBACK MemoryGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 
 
-BOOL CALLBACK RomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK MemoryRomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch (uMsg)
 	{
@@ -1492,7 +1470,7 @@ BOOL CALLBACK RomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		switch (LOWORD(wParam))
 		{
 		case IDOK:
-			EnumChildWindows(hWin, RomBankEnumChildProc, false);
+			EnumChildWindows(hWin, MemoryRomBankEnumChildProc, false);
 			EndDialog(hWin, false);
 			return true;
 
@@ -1508,7 +1486,7 @@ BOOL CALLBACK RomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	case WM_INITDIALOG:
 		SendMessage(hWin, WM_SETTEXT, 0, (LPARAM)&"Enter ROM Bank");
-		EnumChildWindows(hWin, RomBankEnumChildProc, true);
+		EnumChildWindows(hWin, MemoryRomBankEnumChildProc, true);
 		return true;
 	}
 
@@ -1517,9 +1495,9 @@ BOOL CALLBACK RomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 
 
-BOOL CreateMemoryMenu(CGameBoy *pGameBoy, HMENU hMenu)
+BOOL CreateBankMenu(CGameBoy *pGameBoy, HMENU hMenu, DWORD dwFirstPos)
 {
-	HMENU			hRAMMenu = GetSubMenu(hMenu, 3);
+	HMENU			hRAMMenu = GetSubMenu(hMenu, dwFirstPos + 2);
 	BYTE			Banks;
 	MENUITEMINFO	mmi;
 
@@ -1534,8 +1512,8 @@ BOOL CreateMemoryMenu(CGameBoy *pGameBoy, HMENU hMenu)
 	{
 		mmi.fState = MFS_GRAYED;
 	}
-	SetMenuItemInfo(hMenu, 2, true, &mmi);
-	SetMenuItemInfo(hMenu, 4, true, &mmi);
+	SetMenuItemInfo(hMenu, dwFirstPos + 1, true, &mmi);
+	SetMenuItemInfo(hMenu, dwFirstPos + 3, true, &mmi);
 	if (pGameBoy->MaxRomBank > 1)
 	{
 		mmi.fState = MFS_ENABLED;
@@ -1544,7 +1522,7 @@ BOOL CreateMemoryMenu(CGameBoy *pGameBoy, HMENU hMenu)
 	{
 		mmi.fState = MFS_GRAYED;
 	}
-	SetMenuItemInfo(hMenu, 1, true, &mmi);
+	SetMenuItemInfo(hMenu, dwFirstPos, true, &mmi);
 
 	switch (pGameBoy->MEM_ROM[0x0149])
 	{
@@ -1567,12 +1545,12 @@ BOOL CreateMemoryMenu(CGameBoy *pGameBoy, HMENU hMenu)
 	if (Banks <= 1)
 	{
 		mmi.fState = MFS_GRAYED;
-		SetMenuItemInfo(hMenu, 3, true, &mmi);
+		SetMenuItemInfo(hMenu, dwFirstPos + 2, true, &mmi);
 	}
 	else
 	{
 		mmi.fState = MFS_ENABLED;
-		SetMenuItemInfo(hMenu, 3, true, &mmi);
+		SetMenuItemInfo(hMenu, dwFirstPos + 2, true, &mmi);
 		if (Banks >= 4)
 		{
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK2, MF_BYCOMMAND);
@@ -1670,18 +1648,20 @@ BOOL CreateMemoryMenu(CGameBoy *pGameBoy, HMENU hMenu)
 
 
 
+#define		CalcBytesPerLine	BytesPerLine = (rct.right / FixedFontWidth - 10) / 4; if (BytesPerLine == 0) { BytesPerLine = 1; }
+
 LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CGameBoy		*pGameBoy;
 	PAINTSTRUCT		Paint;
-	RECT			rct;
+	RECT			rct, Rect2;
 	POINT			Point;
 	LOGBRUSH		lb;
 	HBRUSH			hBrush;
 	HPEN			hPen;
 	SCROLLINFO		si;
 	WORD			pByte;
-	BYTE			Byte, Access;
+	BYTE			Byte, Access, Banks, NewByte, *p;
 	int				x, y, BytesPerLine, nBytes;
 
 
@@ -1707,7 +1687,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				MemoryROM = pGameBoy->ActiveRomBank;
 			}
 			Byte = MemoryROM;
-			if (!DialogBox(hInstance, MAKEINTRESOURCE(IDD_ENTERNUMBER), hWnd, RomBankDlgProc))
+			if (!DialogBox(hInstance, MAKEINTRESOURCE(IDD_ENTERNUMBER), hWnd, MemoryRomBankDlgProc))
 			{
 				if (MemoryROM <= pGameBoy->MaxRomBank)
 				{
@@ -1876,7 +1856,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		if (GameBoyList.GetActive())
 		{
 			CreateCaret(hWin, NULL, 2, 16);
-			SetCaretPos(MemoryCaretX, MemoryCaretY);
+			SetCaretPos(MemoryCaretX * FixedFontWidth, MemoryCaretY * FixedFontHeight);
 			ShowCaret(hWin);
 			MemoryCaret = true;
 		}
@@ -1891,243 +1871,690 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_KEYDOWN:
-		if (!GameBoyList.GetActive())
+		if (!(pGameBoy = GameBoyList.GetActive()))
 		{
 			break;
 		}
-		GetClientRect(hWin, &rct);
-		BytesPerLine = (rct.right / FixedFontWidth - 10) / 4;
-		if (BytesPerLine == 0)
-		{
-			BytesPerLine = 1;
-		}
 		switch (wParam)
 		{
-		case VK_UP:
-			if (MemoryTopByte == 0 && MemoryCaretY == 0)
-			{
-				return 0;
-			}
-			if (MemoryTopByte < BytesPerLine && MemoryCaretY == 0)
-			{
-				MemoryTopByte = 0;
-				InvalidateRect(hWin, NULL, true);
-				return 0;
-			}
+		case VK_CONTROL:
+		case VK_SHIFT:
+		case VK_RWIN:
+		case VK_LWIN:
+		case VK_INSERT:
+		case VK_CAPITAL:
+		case VK_NUMLOCK:
+		case VK_SCROLL:
+		case VK_MENU:
+			return DefMDIChildProc(hWin, uMsg, wParam, lParam);
 
-			if (MemoryCaretY < 0)
-			{
-				MemoryTopByte += BytesPerLine * (MemoryCaretY / FixedFontHeight - 1);
-				MemoryCaretY = 0;
-				InvalidateRect(hWin, NULL, true);
-				return 0;
-			}
-			if (MemoryCaretY > rct.bottom)
-			{
-				MemoryTopByte += BytesPerLine * ((MemoryCaretY - rct.bottom) / FixedFontHeight + 1);
-				MemoryCaretY = rct.bottom - rct.bottom % FixedFontHeight - FixedFontHeight;
-				InvalidateRect(hWin, NULL, true);
-				return 0;
-			}
+		case VK_NUMPAD0:
+			wParam = '0';
+			break;
 
-			if (MemoryCaret)
+		case VK_NUMPAD1:
+			wParam = '1';
+			break;
+
+		case VK_NUMPAD2:
+			wParam = '2';
+			break;
+
+		case VK_NUMPAD3:
+			wParam = '3';
+			break;
+
+		case VK_NUMPAD4:
+			wParam = '4';
+			break;
+
+		case VK_NUMPAD5:
+			wParam = '5';
+			break;
+
+		case VK_NUMPAD6:
+			wParam = '6';
+			break;
+
+		case VK_NUMPAD7:
+			wParam = '7';
+			break;
+
+		case VK_NUMPAD8:
+			wParam = '8';
+			break;
+
+		case VK_NUMPAD9:
+			wParam = '9';
+			break;
+		}
+		GetClientRect(hWin, &rct);
+		CalcBytesPerLine;
+		while (LOWORD(lParam--))
+		{
+			if (MemoryCaretX == 2 || MemoryCaretX == 7 || MemoryCaretX == 8 || MemoryCaretX == 9 + 3 * BytesPerLine || ((MemoryCaretX - 9) % 3) == 2)
 			{
-				HideCaret(hWin);
-			}
-			if (MemoryCaretY == 0)
-			{
-				MemoryTopByte -= BytesPerLine;
-				ScrollWindowEx(hWin, 0, FixedFontHeight, NULL, NULL, NULL, NULL, SW_ERASE | SW_INVALIDATE);
+				if (wParam == VK_SPACE)
+				{
+					MemoryCaretX++;
+				}
 			}
 			else
 			{
-				MemoryCaretY -= FixedFontHeight;
-			}
-			UpdateWindow(hWin);
-			if (MemoryCaret)
-			{
-				SetCaretPos(MemoryCaretX, MemoryCaretY);
-				ShowCaret(hWin);
-			}
-			return 0;
-
-		case VK_DOWN:
-			if (MemoryTopByte + BytesPerLine * (MemoryCaretY / FixedFontHeight + 1) > 0xFFFF)
-			{
-				if (MemoryCaretY > rct.bottom - FixedFontHeight)
+				if ((wParam >= '0' && wParam <= '9') || (wParam >= 'A' && wParam <= 'F'))
 				{
-					MemoryTopByte += BytesPerLine * ((MemoryCaretY - rct.bottom) / FixedFontHeight + 1);
-					if (MemoryCaretY > rct.bottom)
+					Byte = (wParam >= 'A') ? wParam - 'A' + 10 : wParam - '0';
+					pByte = MemoryTopByte + BytesPerLine * MemoryCaretY;
+					switch (MemoryCaretX)
+					{
+					case 0:
+						if (pByte < 0x4000 || pByte > 0x7FFF || pGameBoy->MaxRomBank < Byte << 4)
+						{
+							if (Byte == 0)
+							{
+								MemoryCaretX++;
+							}
+							break;
+						}
+						if (MemoryFlags & MEMORY_ROM)
+						{
+							if (Byte == MemoryROM >> 4)
+							{
+								MemoryCaretX++;
+								break;
+							}
+							MemoryROM = (Byte << 4) | (MemoryROM & 0x0F);
+						}
+						else
+						{
+							if (Byte == pGameBoy->ActiveRomBank >> 4)
+							{
+								MemoryCaretX++;
+								break;
+							}
+							MemoryFlags |= MEMORY_ROM;
+							MemoryROM = (Byte << 4) | (pGameBoy->ActiveRomBank & 0x0F);
+						}
+						MemoryCaretX++;
+						InvalidateRect(hWin, &rct, true);
+						break;
+
+					case 1:
+						if (pByte < 0x4000)
+						{
+							if (Byte == 0)
+							{
+								MemoryCaretX += 2;
+							}
+							break;
+						}
+						if (pByte < 0x8000)
+						{
+							if (MemoryFlags & MEMORY_ROM)
+							{
+								if (Byte == (MemoryROM & 0x0F))
+								{
+									MemoryCaretX += 2;
+									break;
+								}
+								if (pGameBoy->MaxRomBank < ((MemoryROM & 0xF0) | Byte))
+								{
+									break;
+								}
+								MemoryROM = (MemoryROM & 0xF0) | Byte;
+							}
+							else
+							{
+								if (Byte == (pGameBoy->ActiveRomBank & 0x0F))
+								{
+									MemoryCaretX += 2;
+									break;
+								}
+								if (pGameBoy->MaxRomBank < ((pGameBoy->ActiveRomBank & 0xF0) | Byte))
+								{
+									break;
+								}
+								MemoryFlags |= MEMORY_ROM;
+								MemoryROM = (pGameBoy->ActiveRomBank & 0xF0) | Byte;
+							}
+						}
+						else if (pByte < 0xA000)
+						{
+							if (MemoryFlags & MEMORY_VBK)
+							{
+								if (Byte == MemoryVBK)
+								{
+									MemoryCaretX += 2;
+									break;
+								}
+								if (Byte > 1)
+								{
+									break;
+								}
+								MemoryVBK = Byte;
+							}
+							else
+							{
+								if (Byte > 1 || (Byte > 0 && !(pGameBoy->Flags & GB_ROM_COLOR)))
+								{
+									break;
+								}
+								if (Byte == (pGameBoy->MEM_CPU[0x8F4F] & 1))
+								{
+									MemoryCaretX += 2;
+									break;
+								}
+								MemoryFlags |= MEMORY_VBK;
+								MemoryVBK = Byte;
+							}
+						}
+						else if (pByte < 0xC000)
+						{
+							switch (pGameBoy->MEM_ROM[0x0149])
+							{
+							case 1:
+								Banks = 0;
+								break;
+							case 2:
+								Banks = 0;
+								break;
+							case 3:
+								Banks = 3;
+								break;
+							case 4:
+								Banks = 15;
+								break;
+							default:
+								Banks = 0;
+								break;
+							}
+							if (Byte > Banks)
+							{
+								break;
+							}
+							if (MemoryFlags & MEMORY_RAM)
+							{
+								if (Byte == MemoryRAM)
+								{
+									MemoryCaretX += 2;
+									break;
+								}
+								MemoryRAM = Byte;
+							}
+							else
+							{
+								if (Byte == pGameBoy->ActiveRamBank)
+								{
+									MemoryCaretX += 2;
+									break;
+								}
+								MemoryFlags |= MEMORY_RAM;
+								MemoryRAM = Byte;
+							}
+						}
+						else if (pByte < 0xD000)
+						{
+							if (Byte == 0)
+							{
+								MemoryCaretX += 2;
+								break;
+							}
+							break;
+						}
+						else if (pByte < 0xE000)
+						{
+							if (Byte == 0 || Byte > 7 || (Byte > 1 && !(pGameBoy->Flags & GB_ROM_COLOR)))
+							{
+								break;
+							}
+							if (MemoryFlags & MEMORY_SVBK)
+							{
+								if (Byte == MemorySVBK)
+								{
+									MemoryCaretX += 2;
+									break;
+								}
+								MemorySVBK = Byte;
+							}
+							else
+							{
+								if (Byte == ((pGameBoy->MEM_CPU[0x8F70] & 7) ? pGameBoy->MEM_CPU[0x8F70] & 7 : 1))
+								{
+									MemoryCaretX += 2;
+									break;
+								}
+								MemoryFlags |= MEMORY_SVBK;
+								MemorySVBK = Byte;
+							}
+						}
+						else
+						{
+							if (Byte == 0)
+							{
+								MemoryCaretX += 2;
+								break;
+							}
+							break;
+						}
+						MemoryCaretX += 2;
+						InvalidateRect(hWin, &rct, true);
+						break;
+
+					case 3:
+						MemoryCaretX++;
+						if ((Byte << 12) != (pByte & 0xF000))
+						{
+							if (MemoryTopByte + (Byte << 12) - (pByte & 0xF000) < 0)
+							{
+								MemoryTopByte = (Byte << 12) | (pByte & 0x0FFF);
+								MemoryCaretY = 0;
+							}
+							else
+							{
+								MemoryTopByte += (Byte << 12) - (pByte & 0xF000);
+							}
+							InvalidateRect(hWin, &rct, true);
+						}
+						break;
+
+					case 4:
+						MemoryCaretX++;
+						if ((Byte << 8) != (pByte & 0x0F00))
+						{
+							if (MemoryTopByte + (Byte << 8) - (pByte & 0x0F00) < 0)
+							{
+								MemoryTopByte = (Byte << 8) | (pByte & 0xF0FF);
+								MemoryCaretY = 0;
+							}
+							else
+							{
+								MemoryTopByte += (Byte << 8) - (pByte & 0x0F00);
+							}
+							InvalidateRect(hWin, &rct, true);
+						}
+						break;
+
+					case 5:
+						MemoryCaretX++;
+						if ((Byte << 4) != (pByte & 0x00F0))
+						{
+							if (MemoryTopByte + (Byte << 4) - (pByte & 0x00F0) < 0)
+							{
+								MemoryTopByte = (Byte << 4) | (pByte & 0xFF0F);
+								MemoryCaretY = 0;
+							}
+							else
+							{
+								MemoryTopByte += (Byte << 4) - (pByte & 0x00F0);
+							}
+							InvalidateRect(hWin, &rct, true);
+						}
+						break;
+
+					case 6:
+						MemoryCaretX += 3;
+						if (Byte != (pByte & 0x000F))
+						{
+							if (MemoryTopByte + Byte - (pByte & 0x000F) < 0)
+							{
+								MemoryTopByte = Byte | (pByte & 0xFFF0);
+								MemoryCaretY = 0;
+							}
+							else
+							{
+								MemoryTopByte += Byte - (pByte & 0x000F);
+							}
+							InvalidateRect(hWin, &rct, true);
+						}
+						break;
+
+					default:
+						if (MemoryCaretX >= 9 && MemoryCaretX <= 8 + 3 * BytesPerLine)
+						{
+							pByte = MemoryTopByte + MemoryCaretY * BytesPerLine + (MemoryCaretX - 9) / 3;
+							if (pByte < 0x8000)
+							{
+								break;
+							}
+							if (pByte < 0xA000)
+							{
+								if (MemoryFlags & MEMORY_VBK)
+								{
+									Access = pGameBoy->MemStatus_VRAM[(pByte & 0x1FFF) + MemoryVBK * 0x2000] |= MEM_READ | MEM_CHANGED;
+									p = &pGameBoy->MEM_VRAM[(pByte & 0x1FFF) + MemoryVBK * 0x2000];
+								}
+								else
+								{
+									Access = pGameBoy->MemStatus_VRAM[(pByte & 0x1FFF) + (pGameBoy->MEM_CPU[0x8F4F] & 1) * 0x2000] |= MEM_READ | MEM_CHANGED;
+									p = &pGameBoy->MEM_VRAM[(pByte & 0x1FFF) + (pGameBoy->MEM_CPU[0x8F4F] & 1) * 0x2000];
+								}
+							}
+							else if (pByte < 0xC000)
+							{
+								if (pGameBoy->MEM_ROM[0x0149] == 0 || pGameBoy->MEM_ROM[0x0149] > 4 || (pByte >= 0xA800 && pGameBoy->MEM_ROM[0x0149] == 1))
+								{
+									break;
+								}
+								if (MemoryFlags & MEMORY_RAM)
+								{
+									Access = pGameBoy->MemStatus_RAM[(pByte & 0x1FFF) + MemoryRAM * 0x2000] |= MEM_READ | MEM_CHANGED;
+									p = &pGameBoy->MEM_RAM[(pByte & 0x1FFF) + MemoryRAM * 0x2000];
+								}
+								else
+								{
+									Access = pGameBoy->MemStatus_RAM[(pByte & 0x1FFF) + pGameBoy->ActiveRamBank * 0x2000] |= MEM_READ | MEM_CHANGED;
+									p = &pGameBoy->MEM_RAM[(pByte & 0x1FFF) + pGameBoy->ActiveRamBank * 0x2000];
+								}
+							}
+							else if (pByte < 0xD000)
+							{
+								Access = RetrieveAccess(pGameBoy, pByte) | MEM_READ | MEM_CHANGED;
+								p = &pGameBoy->MEM_CPU[pByte & 0x0FFF];
+								SetAccess(pGameBoy, pByte, Access);
+							}
+							else if (pByte < 0xE000)
+							{
+								if (MemoryFlags & MEMORY_SVBK)
+								{
+									Access = pGameBoy->MemStatus_CPU[(pByte & 0x0FFF) + MemorySVBK * 0x1000] |= MEM_READ | MEM_CHANGED;
+									p = &pGameBoy->MEM_CPU[(pByte & 0x0FFF) + MemorySVBK * 0x1000];
+								}
+								else
+								{
+									if (pGameBoy->MEM_CPU[0x8F70] & 7)
+									{
+										Access = pGameBoy->MemStatus_CPU[(pByte & 0x0FFF) + (pGameBoy->MEM_CPU[0x8F70] & 7) * 0x1000] |= MEM_READ | MEM_CHANGED;
+										p = &pGameBoy->MEM_CPU[(pByte & 0x0FFF) + (pGameBoy->MEM_CPU[0x8F4F] & 7) * 0x1000];
+									}
+									else
+									{
+										Access = pGameBoy->MemStatus_CPU[(pByte & 0x0FFF) + 0x1000] |= MEM_READ | MEM_CHANGED;
+										p = &pGameBoy->MEM_CPU[(pByte & 0x0FFF) + 0x1000];
+									}
+								}
+							}
+							else
+							{
+								Access = RetrieveAccess(pGameBoy, pByte) | MEM_READ | MEM_CHANGED;
+								if (!(Access & MEM_WRITE))
+								{
+									break;
+								}
+								NewByte = (BYTE)ReadMem(pGameBoy, pByte);
+								p = NULL;
+								SetAccess(pGameBoy, pByte, Access);
+							}
+
+							if (((MemoryCaretX - 9) % 3) & 1)
+							{
+								if (p)
+								{
+									NewByte = Byte | (*p & 0xF0);
+									*p = NewByte;
+								}
+								else
+								{
+									NewByte = Byte | (NewByte & 0xF0);
+									__asm
+									{
+										xor		edx, edx
+										mov		ecx, pGameBoy
+										mov		al, NewByte
+										mov		dx, pByte
+										call	Debug_LD_mem8
+									}
+								}
+								InvalidateRect(hWin, NULL, true);
+								if (MemoryCaretX == 7 + 3 * BytesPerLine)
+								{
+									MemoryCaretX = 9;
+									MemoryCaretY++;
+								}
+								else
+								{
+									MemoryCaretX += 2;
+								}
+							}
+							else
+							{
+								if (p)
+								{
+									NewByte = (Byte << 4) | (*p & 0x0F);
+									*p = NewByte;
+								}
+								else
+								{
+									NewByte = (Byte << 4) | (NewByte & 0x0F);
+									__asm
+									{
+										xor		edx, edx
+										mov		ecx, pGameBoy
+										mov		al, NewByte
+										mov		dx, pByte
+										call	Debug_LD_mem8
+									}
+								}
+								InvalidateRect(hWin, NULL, true);
+								MemoryCaretX++;
+							}
+						}
+					}
+				}
+			}
+			switch (wParam)
+			{
+			case VK_LEFT:
+				if (MemoryCaretX > 0)
+				{
+					MemoryCaretX--;
+				}
+				break;
+
+			case VK_RIGHT:
+				if (MemoryCaretX < 10 + 4 * BytesPerLine)
+				{
+					MemoryCaretX++;
+				}
+				break;
+
+			case VK_UP:
+				if (GetKeyState(VK_CONTROL) & 0x8000)
+				{
+					if (MemoryTopByte - BytesPerLine < 0)
+					{
+						if (MemoryTopByte != 0)
+						{
+							MemoryTopByte = 0;
+							InvalidateRect(hWin, NULL, true);
+						}
+					}
+					else
+					{
+						MemoryTopByte -= BytesPerLine;
+						if (MemoryCaretY != rct.bottom / FixedFontHeight - 1)
+						{
+							MemoryCaretY++;
+						}
+						ScrollWindowEx(hWin, 0, FixedFontHeight, NULL, NULL, NULL, NULL, SW_ERASE | SW_INVALIDATE);
+					}
+				}
+				else
+				{
+					MemoryCaretY--;
+				}
+				break;
+
+			case VK_DOWN:
+				if (GetKeyState(VK_CONTROL) & 0x8000)
+				{
+					if (MemoryTopByte + BytesPerLine <= 0xFFFF - BytesPerLine * (rct.bottom / FixedFontHeight - 1))
+					{
+						MemoryTopByte += BytesPerLine;
+						if (MemoryCaretY != 0)
+						{
+							MemoryCaretY--;
+						}
+						ScrollWindowEx(hWin, 0, -FixedFontHeight, NULL, NULL, NULL, NULL, SW_ERASE | SW_INVALIDATE);
+					}
+				}
+				else
+				{
+					MemoryCaretY++;
+				}
+				break;
+
+			case VK_PRIOR:
+				if (MemoryTopByte == 0 && MemoryCaretY == 0)
+				{
+					return 0;
+				}
+
+				if (MemoryTopByte + BytesPerLine * MemoryCaretY <= BytesPerLine * (rct.bottom / FixedFontHeight - 1))
+				{
+					MemoryTopByte = 0;
+					MemoryCaretY = 0;
+					InvalidateRect(hWin, NULL, true);
+					return 0;
+				}
+
+				if (MemoryCaretY < 0)
+				{
+					MemoryTopByte += BytesPerLine * MemoryCaretY;
+					MemoryCaretY = 0;
+				}
+				if (MemoryCaretY * FixedFontHeight > rct.bottom - FixedFontHeight)
+				{
+					MemoryTopByte += BytesPerLine * (MemoryCaretY - rct.bottom / FixedFontHeight + 1);
+					MemoryCaretY = rct.bottom / FixedFontHeight - 1;
+				}
+				if (MemoryTopByte >= BytesPerLine * (rct.bottom / FixedFontHeight - 1))
+				{
+					MemoryTopByte -= BytesPerLine * (rct.bottom / FixedFontHeight - 1);
+				}
+				else
+				{
+					MemoryCaretY -= (BytesPerLine * (rct.bottom / FixedFontHeight - 1) - MemoryTopByte) / BytesPerLine;
+					MemoryTopByte = 0;
+				}
+				InvalidateRect(hWin, NULL, true);
+				break;
+
+			case VK_NEXT:
+				if (MemoryTopByte + BytesPerLine * (MemoryCaretY + rct.bottom / FixedFontHeight) > 0xFFFF)
+				{
+					while (MemoryTopByte + BytesPerLine < 0x10000)
 					{
 						MemoryTopByte += BytesPerLine;
 					}
-					MemoryCaretY = rct.bottom - rct.bottom % FixedFontHeight - FixedFontHeight;
+					MemoryTopByte -= BytesPerLine * (rct.bottom / FixedFontHeight - 1);
+					MemoryCaretY = rct.bottom / FixedFontHeight - 1;
+					InvalidateRect(hWin, NULL, true);
+					return 0;
+				}
+
+				if (MemoryCaretY < 0)
+				{
+					MemoryTopByte += BytesPerLine * MemoryCaretY;
+					MemoryCaretY = 0;
+				}
+				if (MemoryCaretY * FixedFontHeight > rct.bottom - FixedFontHeight)
+				{
+					MemoryTopByte += BytesPerLine * MemoryCaretY;
+					MemoryCaretY = rct.bottom / FixedFontHeight - 1;
+				}
+				else
+				{
+					MemoryTopByte += BytesPerLine * (rct.bottom / FixedFontHeight - 1);
+				}
+				InvalidateRect(hWin, NULL, true);
+				break;
+
+			case VK_HOME:
+				MemoryCaretX = 0;
+				if (GetKeyState(VK_CONTROL) & 0x8000)
+				{
+					//Ctrl + Home
+					if (MemoryTopByte != 0)
+					{
+						MemoryTopByte = 0;
+						InvalidateRect(hWin, NULL, true);
+					}
+					MemoryCaretY = 0;
+				}
+				break;
+
+			case VK_END:
+				if (GetKeyState(VK_CONTROL) & 0x8000)
+				{
+					//Ctrl + End
+					MemoryTopByte = 0x10000 - BytesPerLine * (rct.bottom / FixedFontHeight);
+					MemoryCaretY = rct.bottom / FixedFontHeight - 1;
+					MemoryCaretX = 10 + 4 * BytesPerLine;
 					InvalidateRect(hWin, NULL, true);
 				}
-				return 0;
-			}
-
-			if (MemoryCaretY < 0)
-			{
-				MemoryTopByte += BytesPerLine * (MemoryCaretY / FixedFontHeight + 1);
-				MemoryCaretY = 0;
-				InvalidateRect(hWin, NULL, true);
-				return 0;
-			}
-			if (MemoryCaretY > rct.bottom - FixedFontHeight)
-			{
-				MemoryTopByte += BytesPerLine * ((MemoryCaretY - rct.bottom) / FixedFontHeight + 3);
-				MemoryCaretY = rct.bottom - rct.bottom % FixedFontHeight - FixedFontHeight;
-				InvalidateRect(hWin, NULL, true);
-				return 0;
-			}
-
-			if (MemoryCaret)
-			{
-				HideCaret(hWin);
-			}
-			if (MemoryCaretY < rct.bottom - 2 * FixedFontHeight)
-			{
-				MemoryCaretY += FixedFontHeight;
-			}
-			else
-			{
-				MemoryTopByte += BytesPerLine;
-				ScrollWindowEx(hWin, 0, -FixedFontHeight, NULL, NULL, NULL, NULL, SW_ERASE | SW_INVALIDATE);
-			}
-			UpdateWindow(hWin);
-			if (MemoryCaret)
-			{
-				SetCaretPos(MemoryCaretX, MemoryCaretY);
-				ShowCaret(hWin);
-			}
-			return 0;
-
-		case VK_PRIOR:
-			if (MemoryTopByte + BytesPerLine * (MemoryCaretY / FixedFontHeight) <= BytesPerLine * (rct.bottom / FixedFontHeight - 1))
-			{
-				MemoryTopByte = 0;
-				MemoryCaretY = 0;
-				InvalidateRect(hWin, NULL, true);
-				return 0;
-			}
-
-			if (MemoryCaretY < 0)
-			{
-				MemoryTopByte += BytesPerLine * (MemoryCaretY / FixedFontHeight);
-				MemoryCaretY = 0;
-			}
-			if (MemoryCaretY > rct.bottom - FixedFontHeight)
-			{
-				MemoryTopByte += BytesPerLine * ((MemoryCaretY - rct.bottom) / FixedFontHeight + 2);
-				MemoryCaretY = rct.bottom - rct.bottom % FixedFontHeight - FixedFontHeight;
-			}
-			if (MemoryTopByte >= BytesPerLine * (rct.bottom / FixedFontHeight - 1))
-			{
-				MemoryTopByte -= BytesPerLine * (rct.bottom / FixedFontHeight - 1);
-			}
-			else
-			{
-				MemoryCaretY -= FixedFontHeight * ((BytesPerLine * (rct.bottom / FixedFontHeight - 1) - MemoryTopByte) / BytesPerLine);
-				MemoryTopByte = 0;
-			}
-			InvalidateRect(hWin, NULL, true);
-			return 0;
-
-		case VK_NEXT:
-			if (MemoryTopByte + BytesPerLine * ((MemoryCaretY + rct.bottom) / FixedFontHeight) > 0xFFFF)
-			{
-				while (MemoryTopByte + BytesPerLine < 0x10000)
+				else
 				{
-					MemoryTopByte += BytesPerLine;
+					MemoryCaretX = 10 + 4 * BytesPerLine;
 				}
-				MemoryTopByte -= BytesPerLine * (rct.bottom / FixedFontHeight - 1);
-				MemoryCaretY = rct.bottom - rct.bottom % FixedFontHeight - FixedFontHeight;
-				InvalidateRect(hWin, NULL, true);
-				return 0;
+				break;
 			}
-
-			if (MemoryCaretY < 0)
+		}
+		if (MemoryCaret)
+		{
+			HideCaret(hWin);
+		}
+		if (MemoryCaretY < 0)
+		{
+			if (MemoryTopByte + BytesPerLine * MemoryCaretY < 0)
 			{
-				MemoryTopByte += BytesPerLine * (MemoryCaretY / FixedFontHeight);
-				MemoryCaretY = 0;
-			}
-			if (MemoryCaretY > rct.bottom - FixedFontHeight)
-			{
-				MemoryTopByte += BytesPerLine * ((MemoryCaretY) / FixedFontHeight);
-				MemoryCaretY = rct.bottom - rct.bottom % FixedFontHeight - FixedFontHeight;
-			}
-			else
-			{
-				MemoryTopByte += BytesPerLine * (rct.bottom / FixedFontHeight - 1);
-			}
-			InvalidateRect(hWin, NULL, true);
-			return 0;
-
-		case VK_HOME:
-			if (GetKeyState(VK_CONTROL) & 0x8000)
-			{
-				//Ctrl + Home
 				if (MemoryTopByte != 0)
 				{
 					MemoryTopByte = 0;
 					InvalidateRect(hWin, NULL, true);
 				}
-				if (MemoryCaretX != 0 || MemoryCaretY != 0)
-				{
-					MemoryCaretX = 0;
-					MemoryCaretY = 0;
-					if (MemoryCaret)
-					{
-						HideCaret(hWin);
-						SetCaretPos(MemoryCaretX, MemoryCaretY);
-						ShowCaret(hWin);
-					}
-				}
+				MemoryCaretY = 0;
 			}
 			else
 			{
-				if (MemoryCaretX != 0)
-				{
-					MemoryCaretX = 0;
-					si.cbSize = sizeof(si);
-					si.fMask = SIF_POS;
-					GetScrollInfo(hWin, SB_HORZ, &si);
-					if (si.nPos != 0)
-					{
-						si.nPos = 0;
-						SetScrollInfo(hWin, SB_HORZ, &si, true);
-						InvalidateRect(hWin, NULL, true);
-					}
-					else
-					{
-						if (MemoryCaret)
-						{
-							HideCaret(hWin);
-							SetCaretPos(MemoryCaretX, MemoryCaretY);
-							ShowCaret(hWin);
-						}
-					}
-				}
+				ScrollWindowEx(hWin, 0, -MemoryCaretY * FixedFontHeight, NULL, NULL, NULL, NULL, SW_ERASE | SW_INVALIDATE);
+				MemoryTopByte += BytesPerLine * MemoryCaretY;
+				MemoryCaretY = 0;
 			}
-			return 0;
-
-		case VK_END:
-			if (GetKeyState(VK_CONTROL) & 0x8000)
-			{
-				//Ctrl + End
-			}
-			else
-			{
-			}
-			return 0;
-
-		case VK_APPS:
-			GetWindowRect(hWin, &rct);
-			TrackPopupMenu(GetSubMenu(hPopupMenu, 0), TPM_LEFTBUTTON, rct.left + GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXEDGE) + MemoryCaretX, rct.top + GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION) + FixedFontHeight + MemoryCaretY, 0, hWin, NULL);
-			return 0;
 		}
-		break;
+		if (MemoryCaretY * FixedFontHeight > rct.bottom - FixedFontHeight)
+		{
+			if (MemoryTopByte + BytesPerLine * (MemoryCaretY) > 0xFFFF)
+			{
+				if (MemoryTopByte != 0x10000 - BytesPerLine * (rct.bottom / FixedFontHeight))
+				{
+					MemoryTopByte = 0x10000 - BytesPerLine * (rct.bottom / FixedFontHeight);
+					InvalidateRect(hWin, NULL, true);
+				}
+				MemoryCaretY = rct.bottom / FixedFontHeight - 1;
+			}
+			else
+			{
+				ScrollWindowEx(hWin, 0, -MemoryCaretY * FixedFontHeight + rct.bottom - rct.bottom % FixedFontHeight - FixedFontHeight, NULL, NULL, NULL, NULL, SW_ERASE | SW_INVALIDATE);
+				MemoryTopByte += BytesPerLine * (MemoryCaretY - rct.bottom / FixedFontHeight + 1);
+				MemoryCaretY = rct.bottom / FixedFontHeight - 1;
+			}
+		}
+		if (MemoryCaret)
+		{
+			SetCaretPos(MemoryCaretX * FixedFontWidth, MemoryCaretY * FixedFontHeight);
+			ShowCaret(hWin);
+		}
+		if (wParam == VK_APPS)
+		{
+			if (!CreateBankMenu(pGameBoy, GetSubMenu(hPopupMenu, 0), 1))
+			{
+				Point.x = MemoryCaretX * FixedFontWidth;
+				Point.y = (MemoryCaretY + 1) * FixedFontHeight;
+				ClientToScreen(hWin, &Point);
+				TrackPopupMenu(GetSubMenu(hPopupMenu, 0), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
+			}
+		}
+		return 0;
 
 	case WM_VSCROLL:
 		if (!GameBoyList.GetActive())
@@ -2135,11 +2562,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return 0;
 		}
 		GetClientRect(hWin, &rct);
-		BytesPerLine = (rct.right / FixedFontWidth - 10) / 4;
-		if (BytesPerLine == 0)
-		{
-			BytesPerLine = 1;
-		}
+		CalcBytesPerLine;
 		switch (LOWORD(wParam))
 		{
 		case SB_LINEUP:
@@ -2154,11 +2577,11 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				return 0;
 			}
 			MemoryTopByte -= BytesPerLine;
-			MemoryCaretY += FixedFontHeight;
+			MemoryCaretY++;
 			if (MemoryCaret)
 			{
 				HideCaret(hWin);
-				SetCaretPos(MemoryCaretX, MemoryCaretY);
+				SetCaretPos(MemoryCaretX * FixedFontWidth, MemoryCaretY * FixedFontHeight);
 			}
 			ScrollWindowEx(hWin, 0, FixedFontHeight, NULL, NULL, NULL, NULL, SW_ERASE | SW_INVALIDATE);
 			UpdateWindow(hWin);
@@ -2174,11 +2597,11 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				return 0;
 			}
 			MemoryTopByte += BytesPerLine;
-			MemoryCaretY -= FixedFontHeight;
+			MemoryCaretY--;
 			if (MemoryCaret)
 			{
 				HideCaret(hWin);
-				SetCaretPos(MemoryCaretX, MemoryCaretY);
+				SetCaretPos(MemoryCaretX * FixedFontWidth, MemoryCaretY * FixedFontHeight);
 			}
 			ScrollWindowEx(hWin, 0, -FixedFontHeight, NULL, NULL, NULL, NULL, SW_ERASE | SW_INVALIDATE);
 			UpdateWindow(hWin);
@@ -2196,12 +2619,12 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			GetClientRect(hWin, &rct);
 			if (MemoryTopByte <= BytesPerLine * (rct.bottom / FixedFontHeight))
 			{
-				MemoryCaretY += FixedFontHeight * (MemoryTopByte / BytesPerLine);
+				MemoryCaretY += MemoryTopByte / BytesPerLine;
 				MemoryTopByte = 0;
 			}
 			else
 			{
-				MemoryCaretY += rct.bottom - rct.bottom % FixedFontHeight - FixedFontHeight;
+				MemoryCaretY += rct.bottom / FixedFontHeight - 1;
 				MemoryTopByte -= BytesPerLine * (rct.bottom / FixedFontHeight - 1);
 			}
 			InvalidateRect(hWin, NULL, true);
@@ -2211,12 +2634,12 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			GetClientRect(hWin, &rct);
 			if (MemoryTopByte + BytesPerLine * (rct.bottom / FixedFontHeight - 1) > 0xFFFF)
 			{
-				MemoryCaretY -= FixedFontHeight * (((0x10000 - BytesPerLine * (rct.bottom / FixedFontHeight - 1)) - MemoryTopByte) / BytesPerLine);
+				MemoryCaretY -= ((0x10000 - BytesPerLine * (rct.bottom / FixedFontHeight - 1)) - MemoryTopByte) / BytesPerLine;
 				MemoryTopByte = 0x10000 - BytesPerLine * (rct.bottom / FixedFontHeight - 1);
 			}
 			else
 			{
-				MemoryCaretY -= rct.bottom - rct.bottom % FixedFontHeight - FixedFontHeight;
+				MemoryCaretY -= rct.bottom / FixedFontHeight - 1;
 				MemoryTopByte += BytesPerLine * (rct.bottom / FixedFontHeight - 1);
 			}
 			InvalidateRect(hWin, NULL, true);
@@ -2224,7 +2647,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 		case SB_THUMBTRACK:
 		case SB_THUMBPOSITION:
-			MemoryCaretY -= FixedFontHeight * (((MemoryTopByte % BytesPerLine + BytesPerLine * HIWORD(wParam)) - MemoryTopByte) / BytesPerLine);
+			MemoryCaretY -= ((MemoryTopByte % BytesPerLine + BytesPerLine * HIWORD(wParam)) - MemoryTopByte) / BytesPerLine;
 			MemoryTopByte = MemoryTopByte % BytesPerLine + BytesPerLine * HIWORD(wParam);
 			InvalidateRect(hWin, NULL, true);
 			UpdateWindow(hWin);
@@ -2239,33 +2662,34 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return 0;
 		}
 		GetClientRect(hWin, &rct);
-		BytesPerLine = (rct.right / FixedFontWidth - 10) / 4;
-		if (BytesPerLine == 0)
+		CalcBytesPerLine;
+		MemoryCaretX = LOWORD(lParam) / FixedFontWidth;
+		MemoryCaretY = HIWORD(lParam) / FixedFontHeight;
+		if (MemoryTopByte + BytesPerLine * MemoryCaretY > 0xFFFF)
 		{
-			BytesPerLine = 1;
-		}
-		MemoryCaretY = HIWORD(lParam) - HIWORD(lParam) % FixedFontHeight;
-		if (MemoryTopByte + BytesPerLine * (MemoryCaretY / FixedFontHeight) > 0xFFFF)
-		{
-			MemoryCaretY -= FixedFontHeight;
+			MemoryCaretY--;
 		}
 		if (MemoryCaret)
 		{
 			HideCaret(hWin);
-			SetCaretPos(MemoryCaretX, MemoryCaretY);
+			SetCaretPos(MemoryCaretX * FixedFontWidth, MemoryCaretY * FixedFontHeight);
 			ShowCaret(hWin);
 		}
-		if (MemoryCaretY > rct.bottom - FixedFontHeight)
+		if (MemoryCaretY * FixedFontHeight > rct.bottom - FixedFontHeight)
 		{
 			SendMessage(hWin, WM_VSCROLL, SB_LINEDOWN, 0);
 		}
-		if (uMsg == WM_RBUTTONDOWN)
+		return 0;
+
+	case WM_RBUTTONUP:
+		if (!(pGameBoy = GameBoyList.GetActive()))
 		{
-			if (!CreateMemoryMenu(pGameBoy, GetSubMenu(hPopupMenu, 0)))
-			{
-				GetCursorPos(&Point);
-				TrackPopupMenu(GetSubMenu(hPopupMenu, 0), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
-			}
+			return 0;
+		}
+		if (!CreateBankMenu(pGameBoy, GetSubMenu(hPopupMenu, 0), 1))
+		{
+			GetCursorPos(&Point);
+			TrackPopupMenu(GetSubMenu(hPopupMenu, 0), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
 		}
 		return 0;
 
@@ -2292,16 +2716,12 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 				GetClientRect(hWin, &rct);
 
-				BytesPerLine = (rct.right / FixedFontWidth - 10) / 4;
-				if (BytesPerLine == 0)
-				{
-					BytesPerLine = 1;
-				}
+				CalcBytesPerLine;
 
 				while (MemoryTopByte + BytesPerLine * (rct.bottom / FixedFontHeight - 1) > 0xFFFF)
 				{
 					MemoryTopByte -= BytesPerLine;
-					MemoryCaretY += FixedFontHeight;
+					MemoryCaretY++;
 				}
 
 				pByte = MemoryTopByte;
@@ -2327,7 +2747,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						}
 						else
 						{
-							TextOut(Paint.hdc, 0, y, ToHex(pGameBoy->MEM_CPU[0x8F4F], false), 2);
+							TextOut(Paint.hdc, 0, y, ToHex(pGameBoy->MEM_CPU[0x8F4F] & 1, false), 2);
 						}
 					}
 					else if (pByte >= 0xA000 && pByte < 0xC000)
@@ -2349,13 +2769,13 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						}
 						else
 						{
-							if (pGameBoy->MEM_CPU[0x8F70] == 0)
+							if (!(pGameBoy->MEM_CPU[0x8F70] & 7))
 							{
 								TextOut(Paint.hdc, 0, y, "01", 2);
 							}
 							else
 							{
-								TextOut(Paint.hdc, 0, y, ToHex(pGameBoy->MEM_CPU[0x8F70], false), 2);
+								TextOut(Paint.hdc, 0, y, ToHex(pGameBoy->MEM_CPU[0x8F70] & 7, false), 2);
 							}
 						}
 					}
@@ -2436,7 +2856,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						{
 							if (!(MemoryFlags & MEMORY_SVBK))
 							{
-								MemorySVBK = pGameBoy->MEM_CPU[0x8F70];
+								MemorySVBK = pGameBoy->MEM_CPU[0x8F70] & 7;
 								if (MemorySVBK < 1)
 								{
 									MemorySVBK = 1;
@@ -2502,7 +2922,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 				if (MemoryCaret)
 				{
-					SetCaretPos(MemoryCaretX, MemoryCaretY);
+					SetCaretPos(MemoryCaretX * FixedFontWidth, MemoryCaretY * FixedFontHeight);
 					ShowCaret(hWin);
 				}
 			}
@@ -2528,8 +2948,18 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		}
 		return 0;
 
-	case WM_NCLBUTTONDBLCLK:
-		if (wParam == HTCAPTION)
+	case WM_SIZE:
+		GetClientRect(hWin, &rct);
+		CalcBytesPerLine;
+		if (MemoryCaretX > 10 + 4 * BytesPerLine)
+		{
+			MemoryCaretX = 10 + 4 * BytesPerLine;
+		}
+		return 0;
+
+	case WM_SYSCOMMAND:
+		//Window cannot be maximized
+		if ((wParam & 0xFFF0) == SC_MAXIMIZE)
 		{
 			return 0;
 		}
@@ -2544,6 +2974,12 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 	case WM_DESTROY:
 		hMemory = NULL;
+		GetWindowRect(hClientWnd, &Rect2);
+		GetWindowRect(hWin, &rct);
+		Memory.x = rct.left - Rect2.left;
+		Memory.y = rct.top - Rect2.top;
+		Memory.Width = rct.right - rct.left;
+		Memory.Height = rct.bottom - rct.top;
 		return 0;
 	}
 
@@ -2558,6 +2994,57 @@ int			DisAsmCaretX, DisAsmCaretY;
 WORD		DisAsmTopByte, DisAsmCaretByte, DisAsmLastPC;
 int			DisAsmScroll;
 
+BYTE		DisAsmROM, DisAsmRAM, DisAsmSVBK, DisAsmVBK;
+
+BOOL CALLBACK DisAsmRomBankEnumChildProc(HWND hWin, LPARAM lParam)
+{
+	char		szText[4];
+
+
+	if (GetWindowLong(hWin, GWL_ID) != IDC_NUMBER)
+	{
+		return true;
+	}
+
+	if (lParam)
+	{
+		itoa(DisAsmROM, szText, 16);
+		SendMessage(hWin, WM_SETTEXT, 0, (LPARAM)&szText);
+	}
+	else
+	{
+		SendMessage(hWin, WM_GETTEXT, 4, (LPARAM)&szText);
+		if (szText[0] && szText[1] && szText[2])
+		{
+			return true;
+		}
+
+		if (HexToNum(&szText[0]))
+		{
+			return true;
+		}
+
+		if (szText[1] != '\0')
+		{
+			if (HexToNum(&szText[1]))
+			{
+				return true;
+			}
+			DisAsmROM = (szText[0] << 4) | szText[1];
+		}
+		else
+		{
+			DisAsmROM = szText[0];
+		}
+
+		DisAsmFlags |= MEMORY_ROM;
+	}
+
+	return false;
+}
+
+
+
 BOOL CALLBACK DisAsmGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	DWORD		NewNumber;
@@ -2570,14 +3057,13 @@ BOOL CALLBACK DisAsmGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		{
 		case IDOK:
 			NewNumber = DisAsmCaretByte;
-			EnumChildWindows(hWin, MemoryGotoEnumChildProc, (LPARAM)&NewNumber);
+			EnumChildWindows(hWin, GotoEnumChildProc, (LPARAM)&NewNumber);
 			if (DisAsmCaretByte == NewNumber)
 			{
 				EndDialog(hWin, true);
 				return true;
 			}
-			DisAsmCaretByte = (WORD)NewNumber;
-			DisAsmTopByte = DisAsmCaretByte;
+			DisAsmTopByte = DisAsmCaretByte = (WORD)NewNumber;
 			MemoryCaretY = 0;
 			MemoryCaretX = 0;
 			EndDialog(hWin, false);
@@ -2604,11 +3090,203 @@ BOOL CALLBACK DisAsmGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 
 
+BOOL CALLBACK DisAsmRomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDOK:
+			EnumChildWindows(hWin, DisAsmRomBankEnumChildProc, false);
+			EndDialog(hWin, false);
+			return true;
+
+		case IDCANCEL:
+			EndDialog(hWin, true);
+			return true;
+		}
+		break;
+
+	/*case WM_CLOSE:
+		EndDialog(hWin, true);
+		return true;*/
+
+	case WM_INITDIALOG:
+		SendMessage(hWin, WM_SETTEXT, 0, (LPARAM)&"Enter ROM Bank");
+		EnumChildWindows(hWin, DisAsmRomBankEnumChildProc, true);
+		return true;
+	}
+
+	return false;
+}
+
+
+
+void DisAsmReadMem(CGameBoy *pGameBoy, WORD pByte, BYTE **p, BYTE **Access, BYTE *pBank)
+{
+	if (pByte < 0x4000)
+	{
+		*pBank = 0;
+		*p = &pGameBoy->MEM_ROM[pByte];
+		*Access = &pGameBoy->MemStatus_ROM[pByte];
+	}
+	else if (pByte < 0x8000)
+	{
+		if (DisAsmFlags & MEMORY_ROM)
+		{
+			*pBank = DisAsmROM;
+			*p = &pGameBoy->MEM_ROM[pByte - 0x4000 + 0x4000 * DisAsmROM];
+			*Access = &pGameBoy->MemStatus_ROM[pByte - 0x4000 + 0x4000 * DisAsmROM];
+		}
+		else
+		{
+			*pBank = pGameBoy->ActiveRomBank;
+			*p = &pGameBoy->MEM_ROM[pByte - 0x4000 + 0x4000 * pGameBoy->ActiveRomBank];
+			*Access = &pGameBoy->MemStatus_ROM[pByte - 0x4000 + 0x4000 * pGameBoy->ActiveRomBank];
+		}
+	}
+	else if (pByte < 0xA000)
+	{
+		if (DisAsmFlags & MEMORY_VBK)
+		{
+			*pBank = DisAsmVBK;
+			*p = &pGameBoy->MEM_VRAM[pByte - 0x8000 + 0x2000 * DisAsmVBK];
+			*Access = &pGameBoy->MemStatus_VRAM[pByte - 0x8000 + 0x2000 * DisAsmVBK];
+		}
+		else
+		{
+			*pBank = pGameBoy->MEM_CPU[0x8F4F] & 1;
+			*p = &pGameBoy->MEM_VRAM[pByte - 0x8000 + 0x2000 * (pGameBoy->MEM_CPU[0x8F4F] & 1)];
+			*Access = &pGameBoy->MemStatus_VRAM[pByte - 0x8000 + 0x2000 * (pGameBoy->MEM_CPU[0x8F4F] & 1)];
+		}
+	}
+	else if (pByte < 0xC000)
+	{
+		if (pGameBoy->MemStatus_RAM)
+		{
+			if (DisAsmFlags & MEMORY_RAM)
+			{
+				*pBank = DisAsmRAM;
+				*Access = &pGameBoy->MemStatus_RAM[pByte - 0xA000 + 0x2000 * DisAsmRAM];
+				if (**Access & MEM_READ)
+				{
+					*p = &pGameBoy->MEM_RAM[pByte - 0xA000 + 0x2000 * DisAsmRAM];
+				}
+			}
+			else
+			{
+				*pBank = pGameBoy->ActiveRamBank;
+				*Access = &pGameBoy->MemStatus_RAM[pByte - 0xA000 + 0x2000 * pGameBoy->ActiveRamBank];
+				if (**Access & MEM_READ)
+				{
+					*p = &pGameBoy->MEM_RAM[pByte - 0xA000 + 0x2000 * pGameBoy->ActiveRamBank];
+				}
+			}
+		}
+		else
+		{
+			*pBank = 0;
+			*Access = ZeroStatus;
+		}
+	}
+	else if (pByte < 0xD000)
+	{
+		*pBank = 0;
+		*p = &pGameBoy->MEM_CPU[pByte - 0xC000];
+		*Access = &pGameBoy->MemStatus_CPU[pByte - 0xC000];
+	}
+	else if (pByte < 0xE000)
+	{
+		if (!(DisAsmFlags & MEMORY_SVBK))
+		{
+			DisAsmSVBK = pGameBoy->MEM_CPU[0x8F70] & 7;
+			if (DisAsmSVBK < 1)
+			{
+				DisAsmSVBK = 1;
+			}
+		}
+		*pBank = DisAsmSVBK;
+		*p = &pGameBoy->MEM_CPU[pByte - 0xD000 + 0x1000 * DisAsmSVBK];
+		*Access = &pGameBoy->MemStatus_CPU[pByte - 0xD000 + 0x1000 * DisAsmSVBK];
+	}
+	else if (pByte < 0xFE00)
+	{
+		*pBank = 0;
+		*Access = ZeroStatus;
+	}
+	else if (pByte < 0xFEA0)
+	{
+		*pBank = 0;
+		*p = &pGameBoy->MEM_CPU[pByte - 0xFE00 + 0x8E00];
+		*Access = &pGameBoy->MemStatus_CPU[pByte - 0xFE00 + 0x8E00];
+	}
+	else if (pByte < 0xFF00)
+	{
+		*pBank = 0;
+		*Access = ZeroStatus;
+	}
+	else
+	{
+		*pBank = 0;
+		*p = &pGameBoy->MEM_CPU[pByte - 0xFF00 + 0x8F00];
+		*Access = &pGameBoy->MemStatus_CPU[pByte - 0xFF00 + 0x8F00];
+	}
+}
+
+
+
+void OutputLabels(CGameBoy *pGameBoy, BYTE Bank, WORD Offset, HDC hdc, int *y)
+{
+	char		*pszLabel;
+
+
+	if (pGameBoy->pDebugInfo)
+	{
+		if (pszLabel = pGameBoy->pDebugInfo->GetLabel(Bank, Offset))
+		{
+			TextOut(hdc, 15, *y, pszLabel, strlen(pszLabel));
+			*y += FixedFontHeight;
+			while (pszLabel = pGameBoy->pDebugInfo->GetNextLabel(Bank, Offset))
+			{
+				TextOut(hdc, 15, *y, pszLabel, strlen(pszLabel));
+				*y += FixedFontHeight;
+			}
+		}
+	}
+}
+
+
+
+DWORD GetNumberOfLabels(CGameBoy *pGameBoy, BYTE Bank, WORD Offset)
+{
+	DWORD		dwLabelNo;
+
+
+	dwLabelNo = 0;
+
+	if (pGameBoy->pDebugInfo)
+	{
+		if (pGameBoy->pDebugInfo->GetLabel(Bank, Offset))
+		{
+			dwLabelNo++;
+			while (pGameBoy->pDebugInfo->GetNextLabel(Bank, Offset))
+			{
+				dwLabelNo++;
+			}
+		}
+	}
+
+	return dwLabelNo;
+}
+
+
+
 LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CGameBoy		*pGameBoy;
 	PAINTSTRUCT		Paint;
-	RECT			rct;
+	RECT			rct, Rect2;
 	POINT			Point;
 	LOGBRUSH		lb;
 	HDC				hdc;
@@ -2616,8 +3294,9 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 	HPEN			hPen;
 	HANDLE			hBitmap;
 	SCROLLINFO		si;
-	WORD			pByte;
-	BYTE			Byte, Byte2, Byte3, Status;
+	WORD			pByte, pByte2;
+	BYTE			Byte, *p, *p2, *p3, *Access, *Access2, *Access3, Bank;
+	DWORD			dw;
 	int				x, y;
 	BOOL			SetY;
 	EMULATIONINFO	*pEmulationInfo;
@@ -2639,12 +3318,185 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			}
 			return 0;
 
+		case ID_MEMORY_ROM:
+			if (!(DisAsmFlags & MEMORY_ROM))
+			{
+				DisAsmROM = pGameBoy->ActiveRomBank;
+			}
+			Byte = DisAsmROM;
+			if (!DialogBox(hInstance, MAKEINTRESOURCE(IDD_ENTERNUMBER), hWnd, DisAsmRomBankDlgProc))
+			{
+				if (DisAsmROM <= pGameBoy->MaxRomBank)
+				{
+					InvalidateRect(hWin, NULL, true);
+				}
+				else
+				{
+					DisAsmROM = Byte;
+				}
+			}
+			return 0;
+
+		case ID_MEMORY_VBK_BANK0:
+			DisAsmFlags |= MEMORY_VBK;
+			DisAsmVBK = 0;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_VBK_BANK1:
+			DisAsmFlags |= MEMORY_VBK;
+			DisAsmVBK = 1;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK0:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 0;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK1:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 1;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK2:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 2;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK3:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 3;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK4:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 4;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK5:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 5;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK6:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 6;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK7:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 7;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK8:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 8;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK9:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 9;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK10:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 10;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK11:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 11;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK12:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 12;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK13:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 13;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK14:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 14;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_RAM_BANK15:
+			DisAsmFlags |= MEMORY_RAM;
+			DisAsmRAM = 15;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK1:
+			DisAsmFlags |= MEMORY_SVBK;
+			DisAsmSVBK = 1;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK2:
+			DisAsmFlags |= MEMORY_SVBK;
+			DisAsmSVBK = 2;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK3:
+			DisAsmFlags |= MEMORY_SVBK;
+			DisAsmSVBK = 3;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK4:
+			DisAsmFlags |= MEMORY_SVBK;
+			DisAsmSVBK = 4;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK5:
+			DisAsmFlags |= MEMORY_SVBK;
+			DisAsmSVBK = 5;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK6:
+			DisAsmFlags |= MEMORY_SVBK;
+			DisAsmSVBK = 6;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
+		case ID_MEMORY_SVBK_BANK7:
+			DisAsmFlags |= MEMORY_SVBK;
+			DisAsmSVBK = 7;
+			InvalidateRect(hWin, NULL, true);
+			return 0;
+
 		case ID_EMULATION_STEPOVER:
 			if (OpCodeNames[(BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC)].Flags & OCF_CALL)
 			{
 				if (!pGameBoy->hThread)
 				{
-					pEmulationInfo = new EMULATIONINFO;
+					if (!(pEmulationInfo = new EMULATIONINFO))
+					{
+						MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
+						return 0;
+					}
 					pEmulationInfo->GameBoy1 = pGameBoy;
 					pEmulationInfo->Flags = EMU_RUNTO;
 					pEmulationInfo->RunToOffset = pGameBoy->Reg_PC + ((BYTE)OpCodeNames[(BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC)].Flags & OCF_BYTES) + 1;
@@ -2668,7 +3520,11 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		case ID_EMULATION_STEPINTO:
 			if (!pGameBoy->hThread)
 			{
-				pEmulationInfo = new EMULATIONINFO;
+				if (!(pEmulationInfo = new EMULATIONINFO))
+				{
+					MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
+					return 0;
+				}
 				pEmulationInfo->GameBoy1 = pGameBoy;
 				pEmulationInfo->Flags = EMU_STEPINTO;
 				pGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &pGameBoy->ThreadId);
@@ -2678,7 +3534,11 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		case ID_EMULATION_STEPOUT:
 			if (!pGameBoy->hThread)
 			{
-				pEmulationInfo = new EMULATIONINFO;
+				if (!(pEmulationInfo = new EMULATIONINFO))
+				{
+					MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
+					return 0;
+				}
 				pEmulationInfo->GameBoy1 = pGameBoy;
 				pEmulationInfo->Flags = EMU_STEPOUT;
 				pGameBoy->hThread = CreateThread(NULL, 0, StepGameLoop, pEmulationInfo, 0, &pGameBoy->ThreadId);
@@ -2688,7 +3548,11 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		case ID_EMULATION_RUNTOCURSOR:
 			if (!pGameBoy->hThread)
 			{
-				pEmulationInfo = new EMULATIONINFO;
+				if (!(pEmulationInfo = new EMULATIONINFO))
+				{
+					MessageBox(hWnd, "Out of memory.", NULL, MB_OK | MB_ICONERROR);
+					return 0;
+				}
 				pEmulationInfo->GameBoy1 = pGameBoy;
 				pEmulationInfo->Flags = EMU_RUNTO;
 				pEmulationInfo->RunToOffset = DisAsmCaretByte;
@@ -2712,9 +3576,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			if (pGameBoy->Reg_PC != DisAsmCaretByte)
 			{
 				pGameBoy->Reg_PC = DisAsmCaretByte;
-				GetClientRect(hWin, &rct);
-				rct.right = 15;
-				InvalidateRect(hWin, &rct, true);
+				InvalidateRect(hWin, NULL, true);
 				if (hRegisters)
 				{
 					InvalidateRect(hRegisters, NULL, true);
@@ -2723,23 +3585,22 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return 0;
 
 		case ID_EMULATION_TOGGLEBREAKPOINT:
-			Status = RetrieveAccess(pGameBoy, DisAsmCaretByte);
+			DisAsmReadMem(pGameBoy, DisAsmCaretByte, &p, &Access, &Bank);
 
 			//Breakpoints cannot be placed on non-executable statements
-			if (!(Status & MEM_EXECUTE))
+			if (!(*Access & MEM_EXECUTE))
 			{
 				return 0;
 			}
 
-			if (Status & MEM_BREAKPOINT)
+			if (*Access & MEM_BREAKPOINT)
 			{
-				Status &= ~MEM_BREAKPOINT;
+				*Access &= ~MEM_BREAKPOINT;
 			}
 			else
 			{
-				Status |= MEM_BREAKPOINT;
+				*Access |= MEM_BREAKPOINT;
 			}
-			SetAccess(pGameBoy, DisAsmCaretByte, Status);
 			GetClientRect(hWin, &rct);
 			rct.right = 15;
 			InvalidateRect(hWin, &rct, true);
@@ -2766,10 +3627,54 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_KEYDOWN:
-		if (!DisAsmGameBoy)
+		if (!(pGameBoy = GameBoyList.GetActive()))
 		{
 			break;
 		}
+
+		/*switch (wParam)
+		{
+		case VK_NUMPAD0:
+			wParam = '0';
+			break;
+
+		case VK_NUMPAD1:
+			wParam = '1';
+			break;
+
+		case VK_NUMPAD2:
+			wParam = '2';
+			break;
+
+		case VK_NUMPAD3:
+			wParam = '3';
+			break;
+
+		case VK_NUMPAD4:
+			wParam = '4';
+			break;
+
+		case VK_NUMPAD5:
+			wParam = '5';
+			break;
+
+		case VK_NUMPAD6:
+			wParam = '6';
+			break;
+
+		case VK_NUMPAD7:
+			wParam = '7';
+			break;
+
+		case VK_NUMPAD8:
+			wParam = '8';
+			break;
+
+		case VK_NUMPAD9:
+			wParam = '9';
+			break;
+		}*/
+
 		switch (wParam)
 		{
 		case VK_UP:
@@ -2782,39 +3687,52 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			{
 				DisAsmCaretByte--;
 				DisAsmTopByte = DisAsmCaretByte;
+				DisAsmCaretY = 0;
 				InvalidateRect(hWin, NULL, true);
 			}
 			else
 			{
-				DisAsmCaretByte--;
+				pByte2 = DisAsmCaretByte--;
 				pByte = DisAsmTopByte;
 				y = 0;
 				while (y <= rct.bottom)
 				{
+					DisAsmReadMem(pGameBoy, pByte, &p, &Access, &Bank);
+					y += GetNumberOfLabels(pGameBoy, Bank, pByte) * FixedFontHeight;
+
 					if (DisAsmCaretByte == pByte)
 					{
 						break;
 					}
 
-					Byte = (BYTE)ReadMem(DisAsmGameBoy, pByte);
-
-					if (Byte != 0xCB)
+					if (*Access & MEM_READ)
 					{
-						if (OpCodeNames[Byte].Flags & OCF_BYTES)
+						if (*p != 0xCB)
+						{
+							if (OpCodeNames[*p].Flags & OCF_BYTES)
+							{
+								if (DisAsmCaretByte == ++pByte)
+								{
+									DisAsmCaretByte--;
+									break;
+								}
+
+								if (OpCodeNames[*p].Flags & OCF_DATA16)
+								{
+									if (DisAsmCaretByte == ++pByte)
+									{
+										DisAsmCaretByte -= 2;
+										break;
+									}
+								}
+							}
+						}
+						else
 						{
 							if (DisAsmCaretByte == ++pByte)
 							{
 								DisAsmCaretByte--;
 								break;
-							}
-
-							if (OpCodeNames[Byte].Flags & OCF_DATA16)
-							{
-								if (DisAsmCaretByte == ++pByte)
-								{
-									DisAsmCaretByte -= 2;
-									break;
-								}
 							}
 						}
 					}
@@ -2830,7 +3748,8 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					y += FixedFontHeight;
 				}
 
-				if ((DisAsmCaretY -= FixedFontHeight) < 0)
+				DisAsmReadMem(pGameBoy, pByte2, &p, &Access, &Bank);
+				if ((DisAsmCaretY -= (GetNumberOfLabels(pGameBoy, Bank, pByte2) + 1) * FixedFontHeight) < 0)
 				{
 					SendMessage(hWin, WM_VSCROLL, SB_LINEUP, NULL);
 				}
@@ -2847,15 +3766,25 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return 0;
 
 		case VK_DOWN:
-			Byte = 1 + (BYTE)(OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmCaretByte)].Flags & OCF_BYTES);
+			DisAsmReadMem(pGameBoy, DisAsmCaretByte, &p, &Access, &Bank);
+			if (*Access & MEM_READ)
+			{
+				Byte = 1 + (BYTE)(OpCodeNames[*p].Flags & OCF_BYTES);
+			}
+			else
+			{
+				Byte = 1;
+			}
 			if (DisAsmCaretByte + Byte > 0xFFFF)
 			{
 				return 0;
 			}
 			DisAsmCaretByte += Byte;
+			DisAsmReadMem(pGameBoy, DisAsmCaretByte, &p, &Access, &Bank);
+			dw = GetNumberOfLabels(pGameBoy, Bank, DisAsmCaretByte) * FixedFontHeight;
 			if (DisAsmCaretByte == DisAsmTopByte)
 			{
-				DisAsmCaretY = 0;
+				DisAsmCaretY = dw;
 				if (DisAsmCaret)
 				{
 					HideCaret(hWin);
@@ -2865,6 +3794,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				return 0;
 			}
 			GetClientRect(hWin, &rct);
+			DisAsmCaretY += dw;
 			if (DisAsmCaretY < 0 || DisAsmCaretY > rct.bottom)
 			{
 				DisAsmTopByte = DisAsmCaretByte;
@@ -2940,9 +3870,17 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				y = 0;
 				while (y < DisAsmCaretY)
 				{
-					Byte = (BYTE)ReadMem(DisAsmGameBoy, DisAsmCaretByte++);
+					DisAsmReadMem(pGameBoy, DisAsmCaretByte++, &p, &Access, &Bank);
 
-					DisAsmCaretByte += (BYTE)OpCodeNames[Byte].Flags & OCF_BYTES;
+					if (*Access & MEM_READ)
+					{
+						DisAsmCaretByte += (BYTE)OpCodeNames[*p].Flags & OCF_BYTES;
+					}
+
+					dw = GetNumberOfLabels(pGameBoy, Bank, DisAsmCaretByte);
+					DisAsmCaretByte += (WORD)dw;
+					y += dw;
+
 					y += FixedFontHeight;
 				}
 			}
@@ -2958,21 +3896,21 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				{
 					break;
 				}
-				Byte = (BYTE)ReadMem(DisAsmGameBoy, DisAsmCaretByte++);
+				DisAsmReadMem(pGameBoy, DisAsmCaretByte++, &p, &Access, &Bank);
 				DisAsmTopByte++;
 
 				if (DisAsmCaretByte == 0xFFFF)
 				{
 					break;
 				}
-				if (Byte != 0xCB)
+				if (*Access & MEM_READ)
 				{
-					if (OpCodeNames[Byte].Flags & OCF_BYTES)
+					if (OpCodeNames[*p].Flags & OCF_BYTES)
 					{
 						DisAsmCaretByte++;
 						DisAsmTopByte++;
 
-						if (OpCodeNames[Byte].Flags & OCF_DATA16)
+						if (OpCodeNames[*p].Flags & OCF_DATA16)
 						{
 							if (DisAsmCaretByte == 0xFFFF)
 							{
@@ -2982,11 +3920,6 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 							DisAsmTopByte++;
 						}
 					}
-				}
-				else
-				{
-					DisAsmCaretByte++;
-					DisAsmTopByte++;
 				}
 				y += FixedFontHeight;
 			}
@@ -2998,14 +3931,28 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return 0;
 
 		case VK_APPS:
-			GetWindowRect(hWin, &rct);
-			TrackPopupMenu(GetSubMenu(hPopupMenu, 1), TPM_LEFTBUTTON, rct.left + GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXEDGE) + DisAsmCaretX, rct.top + GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CYEDGE) + GetSystemMetrics(SM_CYSMCAPTION) + FixedFontHeight + DisAsmCaretY, 0, hWin, NULL);
+			GetClientRect(hWin, &rct);
+			if (DisAsmCaretY > rct.bottom || DisAsmCaretY < 0)
+			{
+				DisAsmTopByte = DisAsmCaretByte;
+				DisAsmCaretX = 15;
+				DisAsmCaretY = 0;
+				InvalidateRect(hWin, NULL, true);
+				UpdateWindow(hWin);
+			}
+			if (!CreateBankMenu(pGameBoy, GetSubMenu(hPopupMenu, 1), 5))
+			{
+				Point.x = DisAsmCaretX;
+				Point.y = DisAsmCaretY + FixedFontHeight;
+				ClientToScreen(hWin, &Point);
+				TrackPopupMenu(GetSubMenu(hPopupMenu, 1), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
+			}
 			return 0;
 		}
 		break;
 
 	case WM_VSCROLL:
-		if (!DisAsmGameBoy)
+		if (!(pGameBoy = GameBoyList.GetActive()))
 		{
 			return 0;
 		}
@@ -3022,7 +3969,15 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 		case SB_LINEDOWN:
 			GetClientRect(hWin, &rct);
-			Byte = 1 + (BYTE)(OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmTopByte)].Flags & OCF_BYTES);
+			DisAsmReadMem(pGameBoy, DisAsmTopByte, &p, &Access, &Bank);
+			if (*Access & MEM_READ)
+			{
+				Byte = 1 + (BYTE)(OpCodeNames[*p].Flags & OCF_BYTES);
+			}
+			else
+			{
+				Byte = 1;
+			}
 			if (DisAsmTopByte + Byte > 0xFFFF)
 			{
 				return 0;
@@ -3033,8 +3988,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				HideCaret(hWin);
 				SetCaretPos(DisAsmCaretX, DisAsmCaretY);
 			}
-			ScrollWindowEx(hWin, 0, -FixedFontHeight, NULL, NULL, NULL, NULL, SW_ERASE | SW_INVALIDATE);
-			UpdateWindow(hWin);
+			InvalidateRect(hWin, NULL, true);
 			if (DisAsmCaret)
 			{
 				ShowCaret(hWin);
@@ -3063,9 +4017,12 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			y = 0;
 			while (y + 2 * FixedFontHeight <= rct.bottom)
 			{
-				Byte = (BYTE)ReadMem(DisAsmGameBoy, DisAsmTopByte++);
+				DisAsmReadMem(pGameBoy, DisAsmTopByte++, &p, &Access, &Bank);
 
-				DisAsmTopByte += (BYTE)OpCodeNames[Byte].Flags & OCF_BYTES;
+				if (*Access & MEM_READ)
+				{
+					DisAsmTopByte += (BYTE)OpCodeNames[*p].Flags & OCF_BYTES;
+				}
 				y += FixedFontHeight;
 			}
 
@@ -3089,7 +4046,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 	case WM_RBUTTONDOWN:
 	case WM_LBUTTONDOWN:
-		if (!DisAsmGameBoy)
+		if (!(pGameBoy = GameBoyList.GetActive()))
 		{
 			return 0;
 		}
@@ -3098,23 +4055,17 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		y = 0;
 		while (y + FixedFontHeight < HIWORD(lParam))
 		{
-			Byte = (BYTE)ReadMem(DisAsmGameBoy, DisAsmCaretByte++);
-			if (DisAsmCaretByte == 0)
+			DisAsmReadMem(pGameBoy, DisAsmCaretByte, &p, &Access, &Bank);
+			dw = GetNumberOfLabels(pGameBoy, Bank, DisAsmCaretByte) * FixedFontHeight;
+			if (++DisAsmCaretByte == 0)
 			{
 				DisAsmCaretByte = 0xFFFF;
 				break;
 			}
 
-			if (OpCodeNames[Byte].Flags & OCF_BYTES)
+			if (*Access & MEM_READ)
 			{
-				DisAsmCaretByte++;
-				if (DisAsmCaretByte == 0)
-				{
-					DisAsmCaretByte = 0xFFFF;
-					break;
-				}
-
-				if (OpCodeNames[Byte].Flags & OCF_DATA16)
+				if (OpCodeNames[*p].Flags & OCF_BYTES)
 				{
 					DisAsmCaretByte++;
 					if (DisAsmCaretByte == 0)
@@ -3122,24 +4073,39 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						DisAsmCaretByte = 0xFFFF;
 						break;
 					}
+
+					if (OpCodeNames[*p].Flags & OCF_DATA16)
+					{
+						DisAsmCaretByte++;
+						if (DisAsmCaretByte == 0)
+						{
+							DisAsmCaretByte = 0xFFFF;
+							break;
+						}
+					}
 				}
 			}
-			y += FixedFontHeight;
+			y += FixedFontHeight + dw;
 		}
-		DisAsmCaretY = y;
+		DisAsmReadMem(pGameBoy, DisAsmCaretByte, &p, &Access, &Bank);
+		DisAsmCaretY = y + GetNumberOfLabels(pGameBoy, Bank, DisAsmCaretByte) * FixedFontHeight;
 		if (DisAsmCaret)
 		{
 			HideCaret(hWin);
 			SetCaretPos(DisAsmCaretX, DisAsmCaretY);
 			ShowCaret(hWin);
 		}
-		if (uMsg == WM_RBUTTONDOWN)
+		return 0;
+
+	case WM_RBUTTONUP:
+		if (!(pGameBoy = GameBoyList.GetActive()))
 		{
-			//if (!CreateMemoryMenu(pGameBoy, GetSubMenu(hPopupMenu, 0)))
-			//{
+			return 0;
+		}
+		if (!CreateBankMenu(pGameBoy, GetSubMenu(hPopupMenu, 1), 5))
+		{
 			GetCursorPos(&Point);
 			TrackPopupMenu(GetSubMenu(hPopupMenu, 1), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
-			//}
 		}
 		return 0;
 
@@ -3169,12 +4135,12 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				if (DisAsmGameBoy != pGameBoy)
 				{
 					DisAsmGameBoy = pGameBoy;
-					DisAsmCaretByte = DisAsmTopByte = DisAsmLastPC = DisAsmGameBoy->Reg_PC;
+					DisAsmCaretByte = DisAsmTopByte = DisAsmLastPC = pGameBoy->Reg_PC;
 					DisAsmScroll = 0;
 				}
-				if (DisAsmLastPC != DisAsmGameBoy->Reg_PC)
+				if (DisAsmLastPC != pGameBoy->Reg_PC)
 				{
-					DisAsmCaretByte = DisAsmLastPC = DisAsmGameBoy->Reg_PC;
+					DisAsmCaretByte = DisAsmLastPC = pGameBoy->Reg_PC;
 					if (DisAsmCaretByte < DisAsmTopByte)
 					{
 						DisAsmTopByte = DisAsmCaretByte;
@@ -3185,17 +4151,33 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						pByte = DisAsmTopByte;
 						while (true)
 						{
-							pByte += 1 + (BYTE)(OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, pByte)].Flags & OCF_BYTES);
+							DisAsmReadMem(pGameBoy, pByte, &p, &Access, &Bank);
+							if (*Access & MEM_READ)
+							{
+								pByte += 1 + (BYTE)(OpCodeNames[*p].Flags & OCF_BYTES);
+							}
+							else
+							{
+								pByte++;
+							}
 							y += FixedFontHeight;
 							if (pByte > DisAsmCaretByte)
 							{
 								if (y > rct.bottom - 2 * FixedFontHeight)
 								{
-									DisAsmTopByte += 1 + (BYTE)(OpCodeNames[(BYTE)ReadMem(DisAsmGameBoy, DisAsmTopByte)].Flags & OCF_BYTES);
+									DisAsmReadMem(pGameBoy, DisAsmTopByte, &p, &Access, &Bank);
+									if (*Access & MEM_READ)
+									{
+										DisAsmTopByte += 1 + (BYTE)(OpCodeNames[*p].Flags & OCF_BYTES);
+									}
+									else
+									{
+										DisAsmTopByte++;
+									}
 								}
 								break;
 							}
-							if (y > rct.bottom - 2 * FixedFontHeight)
+							if (y > rct.bottom - FixedFontHeight)
 							{
 								DisAsmTopByte = DisAsmCaretByte;
 								break;
@@ -3210,7 +4192,74 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				y = 0;
 				while (y <= rct.bottom)
 				{
-					TextOut(Paint.hdc, 15, y, ToHex(pByte, true), 4);
+					if (pByte >= 0x4000 && pByte < 0x8000)
+					{
+						if (DisAsmFlags & MEMORY_ROM)
+						{
+							OutputLabels(pGameBoy, DisAsmROM, pByte, Paint.hdc, &y);
+							TextOut(Paint.hdc, 15, y, ToHex(DisAsmROM, false), 2);
+						}
+						else
+						{
+							OutputLabels(pGameBoy, pGameBoy->ActiveRomBank, pByte, Paint.hdc, &y);
+							TextOut(Paint.hdc, 15, y, ToHex(pGameBoy->ActiveRomBank, false), 2);
+						}
+					}
+					else if (pByte >= 0x8000 && pByte < 0xA000)
+					{
+						if (DisAsmFlags & MEMORY_VBK)
+						{
+							OutputLabels(pGameBoy, DisAsmVBK, pByte, Paint.hdc, &y);
+							TextOut(Paint.hdc, 15, y, ToHex(DisAsmVBK, false), 2);
+						}
+						else
+						{
+							OutputLabels(pGameBoy, pGameBoy->MEM_CPU[0x8F4F] & 1, pByte, Paint.hdc, &y);
+							TextOut(Paint.hdc, 15, y, ToHex(pGameBoy->MEM_CPU[0x8F4F] & 1, false), 2);
+						}
+					}
+					else if (pByte >= 0xA000 && pByte < 0xC000)
+					{
+						if (DisAsmFlags & MEMORY_RAM)
+						{
+							OutputLabels(pGameBoy, DisAsmRAM, pByte, Paint.hdc, &y);
+							TextOut(Paint.hdc, 15, y, ToHex(DisAsmRAM, false), 2);
+						}
+						else
+						{
+							OutputLabels(pGameBoy, pGameBoy->ActiveRamBank, pByte, Paint.hdc, &y);
+							TextOut(Paint.hdc, 15, y, ToHex(pGameBoy->ActiveRamBank, false), 2);
+						}
+					}
+					else if (pByte >= 0xD000 && pByte < 0xE000)
+					{
+						if (DisAsmFlags & MEMORY_SVBK)
+						{
+							OutputLabels(pGameBoy, DisAsmSVBK, pByte, Paint.hdc, &y);
+							TextOut(Paint.hdc, 15, y, ToHex(DisAsmSVBK, false), 2);
+						}
+						else
+						{
+							if (!(pGameBoy->MEM_CPU[0x8F70] & 7))
+							{
+								OutputLabels(pGameBoy, 1, pByte, Paint.hdc, &y);
+								TextOut(Paint.hdc, 15, y, "01", 2);
+							}
+							else
+							{
+								OutputLabels(pGameBoy, pGameBoy->MEM_CPU[0x8F70] & 7, pByte, Paint.hdc, &y);
+								TextOut(Paint.hdc, 15, y, ToHex(pGameBoy->MEM_CPU[0x8F70] & 7, false), 2);
+							}
+						}
+					}
+					else
+					{
+						OutputLabels(pGameBoy, 0, pByte, Paint.hdc, &y);
+						TextOut(Paint.hdc, 15, y, "00", 2);
+					}
+					TextOut(Paint.hdc, 15 + 2 * FixedFontWidth, y, ":", 1);
+
+					TextOut(Paint.hdc, 15 + 3 * FixedFontWidth, y, ToHex(pByte, true), 4);
 
 					if (DisAsmCaretByte == pByte)
 					{
@@ -3222,8 +4271,8 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						}
 					}
 
-					Status = RetrieveAccess(pGameBoy, pByte);
-					if (Status & MEM_BREAKPOINT)
+					DisAsmReadMem(pGameBoy, pByte, &p, &Access, &Bank);
+					if (*Access & MEM_BREAKPOINT)
 					{
 						hBitmap = LoadImage(hInstance, MAKEINTRESOURCE(IDB_BREAKPOINT), IMAGE_BITMAP, 0, 0, 0);
 						hdc = CreateCompatibleDC(Paint.hdc);
@@ -3234,7 +4283,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						DeleteDC(hdc);
 					}
 
-					if (DisAsmGameBoy->Reg_PC == pByte)
+					if (pGameBoy->Reg_PC == pByte)
 					{
 						hBitmap = LoadImage(hInstance, MAKEINTRESOURCE(IDB_CURRENTSTATEMENT), IMAGE_BITMAP, 0, 0, 0);
 						hdc = CreateCompatibleDC(Paint.hdc);
@@ -3246,17 +4295,16 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						DeleteDC(hdc);
 					}
 
-					if (Status & MEM_READ)
+					if (*Access & MEM_READ)
 					{
-						Byte = (BYTE)ReadMem(pGameBoy, pByte);
-						TextOut(Paint.hdc, 15 + 5 * FixedFontWidth, y, ToHex(Byte, false), 2);
-						if (Byte != 0xCB)
+						TextOut(Paint.hdc, 15 + 8 * FixedFontWidth, y, ToHex(*p, false), 2);
+						if (*p != 0xCB)
 						{
-							TextOut(Paint.hdc, 15 + 14 * FixedFontWidth, y, OpCodeNames[Byte].Text1, strlen(OpCodeNames[Byte].Text1));
-							x = 15 + (14 + strlen(OpCodeNames[Byte].Text1)) * FixedFontWidth;
-							if (OpCodeNames[Byte].Flags & OCF_BYTES)
+							TextOut(Paint.hdc, 15 + 17 * FixedFontWidth, y, OpCodeNames[*p].Text1, strlen(OpCodeNames[*p].Text1));
+							x = 15 + (17 + strlen(OpCodeNames[*p].Text1)) * FixedFontWidth;
+							if (OpCodeNames[*p].Flags & OCF_BYTES)
 							{
-								Byte2 = (BYTE)ReadMem(pGameBoy, ++pByte);
+								DisAsmReadMem(pGameBoy, ++pByte, &p2, &Access2, &Bank);
 
 								if (pByte == 0)
 								{
@@ -3275,9 +4323,9 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 									}
 								}
 
-								if (OpCodeNames[Byte].Flags & OCF_DATA16)
+								if (OpCodeNames[*p].Flags & OCF_DATA16)
 								{
-									Byte3 = (BYTE)ReadMem(pGameBoy, ++pByte);
+									DisAsmReadMem(pGameBoy, ++pByte, &p3, &Access3, &Bank);
 
 									if (pByte == 0)
 									{
@@ -3295,30 +4343,58 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 										}
 									}
 
-									TextOut(Paint.hdc, 15 + 11 * FixedFontWidth, y, ToHex(Byte3, false), 2);
-									TextOut(Paint.hdc, x, y, NumBuffer, 2);
+									if (*Access3 & MEM_READ)
+									{
+										TextOut(Paint.hdc, 15 + 14 * FixedFontWidth, y, ToHex(*p3, false), 2);
+										TextOut(Paint.hdc, x, y, NumBuffer, 2);
+									}
+									else
+									{
+										TextOut(Paint.hdc, 15 + 14 * FixedFontWidth, y, "??", 2);
+										TextOut(Paint.hdc, x, y, "??", 2);
+									}
 									x += 2 * FixedFontWidth;
 								}
-								TextOut(Paint.hdc, 15 + 8 * FixedFontWidth, y, ToHex(Byte2, false), 2);
-								if (OpCodeNames[Byte].Flags & OCF_DISP)
+								if (*Access2 & MEM_READ)
 								{
-									TextOut(Paint.hdc, x, y, ToHex(pByte + 1 + (Byte2 & 0x80 ? - (short)((BYTE)-Byte2) : Byte2), true), 4);
-									x += 4 * FixedFontWidth;
+									TextOut(Paint.hdc, 15 + 11 * FixedFontWidth, y, ToHex(*p2, false), 2);
+									if (OpCodeNames[*p].Flags & OCF_DISP)
+									{
+										TextOut(Paint.hdc, x, y, ToHex(pByte + 1 + (*p2 & 0x80 ? - (short)((BYTE)-*p2) : *p2), true), 4);
+										x += 4 * FixedFontWidth;
+									}
+									else
+									{
+										if (*p != 0x10)
+										{
+											TextOut(Paint.hdc, x, y, NumBuffer, 2);
+											x += 2 * FixedFontWidth;
+										}
+									}
 								}
 								else
 								{
-									if (Byte != 0x10)
+									TextOut(Paint.hdc, 15 + 11 * FixedFontWidth, y, "??", 2);
+									if (OpCodeNames[*p].Flags & OCF_DISP)
 									{
-										TextOut(Paint.hdc, x, y, NumBuffer, 2);
-										x += 2 * FixedFontWidth;
+										TextOut(Paint.hdc, x, y, "????", 4);
+										x += 4 * FixedFontWidth;
+									}
+									else
+									{
+										if (*p != 0x10)
+										{
+											TextOut(Paint.hdc, x, y, "??", 2);
+											x += 2 * FixedFontWidth;
+										}
 									}
 								}
 							}
-							TextOut(Paint.hdc, x, y, OpCodeNames[Byte].Text2, strlen(OpCodeNames[Byte].Text2));
+							TextOut(Paint.hdc, x, y, OpCodeNames[*p].Text2, strlen(OpCodeNames[*p].Text2));
 						}
 						else
 						{
-							Byte = (BYTE)ReadMem(pGameBoy, ++pByte);
+							DisAsmReadMem(pGameBoy, ++pByte, &p, &Access, &Bank);
 
 							if (pByte == 0)
 							{
@@ -3336,15 +4412,24 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 								}
 							}
 
-							TextOut(Paint.hdc, 15 + 8 * FixedFontWidth, y, ToHex(Byte, false), 2);
-							TextOut(Paint.hdc, 15 + 14 * FixedFontWidth, y, OpCodeCBNames[Byte >> 3], strlen(OpCodeCBNames[Byte >> 3]));
-							x = 15 + (14 + strlen(OpCodeCBNames[Byte >> 3])) * FixedFontWidth;
-							TextOut(Paint.hdc, x, y, OpCodeCBArgument[Byte & 7], strlen(OpCodeCBArgument[Byte & 7]));
+							if (*Access & MEM_READ)
+							{
+								TextOut(Paint.hdc, 15 + 11 * FixedFontWidth, y, ToHex(*p, false), 2);
+								TextOut(Paint.hdc, 15 + 17 * FixedFontWidth, y, OpCodeCBNames[*p >> 3], strlen(OpCodeCBNames[*p >> 3]));
+								x = 15 + (17 + strlen(OpCodeCBNames[*p >> 3])) * FixedFontWidth;
+								TextOut(Paint.hdc, x, y, OpCodeCBArgument[*p & 7], strlen(OpCodeCBArgument[*p & 7]));
+							}
+							else
+							{
+								TextOut(Paint.hdc, 15 + 11 * FixedFontWidth, y, "??", 2);
+								TextOut(Paint.hdc, 15 + 17 * FixedFontWidth, y, "??", 2);
+								x = 15 + (17 + strlen(OpCodeCBNames[*p >> 3])) * FixedFontWidth;
+							}
 						}
 					}
 					else
 					{
-						TextOut(Paint.hdc, 15 + 5 * FixedFontWidth, y, "??", 2);
+						TextOut(Paint.hdc, 15 + 8 * FixedFontWidth, y, "??", 2);
 					}
 					if (++pByte == 0)
 					{
@@ -3410,8 +4495,9 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		}
 		return 0;
 
-	case WM_NCLBUTTONDBLCLK:
-		if (wParam == HTCAPTION)
+	case WM_SYSCOMMAND:
+		//Window cannot be maximized
+		if ((wParam & 0xFFF0) == SC_MAXIMIZE)
 		{
 			return 0;
 		}
@@ -3426,6 +4512,12 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 	case WM_DESTROY:
 		hDisAsm = NULL;
+		GetWindowRect(hClientWnd, &Rect2);
+		GetWindowRect(hWin, &rct);
+		DisAsm.x = rct.left - Rect2.left;
+		DisAsm.y = rct.top - Rect2.top;
+		DisAsm.Width = rct.right - rct.left;
+		DisAsm.Height = rct.bottom - rct.top;
 		return 0;
 	}
 
@@ -3466,11 +4558,196 @@ void PrintAddress(CGameBoy *pGameBoy, HDC hdc, WORD Address, BOOL Word)
 
 
 
+void PaintRegisters(HDC hdc, RECT *pRect)
+{
+	BYTE		Byte;
+	CGameBoy	*pGameBoy;
+
+
+	pGameBoy = GameBoyList.GetActive();
+
+	SelectObject(hdc, hFixedFont);
+	//SetBkMode(Paint.hdc, TRANSPARENT);
+	SetBkColor(hdc, 0xFFFFFF);
+	SetTextColor(hdc, 0);
+	TextOut(hdc, pRect->left, pRect->top, "AF", 2);
+	TextOut(hdc, pRect->left, pRect->top + FixedFontHeight, "BC", 2);
+	TextOut(hdc, pRect->left, pRect->top + 2 * FixedFontHeight, "DE", 2);
+	TextOut(hdc, pRect->left, pRect->top + 3 * FixedFontHeight, "HL", 2);
+	TextOut(hdc, pRect->left, pRect->top + 4 * FixedFontHeight, "SP", 2);
+	TextOut(hdc, pRect->left, pRect->top + 5 * FixedFontHeight, "PC", 2);
+	TextOut(hdc, pRect->left, pRect->top + 8 * FixedFontHeight, "ROM", 3);
+	TextOut(hdc, pRect->left, pRect->top + 9 * FixedFontHeight, "SVBK", 4);
+	TextOut(hdc, pRect->left, pRect->top + 10 * FixedFontHeight, "SRAM", 4);
+	TextOut(hdc, pRect->left, pRect->top + 12 * FixedFontHeight, "LY", 2);
+	if (pGameBoy)
+	{
+		TextOut(hdc, pRect->left + 3 * FixedFontWidth, pRect->top, ToHex(pGameBoy->Reg_AF, true), 4);
+		if (pGameBoy->Reg_F & Flag_Z)
+		{
+			TextOut(hdc, pRect->left + 8 * FixedFontWidth, pRect->top, "Z", 1);
+		}
+		if (pGameBoy->Reg_F & Flag_N)
+		{
+			TextOut(hdc, pRect->left + 9 * FixedFontWidth, pRect->top, "N", 1);
+		}
+		if (pGameBoy->Reg_F & Flag_H)
+		{
+			TextOut(hdc, pRect->left + 10 * FixedFontWidth, pRect->top, "H", 1);
+		}
+		if (pGameBoy->Reg_F & Flag_C)
+		{
+			TextOut(hdc, pRect->left + 11 * FixedFontWidth, pRect->top, "C", 1);
+		}
+
+		TextOut(hdc, pRect->left + 3 * FixedFontWidth, pRect->top + FixedFontHeight, ToHex(pGameBoy->Reg_BC, true), 4);
+		TextOut(hdc, pRect->left + 3 * FixedFontWidth, pRect->top + 2 * FixedFontHeight, ToHex(pGameBoy->Reg_DE, true), 4);
+		TextOut(hdc, pRect->left + 3 * FixedFontWidth, pRect->top + 3 * FixedFontHeight, ToHex(pGameBoy->Reg_HL, true), 4);
+		TextOut(hdc, pRect->left + 3 * FixedFontWidth, pRect->top + 4 * FixedFontHeight, ToHex(pGameBoy->Reg_SP, true), 4);
+		TextOut(hdc, pRect->left + 3 * FixedFontWidth, pRect->top + 5 * FixedFontHeight, ToHex(pGameBoy->Reg_PC, true), 4);
+
+		if (RetrieveAccess(pGameBoy, pGameBoy->Reg_PC) & MEM_READ)
+		{
+			Byte = (BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC);
+			if (OpCodeNames[Byte].Flags & OCF_RST00)
+			{
+				TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, "0000", 4);
+			}
+			if (OpCodeNames[Byte].Flags & OCF_RST08)
+			{
+				TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, "0008", 4);
+			}
+			if (OpCodeNames[Byte].Flags & OCF_RST10)
+			{
+				TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, "0010", 4);
+			}
+			if (OpCodeNames[Byte].Flags & OCF_RST18)
+			{
+				TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, "0018", 4);
+			}
+			if (OpCodeNames[Byte].Flags & OCF_RST20)
+			{
+				TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, "0020", 4);
+			}
+			if (OpCodeNames[Byte].Flags & OCF_RST28)
+			{
+				TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, "0028", 4);
+			}
+			if (OpCodeNames[Byte].Flags & OCF_RST30)
+			{
+				TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, "0030", 4);
+			}
+			if (OpCodeNames[Byte].Flags & OCF_RST38)
+			{
+				TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, "0038", 4);
+			}
+			if ((OpCodeNames[Byte].Flags & OCF_COND_NZ && (pGameBoy->Reg_F & Flag_Z))
+				|| (OpCodeNames[Byte].Flags & OCF_COND_Z && !(pGameBoy->Reg_F & Flag_Z))
+				|| (OpCodeNames[Byte].Flags & OCF_COND_NC && (pGameBoy->Reg_F & Flag_C))
+				|| (OpCodeNames[Byte].Flags & OCF_COND_C && !(pGameBoy->Reg_F & Flag_C)))
+			{
+				TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, ToHex(pGameBoy->Reg_PC + 1 + (OpCodeNames[Byte].Flags & OCF_BYTES), true), 4);
+			}
+			else
+			{
+				if (OpCodeNames[Byte].Flags & OCF_ADDRESS_BC)
+				{
+					PrintAddress(pGameBoy, hdc, pGameBoy->Reg_BC, false);
+				}
+				if (OpCodeNames[Byte].Flags & OCF_ADDRESS_DE)
+				{
+					PrintAddress(pGameBoy, hdc, pGameBoy->Reg_DE, false);
+				}
+				if ((OpCodeNames[Byte].Flags & OCF_ADDRESS_HL) || (Byte == 0xCB && (ReadMem(pGameBoy, pGameBoy->Reg_PC + 1) & 7) == 6))
+				{
+					PrintAddress(pGameBoy, hdc, pGameBoy->Reg_HL, false);
+				}
+				if (OpCodeNames[Byte].Flags & OCF_ADDRESS_SP)
+				{
+					PrintAddress(pGameBoy, hdc, pGameBoy->Reg_SP, true);
+				}
+				if (OpCodeNames[Byte].Flags & OCF_ADDRESS_C)
+				{
+					PrintAddress(pGameBoy, hdc, 0xFF00 + pGameBoy->Reg_C, false);
+				}
+				if (OpCodeNames[Byte].Flags & OCF_ADDRESS)
+				{
+					if (OpCodeNames[Byte].Flags & OCF_DATA16)
+					{
+						PrintAddress(pGameBoy, hdc, (WORD)(ReadMem(pGameBoy, pGameBoy->Reg_PC + 2) << 8) | ((BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1)), (OpCodeNames[Byte].Flags & OCF_ADDRESS_16) ? true : false);
+					}
+					if (OpCodeNames[Byte].Flags & OCF_DATA8)
+					{
+						PrintAddress(pGameBoy, hdc, 0xFF00 | (BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1), false);
+					}
+				}
+				if (OpCodeNames[Byte].Flags & OCF_JUMP)
+				{
+					if (OpCodeNames[Byte].Flags & OCF_DATA16)
+					{
+						TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, ToHex((WORD)(ReadMem(pGameBoy, pGameBoy->Reg_PC + 2) << 8) | ((BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1)), true), 4);
+					}
+					if (OpCodeNames[Byte].Flags & OCF_DISP)
+					{
+						TextOut(hdc, pRect->left, pRect->top + 6 * FixedFontHeight, ToHex(pGameBoy->Reg_PC + 1 + (OpCodeNames[Byte].Flags & OCF_BYTES) - (signed short)(-(signed char)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1)), true), 4);
+					}
+				}
+			}
+		}
+
+		TextOut(hdc, pRect->left + 5 * FixedFontWidth, pRect->top + 8 * FixedFontHeight, ToHex(pGameBoy->ActiveRomBank, false), 2);
+		NumBuffer[0] = (pGameBoy->FF00_C(0x70) & 7) + 48;
+		if (NumBuffer[0] == 48)
+		{
+			NumBuffer[0]++;
+		}
+		TextOut(hdc, pRect->left + 5 * FixedFontWidth, pRect->top + 9 * FixedFontHeight, NumBuffer, 1);
+		TextOut(hdc, pRect->left + 5 * FixedFontWidth, pRect->top + 10 * FixedFontHeight, ToHex(pGameBoy->ActiveRamBank, false), 2);
+		TextOut(hdc, pRect->left + 8 * FixedFontWidth, pRect->top + 12 * FixedFontHeight, ToHex(pGameBoy->FF00_C(0x44), false), 2);
+		switch (pGameBoy->FF00_C(0x41) & 3)
+		{
+		case 0:
+			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, "H-Blank", 7);
+			break;
+
+		case 1:
+			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, "V-Blank", 7);
+			break;
+
+		case 2:
+			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, "OAM", 3);
+			break;
+
+		case 3:
+			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, "LCD", 3);
+			break;
+		}
+		if ((pGameBoy->MEM_CPU[0x8F41] & 3) == 1)
+		{
+			if (pGameBoy->MEM_CPU[0x8F44] == 0)
+			{
+				TextOut(hdc, pRect->left + 8 * FixedFontWidth, pRect->top + 13 * FixedFontHeight, ToHex(pGameBoy->LCD_Ticks, true), 4);
+			}
+			else
+			{
+				TextOut(hdc, pRect->left + 8 * FixedFontWidth, pRect->top + 13 * FixedFontHeight, ToHex(pGameBoy->LCD_Ticks + 228 * (154 - pGameBoy->MEM_CPU[0x8F44]), true), 4);
+			}
+		}
+		else
+		{
+			TextOut(hdc, pRect->left + 8 * FixedFontWidth, pRect->top + 13 * FixedFontHeight, ToHex(pGameBoy->LCD_Ticks, false), 2);
+		}
+	}
+}
+
+
+
 LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	PAINTSTRUCT		Paint;
+	RECT			rct, Rect2;
 	CGameBoy		*pGameBoy;
-	BYTE			*pByte, Byte;
+	BYTE			*pByte;
 	BOOL			HiNibble;
 
 
@@ -3640,171 +4917,17 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			}
 			BeginPaint(hWin, &Paint);
 
-			SelectObject(Paint.hdc, hFixedFont);
-			//SetBkMode(Paint.hdc, TRANSPARENT);
-			SetBkColor(Paint.hdc, 0xFFFFFF);
-			SetTextColor(Paint.hdc, 0);
-			TextOut(Paint.hdc, 0, 0, "AF", 2);
-			TextOut(Paint.hdc, 0, FixedFontHeight, "BC", 2);
-			TextOut(Paint.hdc, 0, 2 * FixedFontHeight, "DE", 2);
-			TextOut(Paint.hdc, 0, 3 * FixedFontHeight, "HL", 2);
-			TextOut(Paint.hdc, 0, 4 * FixedFontHeight, "SP", 2);
-			TextOut(Paint.hdc, 0, 5 * FixedFontHeight, "PC", 2);
-			TextOut(Paint.hdc, 0, 8 * FixedFontHeight, "ROM", 3);
-			TextOut(Paint.hdc, 0, 9 * FixedFontHeight, "SVBK", 4);
-			TextOut(Paint.hdc, 0, 10 * FixedFontHeight, "SRAM", 4);
-			TextOut(Paint.hdc, 0, 12 * FixedFontHeight, "LY", 2);
-			if (pGameBoy)
-			{
-				TextOut(Paint.hdc, 3 * FixedFontWidth, 0, ToHex(pGameBoy->Reg_AF, true), 4);
-				if (pGameBoy->Reg_F & Flag_Z)
-				{
-					TextOut(Paint.hdc, 8 * FixedFontWidth, 0, "Z", 1);
-				}
-				if (pGameBoy->Reg_F & Flag_N)
-				{
-					TextOut(Paint.hdc, 9 * FixedFontWidth, 0, "N", 1);
-				}
-				if (pGameBoy->Reg_F & Flag_H)
-				{
-					TextOut(Paint.hdc, 10 * FixedFontWidth, 0, "H", 1);
-				}
-				if (pGameBoy->Reg_F & Flag_C)
-				{
-					TextOut(Paint.hdc, 11 * FixedFontWidth, 0, "C", 1);
-				}
-
-				TextOut(Paint.hdc, 3 * FixedFontWidth, FixedFontHeight, ToHex(pGameBoy->Reg_BC, true), 4);
-				TextOut(Paint.hdc, 3 * FixedFontWidth, 2 * FixedFontHeight, ToHex(pGameBoy->Reg_DE, true), 4);
-				TextOut(Paint.hdc, 3 * FixedFontWidth, 3 * FixedFontHeight, ToHex(pGameBoy->Reg_HL, true), 4);
-				TextOut(Paint.hdc, 3 * FixedFontWidth, 4 * FixedFontHeight, ToHex(pGameBoy->Reg_SP, true), 4);
-				TextOut(Paint.hdc, 3 * FixedFontWidth, 5 * FixedFontHeight, ToHex(pGameBoy->Reg_PC, true), 4);
-
-				if (RetrieveAccess(pGameBoy, pGameBoy->Reg_PC) & MEM_READ)
-				{
-					Byte = (BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC);
-					if (OpCodeNames[Byte].Flags & OCF_RST00)
-					{
-						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0000", 4);
-					}
-					if (OpCodeNames[Byte].Flags & OCF_RST08)
-					{
-						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0008", 4);
-					}
-					if (OpCodeNames[Byte].Flags & OCF_RST10)
-					{
-						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0010", 4);
-					}
-					if (OpCodeNames[Byte].Flags & OCF_RST18)
-					{
-						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0018", 4);
-					}
-					if (OpCodeNames[Byte].Flags & OCF_RST20)
-					{
-						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0020", 4);
-					}
-					if (OpCodeNames[Byte].Flags & OCF_RST28)
-					{
-						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0028", 4);
-					}
-					if (OpCodeNames[Byte].Flags & OCF_RST30)
-					{
-						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0030", 4);
-					}
-					if (OpCodeNames[Byte].Flags & OCF_RST38)
-					{
-						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, "0038", 4);
-					}
-					if ((OpCodeNames[Byte].Flags & OCF_COND_NZ && (pGameBoy->Reg_F & Flag_Z))
-						|| (OpCodeNames[Byte].Flags & OCF_COND_Z && !(pGameBoy->Reg_F & Flag_Z))
-						|| (OpCodeNames[Byte].Flags & OCF_COND_NC && (pGameBoy->Reg_F & Flag_C))
-						|| (OpCodeNames[Byte].Flags & OCF_COND_C && !(pGameBoy->Reg_F & Flag_C)))
-					{
-						TextOut(Paint.hdc, 0, 6 * FixedFontHeight, ToHex(pGameBoy->Reg_PC + 1 + (OpCodeNames[Byte].Flags & OCF_BYTES), true), 4);
-					}
-					else
-					{
-						if (OpCodeNames[Byte].Flags & OCF_ADDRESS_BC)
-						{
-							PrintAddress(pGameBoy, Paint.hdc, pGameBoy->Reg_BC, false);
-						}
-						if (OpCodeNames[Byte].Flags & OCF_ADDRESS_DE)
-						{
-							PrintAddress(pGameBoy, Paint.hdc, pGameBoy->Reg_DE, false);
-						}
-						if ((OpCodeNames[Byte].Flags & OCF_ADDRESS_HL) || (Byte == 0xCB && (ReadMem(pGameBoy, pGameBoy->Reg_PC + 1) & 7) == 6))
-						{
-							PrintAddress(pGameBoy, Paint.hdc, pGameBoy->Reg_HL, false);
-						}
-						if (OpCodeNames[Byte].Flags & OCF_ADDRESS_SP)
-						{
-							PrintAddress(pGameBoy, Paint.hdc, pGameBoy->Reg_SP, true);
-						}
-						if (OpCodeNames[Byte].Flags & OCF_ADDRESS_C)
-						{
-							PrintAddress(pGameBoy, Paint.hdc, 0xFF00 + pGameBoy->Reg_C, false);
-						}
-						if (OpCodeNames[Byte].Flags & OCF_ADDRESS)
-						{
-							if (OpCodeNames[Byte].Flags & OCF_DATA16)
-							{
-								PrintAddress(pGameBoy, Paint.hdc, (WORD)(ReadMem(pGameBoy, pGameBoy->Reg_PC + 2) << 8) | ((BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1)), false);
-							}
-							if (OpCodeNames[Byte].Flags & OCF_DATA8)
-							{
-								PrintAddress(pGameBoy, Paint.hdc, 0xFF00 | (BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1), false);
-							}
-						}
-						if (OpCodeNames[Byte].Flags & OCF_JUMP)
-						{
-							if (OpCodeNames[Byte].Flags & OCF_DATA16)
-							{
-								TextOut(Paint.hdc, 0, 6 * FixedFontHeight, ToHex((WORD)(ReadMem(pGameBoy, pGameBoy->Reg_PC + 2) << 8) | ((BYTE)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1)), true), 4);
-							}
-							if (OpCodeNames[Byte].Flags & OCF_DISP)
-							{
-								TextOut(Paint.hdc, 0, 6 * FixedFontHeight, ToHex(pGameBoy->Reg_PC + 1 + (OpCodeNames[Byte].Flags & OCF_BYTES) - (signed short)(-(signed char)ReadMem(pGameBoy, pGameBoy->Reg_PC + 1)), true), 4);
-							}
-						}
-					}
-				}
-
-				TextOut(Paint.hdc, 5 * FixedFontWidth, 8 * FixedFontHeight, ToHex(pGameBoy->ActiveRomBank, false), 2);
-				NumBuffer[0] = (pGameBoy->FF00_C(0x70) & 7) + 48;
-				if (NumBuffer[0] == 48)
-				{
-					NumBuffer[0]++;
-				}
-				TextOut(Paint.hdc, 5 * FixedFontWidth, 9 * FixedFontHeight, NumBuffer, 1);
-				TextOut(Paint.hdc, 5 * FixedFontWidth, 10 * FixedFontHeight, ToHex(pGameBoy->ActiveRamBank, false), 2);
-				TextOut(Paint.hdc, 8 * FixedFontWidth, 12 * FixedFontHeight, ToHex(pGameBoy->FF00_C(0x44), false), 2);
-				switch (pGameBoy->FF00_C(0x41) & 3)
-				{
-				case 0:
-					TextOut(Paint.hdc, 0, 13 * FixedFontHeight, "H-Blank", 7);
-					break;
-
-				case 1:
-					TextOut(Paint.hdc, 0, 13 * FixedFontHeight, "V-Blank", 7);
-					break;
-
-				case 2:
-					TextOut(Paint.hdc, 0, 13 * FixedFontHeight, "OAM", 3);
-					break;
-
-				case 3:
-					TextOut(Paint.hdc, 0, 13 * FixedFontHeight, "LCD", 3);
-					break;
-				}
-				TextOut(Paint.hdc, 8 * FixedFontWidth, 13 * FixedFontHeight, ToHex(pGameBoy->LCD_Ticks, false), 2);
-			}
+			rct.left = 0;
+			rct.top = 0;
+			PaintRegisters(Paint.hdc, &rct);
 
 			EndPaint(hWin, &Paint);
 		}
 		return 0;
 
-	case WM_NCLBUTTONDBLCLK:
-		if (wParam == HTCAPTION)
+	case WM_SYSCOMMAND:
+		//Window cannot be maximized
+		if ((wParam & 0xFFF0) == SC_MAXIMIZE)
 		{
 			return 0;
 		}
@@ -3818,6 +4941,12 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 	case WM_DESTROY:
 		hRegisters = NULL;
+		GetWindowRect(hClientWnd, &Rect2);
+		GetWindowRect(hWin, &rct);
+		Registers.x = rct.left - Rect2.left;
+		Registers.y = rct.top - Rect2.top;
+		Registers.Width = rct.right - rct.left;
+		Registers.Height = rct.bottom - rct.top;
 		return 0;
 	}
 
@@ -3830,6 +4959,7 @@ LPARAM CALLBACK HardwareWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 {
 	CGameBoy		*pGameBoy;
 	PAINTSTRUCT		Paint;
+	RECT			rct, Rect2;
 	DWORD			Size;
 	DWORD			x, y;
 	SCROLLINFO		si;
@@ -3982,8 +5112,9 @@ LPARAM CALLBACK HardwareWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		UpdateWindow(hWin);
 		return 0;
 
-	case WM_NCLBUTTONDBLCLK:
-		if (wParam == HTCAPTION)
+	case WM_SYSCOMMAND:
+		//Window cannot be maximized
+		if ((wParam & 0xFFF0) == SC_MAXIMIZE)
 		{
 			return 0;
 		}
@@ -4002,6 +5133,12 @@ LPARAM CALLBACK HardwareWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 	case WM_DESTROY:
 		hHardware = NULL;
+		GetWindowRect(hClientWnd, &Rect2);
+		GetWindowRect(hWin, &rct);
+		Hardware.x = rct.left - Rect2.left;
+		Hardware.y = rct.top - Rect2.top;
+		Hardware.Width = rct.right - rct.left;
+		Hardware.Height = rct.bottom - rct.top;
 		return 0;
 	}
 

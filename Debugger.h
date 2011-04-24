@@ -1,11 +1,10 @@
 #ifdef	DEBUGGER_CPP
 
-#define		DEBUGGER_OBJ
 #define		EQUALNULL		= NULL
 
 #else
 
-#define		DEBUGGER_OBJ	extern
+#define		DEBUGGER_CPP	extern
 #define		EQUALNULL
 
 #endif
@@ -17,18 +16,20 @@
 #define			MEMORY_SVBK		0x00000004
 #define			MEMORY_VBK		0x00000008
 
-DEBUGGER_OBJ	DWORD			MemoryFlags;
+DEBUGGER_CPP	DWORD			MemoryFlags, DisAsmFlags;
 
-DEBUGGER_OBJ	HWND			hRegisters, hDisAsm, hMemory;
-DEBUGGER_OBJ	HWND			hTiles, hPalettes, hTileMap;
-DEBUGGER_OBJ	HWND			hHardware;
-
-
-
-DEBUGGER_OBJ	BOOL	CreateDebugWindows();
+DEBUGGER_CPP	HWND			hRegisters, hDisAsm, hMemory;
+DEBUGGER_CPP	HWND			hTiles, hPalettes, hTileMap;
+DEBUGGER_CPP	HWND			hHardware;
 
 
 
-#undef	DEBUGGER_OBJ
+DEBUGGER_CPP	BOOL	CreateBankMenu(CGameBoy *pGameBoy, HMENU hMenu, DWORD dwFirstPos);
+DEBUGGER_CPP	BOOL	CreateDebugWindows();
+
+DEBUGGER_CPP	void	PaintRegisters(HDC hdc, RECT *pRect);
+
+
+
 #undef	EQUALNULL
 

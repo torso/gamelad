@@ -111,9 +111,20 @@ GAME_LAD_CPP	CRITICAL_SECTION	cs;
 
 GAME_LAD_CPP	LARGE_INTEGER		TimerFrequency;
 
+struct WINDOWSETTINGS
+{
+	DWORD		Appearance;
+	DWORD		x, y;
+	DWORD		Width, Height;
+	DWORD		Zoom;
+};
+
+GAME_LAD_CPP	WINDOWSETTINGS		Main, Registers, DisAsm, Memory, Tiles, TileMap, Palettes, Hardware;
+
 
 
 GAME_LAD_CPP	void				DisplayErrorMessage(HWND hWin);
+GAME_LAD_CPP	BOOL	HexToNum(char *pc);
 
 
 
