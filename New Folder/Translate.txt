@@ -15,3 +15,6 @@ underlined text and will open the default browser or e-mail program when clicked
 [address;link text] To make it an e-mail address just write mailto:address.
 You can also write ?subject= to provide a default subject.
 Example: [mailto:torbjrn@emuunlim.com?subject=Translation;Torbjörn Söderstedt]
+
+
+When you have completed translation, sends the file back to me and I will compile it.

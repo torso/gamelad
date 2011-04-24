@@ -1,4 +1,4 @@
-Game Lad 1.6
+Game Lad 1.61
 
 Written by Torbjörn Söderstedt
 
@@ -9,6 +9,19 @@ All information about this program is available at http://gamelad.emuunlim.com
 
 What's New
 ----------
+
+TODO Cheat dialog layout, right click menu
+TODO RAM dumping
+
+Version 1.61+
+*
+
+Version 1.61
+*Refresh timer for debug windows (DarkSerge)
+*Setting to switch to fullscreen when emulation is started
+*Freeze on exit fixed (DarkSerge)
+*Bank switching on MBC5 carts fixed (64 Mbit carts should work now)
+*Remembers last directory even if the new path is shorter
 
 Version 1.6
 *Fullscreen

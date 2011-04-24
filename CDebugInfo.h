@@ -12,7 +12,7 @@
 struct LABELDATA
 {
 	WORD	Offset;
-	BYTE	Bank;
+	WORD	Bank;
 	char	LabelName[MAX_LABELLENGTH];
 };
 
@@ -29,9 +29,9 @@ public:
 
 	DWORD		nLabels();
 	BOOL		LoadFile(char *pszRomPath);
-	BOOL		AddLabel(BYTE Bank, WORD Offset, char *pszName);
+	BOOL		AddLabel(WORD Bank, WORD Offset, char *pszName);
 	void		ResetSearch();
-	char		*GetNextLabel(BYTE Bank, WORD Offset);
+	char		*GetNextLabel(WORD Bank, WORD Offset);
 };
 
 

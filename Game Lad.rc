@@ -41,7 +41,7 @@ FONT 8, "MS Sans Serif"
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,137,7,50,12
     ICON            IDI_MAINICON,IDC_STATIC,7,13,20,20
-    LTEXT           "Game Lad 1.6",IDC_STATIC,36,7,100,12
+    LTEXT           "Game Lad 1.61",IDC_STATIC,36,7,100,12
     LTEXT           "",IDC_WRITTENBY,36,19,151,12,SS_NOTIFY
     LTEXT           "[http://gamelad.emuunlim.com/]",IDC_GAMELADHOMEPAGE,36,
                     31,151,12,SS_NOTIFY
@@ -132,6 +132,12 @@ BEGIN
                     CBS_SORT | WS_VSCROLL | WS_TABSTOP
     LTEXT           "Static",IDC_TRANSLATOR,14,35,208,12,SS_NOPREFIX | 
                     SS_NOTIFY
+    GROUPBOX        "Debug",IDC_DEBUG,7,53,221,30
+    LTEXT           "Debug windows refresh interval",
+                    IDC_REFRESHDEBUGINTERVAL_STATIC,14,66,141,12,SS_NOPREFIX | 
+                    SS_NOTIFY
+    EDITTEXT        IDC_REFRESHDEBUGINTERVAL,155,66,67,12,ES_AUTOHSCROLL | 
+                    ES_NUMBER
 END
 
 IDD_CHEAT DIALOGEX 0, 0, 264, 199
@@ -169,7 +175,7 @@ BEGIN
                     WS_TABSTOP,14,48,104,12
     COMBOBOX        IDC_DIRECTXDRIVER,118,48,104,70,CBS_DROPDOWNLIST | 
                     CBS_SORT | WS_VSCROLL | WS_TABSTOP
-    GROUPBOX        "Fullscreen",IDC_FULLSCREEN_FRAME,7,68,221,61
+    GROUPBOX        "Fullscreen",IDC_FULLSCREEN_FRAME,7,68,221,81
     LTEXT           "Resolution",IDC_FS_RESOLUTION_STATIC,14,81,104,11
     COMBOBOX        IDC_FS_RESOLUTION,118,81,104,70,CBS_DROPDOWNLIST | 
                     WS_VSCROLL | WS_TABSTOP
@@ -183,6 +189,9 @@ BEGIN
                     WS_VSCROLL | WS_TABSTOP
     CONTROL         "Manual default frame skip",IDC_MANUALFRAMESKIP,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,14,33,104,12
+    CONTROL         "Switch to fullscreen when emulation is started",
+                    IDC_FS_AUTOFULLSCREEN,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,14,131,208,12
 END
 
 IDD_OPTIONS_PATH DIALOG DISCARDABLE  0, 0, 235, 156
@@ -870,6 +879,13 @@ BEGIN
     IDS_VIEW_FRAMESKIP_AUTO "Sets frame skip to automatic"
     IDS_STATUS_SELECTFRAMESKIPAUTO "Frame skip set to automatic"
     IDS_GRAPHIC_MANUALFRAMESKIP "Manual default frame skip"
+    IDS_GRAPHIC_AUTOFULLSCREEN 
+                            "Switch to fullscreen when emulation is started"
+    IDS_VIEW_FULLSCREEN_MENU "&Fullscreen"
+    IDS_VIEW_FULLSCREEN     "Switches to fullscreen mode"
+    IDS_OPTIONS_DEBUG       "Debug"
+    IDS_OPTIONS_DEBUG_REFRESHDEBUGINTERVAL 
+                            "Debug windows refresh interval (ms)"
 END
 
 #endif    // English (U.S.) resources

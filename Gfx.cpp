@@ -12,7 +12,7 @@ D3DFORMAT		OldD3DDisplayFormat;
 
 
 
-BOOL InitGfx(IDirect3DDevice8 **pd3dd)
+BOOL InitGfx(IDirect3DDevice8 **pd3dd, HWND *hWin)
 {
 	D3DPRESENT_PARAMETERS	d3dpp;
 	D3DDISPLAYMODE			d3ddm;
@@ -44,6 +44,12 @@ BOOL InitGfx(IDirect3DDevice8 **pd3dd)
 
 	if (!pd3dd)
 	{
+		return true;
+	}
+
+	if (Settings.AutoFullscreen && hWin)
+	{
+		ToggleFullscreen(pd3dd, hWin);
 		return true;
 	}
 
@@ -131,6 +137,7 @@ BOOL ToggleFullscreen(IDirect3DDevice8 **pd3dd, HWND *hWin)
 		if (!(*hWin = CreateWindowEx(WS_EX_TOPMOST, "Graphic", "Game Lad", WS_VISIBLE, 0, 0, 0, 0, NULL, NULL, hInstance, NULL)))
 		{
 			Error("*hWin = CreateWindowEx(WS_EX_TOPMOST, \"Graphic\", \"Game Lad\", WS_VISIBLE, 0, 0, 0, 0, NULL, NULL, hInstance, NULL)");
+			LeaveCriticalSection(&csGraphic);
 			return false;
 		}
 
@@ -187,6 +194,12 @@ BOOL ToggleFullscreen(IDirect3DDevice8 **pd3dd, HWND *hWin)
 		LeaveCriticalSection(&csGraphic);
 		return false;
 	}
+
+	//Make sure the screen is black
+	(*pd3dd)->Clear(0, NULL, D3DCLEAR_TARGET, 0, 0, 0);
+	(*pd3dd)->Present(NULL, NULL, *hWin, NULL);
+	(*pd3dd)->Clear(0, NULL, D3DCLEAR_TARGET, 0, 0, 0);
+	(*pd3dd)->Present(NULL, NULL, *hWin, NULL);
 
 	LeaveCriticalSection(&csGraphic);
 

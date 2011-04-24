@@ -40,7 +40,7 @@ GFX_CPP		D3DFORMAT			D3DDisplayFormat;
 GFX_CPP		RECT				rctSource, rctDest;
 
 
-GFX_CPP		BOOL				InitGfx(IDirect3DDevice8 **pd3dd);
+GFX_CPP		BOOL				InitGfx(IDirect3DDevice8 **pd3dd, HWND *hWin);
 GFX_CPP		BOOL				ToggleFullscreen(IDirect3DDevice8 **pd3dd, HWND *hWin);
 GFX_CPP		void				CloseGfx();
 

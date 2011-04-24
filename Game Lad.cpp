@@ -17,11 +17,14 @@
 
 
 //#define		DEBUGCOMMANDS
+#ifdef		DEBUGCOMMANDS
+#define		CART
+#endif
 
 
 
-#define		MENU_WINDOW		5
-
+//Timer for refreshing debug windows. Returned by SetTimer(hWnd, 1, Settings.RefreshDebugTimer, NULL);
+UINT		uiRefreshDebugTimer = 0;
 
 
 CList		*pJoySticks = NULL;
@@ -119,6 +122,7 @@ struct MENUHELPSTRINGS
 	ID_VIEW_TILEMAP,				IDS_VIEW_TILEMAP,
 	ID_VIEW_TILES,					IDS_VIEW_TILES,
 	ID_VIEW_STATUSBAR,				IDS_VIEW_STATUSBAR,
+	ID_VIEW_FULLSCREEN,				IDS_VIEW_FULLSCREEN,
 	ID_VIEW_ZOOM_100,				IDS_VIEW_ZOOM_100,
 	ID_VIEW_ZOOM_200,				IDS_VIEW_ZOOM_200,
 	ID_VIEW_ZOOM_300,				IDS_VIEW_ZOOM_300,
@@ -278,6 +282,37 @@ char NibbleToHex(BYTE b)
 
 
 
+char *ToHex(unsigned int n, BOOL Word)
+{
+	if (Word)
+	{
+		NumBuffer[0] = ((n & 0xFFFF) >> 12) + 48;
+		if (NumBuffer[0] > 57)
+		{
+			NumBuffer[0] += 7;
+		}
+		NumBuffer[1] = (((n & 0xFFFF) >> 8) & 0xF) + 48;
+		if (NumBuffer[1] > 57)
+		{
+			NumBuffer[1] += 7;
+		}
+	}
+	NumBuffer[Word ? 2 : 0] = ((n >> 4) & 0xF) + 48;
+	if (NumBuffer[Word ? 2 : 0] > 57)
+	{
+		NumBuffer[Word ? 2 : 0] += 7;
+	}
+	NumBuffer[Word ? 3 : 1] = (n & 0xF) + 48;
+	if (NumBuffer[Word ? 3 : 1] > 57)
+	{
+		NumBuffer[Word ? 3 : 1] += 7;
+	}
+
+	return NumBuffer;
+}
+
+
+
 char *DwordToHex(DWORD dw, char *psz)
 {
 	BYTE		c;
@@ -400,6 +435,7 @@ char *CopyString(char *pszDest, char *pszSrc, DWORD dwLength)
 	{
 		pszDest[0] = '\0';
 		strncpy(pszDest, pszSrc, dwLength);
+		pszDest[dwLength] = '\0';
 	}
 	else
 	{
@@ -498,7 +534,7 @@ HMENU CreateMenus(HMENU hMainMenu, HMENU hPopupMenu)
 #ifdef DEBUGCOMMANDS
 	//Debug menu
 	hSubMenu = CreateMenu();
-	DEBUG_MENUITEM(ID_DEBUG_COMMAND1, "Joystick info");
+	DEBUG_MENUITEM(ID_DEBUG_COMMAND1, "Cart");
 	DEBUG_SUBMENU("Debug");
 #endif //DEBUGCOMMANDS
 
@@ -588,6 +624,7 @@ HMENU CreateMenus(HMENU hMainMenu, HMENU hPopupMenu)
 	MENUITEM2(ID_VIEW_ZOOM_200, IDS_VIEW_ZOOM_200_MENU);
 	MENUITEM2(ID_VIEW_ZOOM_100, IDS_VIEW_ZOOM_100_MENU);
 	SUBMENU2(IDS_VIEW_ZOOM_MENU);
+	MENUITEM(ID_VIEW_FULLSCREEN, IDS_VIEW_FULLSCREEN_MENU);
 	MENUITEM(ID_VIEW_STATUSBAR, IDS_VIEW_STATUSBAR_MENU);
 	SEPARATOR();
 	MENUITEM(ID_VIEW_TILES, IDS_VIEW_TILES_MENU);
@@ -2678,6 +2715,13 @@ BOOL CALLBACK GeneralOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 				SetWindowText(GetDlgItem(hWin, IDC_TRANSLATOR), LoadString(IDS_OPTIONS_LANGUAGE_TRANSLATEDBY, szBuffer2, sizeof(szBuffer2), szBuffer));
 			}
 			return true;
+
+		case IDC_REFRESHDEBUGINTERVAL:
+			if (HIWORD(wParam) == EN_CHANGE)
+			{
+				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
+			}
+			return true;
 		}
 		break;
 
@@ -2718,6 +2762,16 @@ BOOL CALLBACK GeneralOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 			tci.pszText = szBuffer;//String(IDS_OPTIONS_GRAPHIC);
 			TabCtrl_SetItem(PropSheet_GetTabControl(GetParent(hWin)), 3, &tci);
 
+			GetWindowText(GetDlgItem(hWin, IDC_REFRESHDEBUGINTERVAL), szBuffer, sizeof(szBuffer));
+			if (uiRefreshDebugTimer)
+			{
+				KillTimer(hWnd, uiRefreshDebugTimer);
+				uiRefreshDebugTimer = 0;
+			}
+			if (Settings.uiRefreshDebugInterval = atoi(szBuffer))
+			{
+				uiRefreshDebugTimer = SetTimer(hWnd, 1, Settings.uiRefreshDebugInterval, NULL);
+			}
 			//return true;
 
 		case PSN_SETACTIVE:
@@ -2740,6 +2794,9 @@ BOOL CALLBACK GeneralOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 			{
 				LastOptionPage = OPTIONPAGE_GENERAL;
 			}
+
+			SetWindowText(GetDlgItem(hWin, IDC_DEBUG), String(IDS_OPTIONS_DEBUG));
+			SetWindowText(GetDlgItem(hWin, IDC_REFRESHDEBUGINTERVAL_STATIC), String(IDS_OPTIONS_DEBUG_REFRESHDEBUGINTERVAL));
 			return true;
 		}
 		break;
@@ -2782,6 +2839,8 @@ BOOL CALLBACK GeneralOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 		}
 
 		pStaticWndProc = (WNDPROC)SetWindowLong(GetDlgItem(hWin, IDC_TRANSLATOR), GWL_WNDPROC, (long)LinkWndProc);
+
+		SetWindowText(GetDlgItem(hWin, IDC_REFRESHDEBUGINTERVAL), itoa(Settings.uiRefreshDebugInterval, NumBuffer, 10));
 
 		hMsgParent = GetParent(hWin);
 		break;
@@ -2925,7 +2984,7 @@ BOOL CALLBACK GraphicOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 			SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
 			if (SendDlgItemMessage(hWin, IDC_USEDIRECTX, BM_GETCHECK, 0, 0) == BST_CHECKED)
 			{
-				if (InitGfx(NULL))
+				if (InitGfx(NULL, NULL))
 				{
 					EnableWindow(GetDlgItem(hWin, IDC_DIRECTXDRIVER), true);
 				}
@@ -2973,6 +3032,10 @@ BOOL CALLBACK GraphicOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 			{
 				SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
 			}
+			return true;
+
+		case IDC_FS_AUTOFULLSCREEN:
+			SendMessage(GetParent(hWin), PSM_CHANGED, (WPARAM)hWin, 0);
 			return true;
 		}
 		break;
@@ -3038,6 +3101,8 @@ BOOL CALLBACK GraphicOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 			}
 			Settings.Fullscreen10_9 = SendDlgItemMessage(hWin, IDC_FS_FIT_GBSCREEN, BM_GETCHECK, 0, 0) == BST_CHECKED;
 			Settings.FullscreenZoom = SendDlgItemMessage(hWin, IDC_FS_ZOOM, CB_GETCURSEL, 0, 0) + 1;
+
+			Settings.AutoFullscreen = SendDlgItemMessage(hWin, IDC_FS_AUTOFULLSCREEN, BM_GETCHECK, 0, 0) == BST_CHECKED;
 			return true;
 
 		case PSN_SETACTIVE:
@@ -3050,6 +3115,7 @@ BOOL CALLBACK GraphicOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 			SetWindowText(GetDlgItem(hWin, IDC_FS_FITTOSCREEN), String(IDS_GRAPHIC_FS_FITTOSCREEN));
 			SetWindowText(GetDlgItem(hWin, IDC_FS_FIT_GBSCREEN), String(IDS_GRAPHIC_FS_FIT_GBSCREEN));
 			SetWindowText(GetDlgItem(hWin, IDC_FS_ZOOM_RADIO), String(IDS_GRAPHIC_FS_ZOOM));
+			SetWindowText(GetDlgItem(hWin, IDC_FS_AUTOFULLSCREEN), String(IDS_GRAPHIC_AUTOFULLSCREEN));
 			LastOptionPage = OPTIONPAGE_GFX;
 			return true;
 		}
@@ -3078,7 +3144,7 @@ BOOL CALLBACK GraphicOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 			EnableWindow(GetDlgItem(hWin, IDC_DIRECTXDRIVER), false);
 		}
 
-		if (InitGfx(NULL))
+		if (InitGfx(NULL, NULL))
 		{
 			for (dwAdapter = 0; !FAILED(pd3d->GetAdapterIdentifier(dwAdapter, D3DENUM_NO_WHQL_LEVEL, &d3dai)); dwAdapter++)
 			{
@@ -3124,6 +3190,8 @@ BOOL CALLBACK GraphicOptionsDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM 
 		SendDlgItemMessage(hWin, IDC_FS_ZOOM, CB_ADDSTRING, 0, (LPARAM)"300%");
 		SendDlgItemMessage(hWin, IDC_FS_ZOOM, CB_ADDSTRING, 0, (LPARAM)"400%");
 		SendDlgItemMessage(hWin, IDC_FS_ZOOM, CB_SETCURSEL, Settings.FullscreenZoom - 1, 0);
+
+		SendDlgItemMessage(hWin, IDC_FS_AUTOFULLSCREEN, BM_SETCHECK, Settings.AutoFullscreen ? BST_CHECKED : BST_UNCHECKED, 0);
 
 		hMsgParent = GetParent(hWin);
 		break;
@@ -3202,6 +3270,263 @@ char *GetFileTime(char *pszBuffer)
 
 
 
+#ifdef		CART
+
+void __declspec(naked) __fastcall outp(WORD wPort, BYTE bData)
+{
+	__asm
+	{
+		push	edx
+		mov		al, dl		//bData
+		mov		edx, ecx	//wPort
+		out		dx, al
+		pop		edx
+		ret
+	}
+}
+
+
+
+BYTE __declspec(naked) __fastcall inp(WORD wPort)
+{
+	__asm
+	{
+		push	edx
+		mov		edx, ecx	//wPort
+		in		al, dx
+		pop		edx
+		ret
+	}
+}
+
+
+
+void wait(DWORD dwMilliSeconds)
+{
+	DWORD	dwTicks;
+
+
+	for (dwTicks = GetTickCount(); GetTickCount() - dwTicks < dwMilliSeconds; Sleep(0));
+}
+
+
+
+#define		port_8		0x378
+#define		port_9		(port_8 + 1)
+#define		port_a		(port_8 + 2)
+#define		port_b		(port_8 + 3)
+#define		port_c		(port_8 + 4)
+
+#define		AI			port_b
+#define		DATA		port_c
+
+#define set_ai_write    outp(port_a,5)	// 5 ninit=1, nwrite=0
+#define set_data_write  outp(port_a,1)	// 1 ninit=0, nwrite=0
+#define set_data_read   outp(port_a,0)	// 0 ninit=0, nwrite=1
+#define set_normal      outp(port_a,4)	// 4 ninit=1, nwrite=1
+
+#define LED_OFF         set_ai_data(2,0); set_normal			// ninit=1, nWrite=1
+
+BYTE		port_type, b;
+char		sz[0x100];
+
+
+
+void spp_set_ai(unsigned char _ai)
+{
+	set_data_write;
+	outp(port_8, _ai);
+	outp(port_a, 9);
+	outp(port_a, 1);
+}
+
+
+
+void spp_write_data(unsigned char _data)
+{
+	outp(port_8, _data);
+	outp(port_a, 3);
+	outp(port_a, 1);
+}
+
+
+
+void spp_set_ai_data(unsigned char _ai,unsigned char _data)
+{
+	spp_set_ai(_ai);
+	spp_write_data(_data);
+}
+
+
+
+char spp_read_data(void)
+{
+	char low_nibble,high_nibble,temp;
+
+
+	set_data_read;
+	outp(port_a,2);
+	low_nibble=inp(port_9);
+	outp(port_a,6);
+	high_nibble=inp(port_9);
+	outp(port_a,0);
+	temp = (((high_nibble << 1) & 0xf0) | ((low_nibble >> 3) & 0x0f));
+	return temp;
+}
+
+
+
+void epp_set_ai(unsigned char _ai)
+{
+	set_data_write;
+	outp(AI, _ai);
+}
+
+
+
+void epp_set_ai_data(unsigned char _ai,unsigned char _data)
+{
+	epp_set_ai(_ai);
+	set_data_write;
+	outp(DATA, _data);
+}
+
+
+
+void set_ai(unsigned char _ai)
+{
+	if (port_type)
+	{
+		spp_set_ai(_ai);
+	}
+	else
+	{
+		epp_set_ai(_ai);
+	}
+}
+
+
+
+void set_ai_data(unsigned char _ai,unsigned char _data)
+{
+	if (port_type)
+	{
+		spp_set_ai_data(_ai, _data);
+	}
+	else
+	{
+		epp_set_ai_data(_ai, _data);
+	}
+}
+
+
+
+void WRITE_BKSW(BYTE data, WORD address)
+{
+	set_ai_data(2, 0x80);
+	set_ai_data(0, address & 0x00FF);
+	set_ai_data(1, address >> 8);
+	set_ai_data(3, data);	
+}
+
+
+
+//write low address byte
+void ADDRESS_LOW(BYTE val)
+{
+	set_ai_data(0, val);
+}
+
+
+
+//write high address byte
+void ADDRESS_HIGH(BYTE val)
+{
+	set_ai_data(1, val);
+}
+
+
+
+BYTE READ(BYTE Mode)
+{
+	set_ai(3);				// default write mode
+	set_data_read;			// ninit=0, nWrite=1
+	if (port_type)
+	{
+		return spp_read_data();        // spp read data
+	}
+	else
+	{
+		return inp(port_c);           // epp read data
+	}
+}
+
+
+
+BYTE check_port(BYTE bEpp)
+{
+	set_ai_data(1, 0x12);
+	set_ai_data(0, 0x34);
+	set_ai(1);
+	set_data_read;
+
+	if (!bEpp)
+	{
+		if ((b = spp_read_data()) != 0x12)
+		{
+			strcat(sz, "!bEpp ");
+			strcat(sz, itoa(b, NumBuffer, 16));
+			strcat(sz, ", ");
+			return 1;
+		}
+		strcat(sz, "ok, ");
+	}
+	else
+	{
+		if ((b = inp(DATA)) != 0x12)
+		{
+			strcat(sz, "bEpp ");
+			strcat(sz, itoa(b, NumBuffer, 16));
+			strcat(sz, ", ");
+			return 1;
+		}
+		strcat(sz, "ok, ");
+	}
+
+	set_ai(0);
+	set_data_read;
+
+	if (!bEpp)
+	{
+		if ((b = spp_read_data()) != 0x34)
+		{
+			strcat(sz, "!bEpp ");
+			strcat(sz, itoa(b, NumBuffer, 16));
+			strcat(sz, ", ");
+			return 1;
+		}
+		strcat(sz, "ok, ");
+	}
+	else
+	{
+		if ((b = inp(DATA)) != 0x34)
+		{
+			strcat(sz, "bEpp ");
+			strcat(sz, itoa(b, NumBuffer, 16));
+			strcat(sz, ", ");
+			return 1;
+		}
+		strcat(sz, "ok, ");
+	}
+
+	LED_OFF;
+	return 0;
+}
+
+#endif //CART
+
+
+
 LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CLIENTCREATESTRUCT	ccs;
@@ -3230,61 +3555,207 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 #ifdef DEBUGCOMMANDS
 		case ID_DEBUG_COMMAND1:
-			if (!lpdidJoysticks[0])
+#ifdef CART
+			/*HANDLE		hLpt;
+			DWORD		nBytes;
+			char		Buffer[0x100];
+			DCB			dcb;
+
+
+			if (!(hLpt = CreateFile("LPT1", GENERIC_READ | GENERIC_WRITE, NULL, NULL, OPEN_EXISTING, NULL, NULL)))
 			{
-				MessageBox(hWin, "Set the joystick/gamepad to player one before using this command.", "Joystick 1", MB_OK | MB_ICONWARNING);
-				return 0;
+				DisplayErrorMessage();
+				return 1;
 			}
-
-			DIJOYSTATE		dijs;
-
-#define		DebugData(szString, Data)							\
-			strcat(szBuffer, ", ");								\
-			strcat(szBuffer, szString);							\
-			strcat(szBuffer, ": ");								\
-			strcat(szBuffer, itoa(Data, NumBuffer, 16));
-
-#define		DebugData2(szString, Data)							\
-			strcat(szBuffer, szString);							\
-			strcat(szBuffer, ": ");								\
-			strcat(szBuffer, itoa(Data, NumBuffer, 16));
-
+			/*GetCommState(hLpt, &dcb);
+			dcb.DCBlength = sizeof(dcb);
+			//dcb.BaudRate = CBR_19200;
+			dcb.fBinary = true;
+			dcb.fParity = false;
+			dcb.fOutxCtsFlow = false;
+			dcb.fOutxDsrFlow = false;
+			dcb.fDtrControl = DTR_CONTROL_DISABLE;
+			dcb.fDsrSensitivity = false;
+			dcb.fTXContinueOnXoff = false;
+			dcb.fOutX = false;
+			dcb.fInX = false;
+			dcb.fErrorChar = '\0';
+			dcb.fNull = false;
+			dcb.fRtsControl = RTS_CONTROL_DISABLE;
+			dcb.fAbortOnError = false;
+			dcb.fDummy2 = 0;
+			dcb.wReserved = 0;
+			dcb.XonLim = 0;
+			dcb.XoffLim = 0;
+			//dcb.ByteSize = 8;
+			//dcb.Parity = SPACEPARITY;
+			dcb.StopBits = ONESTOPBIT;
+			dcb.XonChar = 0;
+			dcb.XoffChar = 0;
+			dcb.ErrorChar = 0;
+			dcb.EofChar = 0;
+			dcb.EvtChar = 0;
+			dcb.wReserved1 = 0;
+			if (!SetCommState(hLpt, &dcb))
+			{
+				CloseHandle(hLpt);
+				DisplayErrorMessage();
+				return 1;
+			}
+			Buffer[0] = 0;
+			Buffer[1] = 0x21;
+			Buffer[2] = 0;
+			Buffer[3] = 0;
+			Buffer[4] = 1;
+			Buffer[5] = 0;
+			WriteFile(hLpt, &Buffer, 6, &nBytes, NULL);
+			Buffer[0] = 0;
+			WriteFile(hLpt, &Buffer, 1, &nBytes, NULL);
+			BYTE i;
 			szBuffer[0] = '\0';
-			DebugData2("MinX", JoyMinX[0]);
-			DebugData("MaxX", JoyMaxX[0]);
-			DebugData("Left", JoyLeftX[0]);
-			DebugData("Right", JoyRightX[0]);
-			strcat(szBuffer, "\n");
-			DebugData2("MinY", JoyMinY[0]);
-			DebugData("MaxY", JoyMaxY[0]);
-			DebugData("Up", JoyUpY[0]);
-			DebugData("Down", JoyDownY[0]);
-			strcat(szBuffer, "\n");
+			NumBuffer[2] = '\0';
+			for (i = 0; i < 16; i++)
+			{
+				Buffer[i] = i;
+				WriteFile(hLpt, &Buffer[i], 1, &nBytes, NULL);
+				ReadFile(hLpt, &Buffer[i], 1, &nBytes, NULL);
 
-			MessageBox(hWin, "Leave direction pad centered while pushing OK.", "Joystick 1", MB_OK | MB_ICONINFORMATION);
-			lpdidJoysticks[0]->Acquire();
-			lpdidJoysticks[0]->Poll();
-			lpdidJoysticks[0]->GetDeviceState(sizeof(dijs), &dijs);
-			DebugData2("CenterX", dijs.lX);
-			DebugData("CenterY", dijs.lY);
+				strcat(szBuffer, ToHex(Buffer[i], false));
+				strcat(szBuffer, " ");
+			}
+			MessageBox(NULL, szBuffer, "Game Lad", MB_OK | MB_ICONINFORMATION);
+			CloseHandle(hLpt);*/
+/*#define		nSTROBE		1
+#define		nAUTOFDXT	2
+#define		INIT		4
+#define		nSCLINT		8
 
-			MessageBox(hWin, "Hold direction pad in upper left corner while pushing OK.", "Joystick 1", MB_OK | MB_ICONINFORMATION);
-			lpdidJoysticks[0]->Acquire();
-			lpdidJoysticks[0]->Acquire();
-			lpdidJoysticks[0]->Poll();
-			lpdidJoysticks[0]->GetDeviceState(sizeof(dijs), &dijs);
-			DebugData("Left", dijs.lX);
-			DebugData("Up", dijs.lY);
+#define		DATA		0x378
+#define		STATUS		(DATA + 1)
+#define		CTRL		(DATA + 2)*/
 
-			MessageBox(hWin, "Hold direction pad in lower right corner while pushing OK.", "Joystick 1", MB_OK | MB_ICONINFORMATION);
-			lpdidJoysticks[0]->Acquire();
-			lpdidJoysticks[0]->Poll();
-			lpdidJoysticks[0]->GetDeviceState(sizeof(dijs), &dijs);
-			DebugData("Right", dijs.lX);
-			DebugData("Down", dijs.lY);
 
-			MessageBox(hWin, szBuffer, "Joystick 1", MB_OK | MB_ICONINFORMATION);
+			BYTE i, bData;
+			szBuffer[0] = '\0';
+			NumBuffer[2] = '\0';
+			BYTE	epp_spp;
+			sz[0] = '\0';
+
+			outp(0x379, 0x01);
+			outp(0x37A, 0x01);
+			outp(0x37B, 0x02);
+			outp(0x37A, 0x01);
+			outp(0x37C, 0x00);
+			outp(0x37A, 0x01);
+			outp(0x37B, 0x02);
+			outp(0x37A, 0x01);
+			outp(0x37C, 0x80);
+			outp(0x37A, 0x01);
+			outp(0x37B, 0x01);
+			outp(0x37A, 0x01);
+			outp(0x37C, 0x12);
+			outp(0x37A, 0x01);
+			outp(0x37B, 0x00);
+			outp(0x37A, 0x01);
+			outp(0x37C, 0x34);
+			outp(0x37A, 0x01);
+			outp(0x37A, 0x01);
+			outp(0x37B, 0x01);
+			outp(0x37A, 0x00);
+			b = inp(0x37C);
+			strcat(sz, itoa(b, NumBuffer, 16));
+			MessageBox(hWin, sz, "Game Lad", MB_OK | MB_ICONINFORMATION);
 			return 0;
+
+			/*port_type = 0;
+			epp_spp = 0;
+
+			outp(port_9, 1);
+			set_ai_data(2, 0);
+			set_ai_data(2, 0x80);
+
+			port_type = 1;
+			if (check_port(false) == 0)
+			{
+				epp_spp = 1;
+			}
+			port_type = 0;
+			if (check_port(true))
+			{
+				if (epp_spp)
+				{
+					port_type = 1;
+				}
+				else
+				{
+					MessageBox(hWin, sz /*"No GB-Xchanger"*//*, "Game Lad", MB_OK | MB_ICONINFORMATION);
+					return 0;
+				}
+			}*/
+
+			/*outp(port_9, 1);
+			set_ai_data(2, 0);
+			set_ai_data(2, 0x80);
+
+
+			WRITE_BKSW(0x01, 0x2100);
+			ADDRESS_HIGH(0);
+
+			for (i = 0; i < 16; i++)
+			{
+				ADDRESS_LOW(i);
+				bData = READ(0);
+
+				strcat(szBuffer, ToHex(bData, false));
+				strcat(szBuffer, " ");
+			}*/
+			/*outp(DATA, 0);
+			outp(CTRL, nAUTOFDXT);
+			outp(CTRL, 0);
+			outp(DATA, 0x21);
+			outp(CTRL, nSCLINT);
+			outp(DATA, 0);
+			outp(CTRL, nSCLINT | nSTROBE);
+			outp(DATA, 0);
+			outp(CTRL, nAUTOFDXT | nSTROBE);
+			wait(20);
+			outp(DATA, 1);
+			outp(DATA, 0);
+			outp(CTRL, 0);
+
+			outp(DATA, 0);
+			outp(CTRL, nSCLINT);
+			outp(CTRL, 0);
+
+			for (i = 0; i < 16; i++)
+			{
+				outp(DATA, i);
+				outp(CTRL, nSCLINT | nSTROBE);
+				outp(CTRL, 0);
+
+				outp(CTRL, nAUTOFDXT | nSCLINT | nSTROBE);
+				wait(20);
+				bData = inp(STATUS) >> 4;
+				outp(CTRL, nAUTOFDXT | nSCLINT);
+				wait(20);
+				bData = bData | (inp(STATUS) & 0xF0);
+				outp(CTRL, 0);
+				wait(20);
+				bData = ((bData & 0x10) << 3) |
+						((bData & 0x20) << 1) |
+						(((bData ^ 0x80) & 0x80) >> 2) |
+						((bData & 0x40) >> 2) |
+						((bData & 0x01) << 3) |
+						((bData & 0x02) << 1) |
+						(((bData ^ 0x80) & 0x08) >> 2) |
+						((bData & 0x04) >> 2);
+
+				strcat(szBuffer, ToHex(bData, false));
+				strcat(szBuffer, " ");
+			}*/
+			MessageBox(NULL, szBuffer, "Game Lad", MB_OK | MB_ICONINFORMATION);
+			return 0;
+#endif //CART
 #endif //DEBUGCOMMANDS
 
 		case ID_FILE_OPEN:
@@ -3708,7 +4179,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					{
 						if (!pGameBoy->m_pd3dd)
 						{
-							InitGfx(&pGameBoy->m_pd3dd);
+							InitGfx(&pGameBoy->m_pd3dd, &pGameBoy->hGfxWnd);
 						}
 					}
 				}
@@ -4009,6 +4480,21 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		delete (DDEGAMEBOY *)lParam;
 		return 0;
 
+	case WM_TIMER:
+		if (wParam != 1)
+		{
+			break;
+		}
+		if (!(pGameBoy = GameBoys.GetActive(true)))
+		{
+			return 0;
+		}
+		if (!pGameBoy->IsEmulating())
+		{
+			pGameBoy->Release();
+			return 0;
+		}
+		pGameBoy->Release();
 	case WM_APP_REFRESHDEBUG:
 		MemoryFlags = 0;
 		if (hMemory)
@@ -4046,7 +4532,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			if (!((CGameBoy *)lParam)->m_pd3dd)
 			{
-				InitGfx(&((CGameBoy *)lParam)->m_pd3dd);
+				InitGfx(&((CGameBoy *)lParam)->m_pd3dd, &((CGameBoy *)lParam)->hGfxWnd);
 			}
 		}
 		return 0;
@@ -4108,6 +4594,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			if (pGameBoy->IsEmulating())
 			{
 				mii.fState = MFS_ENABLED;
+				SetMenuItemInfo((HMENU)wParam, ID_VIEW_FULLSCREEN, false, &mii);
 				SetMenuItemInfo((HMENU)wParam, ID_EMULATION_STOP, false, &mii);
 				mii.fState = MFS_GRAYED;
 				SetMenuItemInfo((HMENU)wParam, ID_EMULATION_STARTDEBUG, false, &mii);
@@ -4125,6 +4612,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				SetMenuItemInfo((HMENU)wParam, ID_EMULATION_STARTDEBUG, false, &mii);
 				SetMenuItemInfo((HMENU)wParam, ID_EMULATION_EXECUTE, false, &mii);
 				mii.fState = MFS_GRAYED;
+				SetMenuItemInfo((HMENU)wParam, ID_VIEW_FULLSCREEN, false, &mii);
 				SetMenuItemInfo((HMENU)wParam, ID_EMULATION_STOP, false, &mii);
 				if (hDisAsm == (HWND)SendMessage(hClientWnd, WM_MDIGETACTIVE, 0, 0))
 				{
@@ -4181,6 +4669,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVEBATTERY, false, &mii);
 			SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVEBATTERYAS, false, &mii);
 			SetMenuItemInfo((HMENU)wParam, ID_FILE_CLEARBATTERY, false, &mii);
+			SetMenuItemInfo((HMENU)wParam, ID_VIEW_FULLSCREEN, false, &mii);
 			SetMenuItemInfo((HMENU)wParam, ID_EMULATION_STARTDEBUG, false, &mii);
 			SetMenuItemInfo((HMENU)wParam, ID_EMULATION_EXECUTE, false, &mii);
 			SetMenuItemInfo((HMENU)wParam, ID_EMULATION_STOP, false, &mii);
@@ -4198,8 +4687,8 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		SetMenuItemInfo((HMENU)wParam, ID_FILE_LOADSTATEAS, false, &mii);
 		SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVESNAPSHOTAS, false, &mii);
 		SetMenuItemInfo((HMENU)wParam, ID_FILE_SAVEVIDEOAS, false, &mii);
-		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 0), 7, true, &mii);
-		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 2), 11, true, &mii);
+		SetMenuItemInfo(GetSubMenu((HMENU)wParam, MENU_FILE), MENU_FILE_STATE, true, &mii);
+		SetMenuItemInfo(GetSubMenu((HMENU)wParam, MENU_VIEW), MENU_VIEW_FRAMESKIP, true, &mii);
 		SetMenuItemInfo((HMENU)wParam, ID_TOOLS_SEARCHCHEAT, false, &mii);
 		if (mii.fState == MFS_ENABLED)
 		{
@@ -4283,7 +4772,7 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			mii.fState = MFS_ENABLED;
 		}
-		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 2), 10, true, &mii);
+		SetMenuItemInfo(GetSubMenu((HMENU)wParam, MENU_VIEW), MENU_VIEW_ZOOM, true, &mii);
 		if (mii.fState == MFS_ENABLED)
 		{
 			if (hTempWnd == hTiles)
@@ -4336,13 +4825,13 @@ LRESULT CALLBACK WndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		if (hTempWnd && (hTempWnd == hMemory || hTempWnd == hDisAsm) && pGameBoy)
 		{
 			mii.fState = MFS_ENABLED;
-			CreateBankMenu(pGameBoy, GetSubMenu(GetSubMenu((HMENU)wParam, 2), 12), 0);
+			CreateBankMenu(pGameBoy, GetSubMenu(GetSubMenu((HMENU)wParam, MENU_VIEW), MENU_VIEW_BANK), 0);
 		}
 		else
 		{
 			mii.fState = MFS_GRAYED;
 		}
-		SetMenuItemInfo(GetSubMenu((HMENU)wParam, 2), 12, true, &mii);
+		SetMenuItemInfo(GetSubMenu((HMENU)wParam, MENU_VIEW), MENU_VIEW_BANK, true, &mii);
 		SetMenuItemInfo((HMENU)wParam, ID_EDIT_GOTO, false, &mii);
 		mii.fState = Settings.SoundEnabled ? MFS_CHECKED : MFS_UNCHECKED;
 		SetMenuItemInfo((HMENU)wParam, ID_TOOLS_SOUNDENABLED, false, &mii);
@@ -4812,6 +5301,8 @@ BOOL LoadCustomSettings()
 	Settings.LinkCable = false;
 	//Settings.NetworkLinkCable = true;
 
+	Settings.uiRefreshDebugInterval = 0;
+
 	Settings.Direct3D = true;
 	Settings.FrameSkip = 0;
 	Settings.FrameSkipAuto = true;
@@ -4824,6 +5315,7 @@ BOOL LoadCustomSettings()
 	Settings.FullscreenY = 480;
 	Settings.FullscreenBpp = D3DFMT_UNKNOWN;
 	Settings.FullscreenRefreshRate = 0;
+	Settings.AutoFullscreen = false;
 
 	Settings.State_UseRomDir = true;
 	Settings.Battery_UseRomDir = true;
@@ -4857,6 +5349,8 @@ BOOL LoadCustomSettings()
 		LoadSetting("LinkCable", {Settings.LinkCable = Value ? true : false;});
 		//LoadSetting("NetworkLinkCable", {Settings.NetworkLinkCable = Value ? true : false;});
 
+		LoadSetting("RefreshDebugInterval", {Settings.uiRefreshDebugInterval = Value;});
+
 		LoadSetting("Direct3D", {Settings.Direct3D = Value ? true : false;});
 		LoadGuid("Direct3DDevice", Settings.Direct3DDeviceGuid);
 		LoadSetting("FrameSkip", {Settings.FrameSkip = Value >= 9 ? 9 : (BYTE)Value;});
@@ -4869,6 +5363,7 @@ BOOL LoadCustomSettings()
 		LoadSetting("FullscreenY", {Settings.FullscreenY = Value;});
 		LoadSetting("FullscreenBpp", {Settings.FullscreenBpp = Value;});
 		LoadSetting("FullscreenRefreshRate", {Settings.FullscreenRefreshRate = Value;});
+		LoadSetting("AutoFullscreen", {Settings.AutoFullscreen = Value ? true : false;});
 
 		LoadStringSetting("Language", szStringFilename);
 		if (szStringFilename[0])
@@ -5354,6 +5849,8 @@ void SaveCustomSettings()
 	SaveSetting(Settings.LinkCable, "LinkCable");
 	//SaveSetting(Settings.NetworkLinkCable, "NetworkLinkCable");
 
+	SaveSetting(Settings.uiRefreshDebugInterval, "RefreshDebugInterval");
+
 	SaveSetting(Settings.Direct3D, "Direct3D");
 	SaveGuid(Settings.Direct3DDeviceGuid, "Direct3DDevice");
 	SaveSetting(Settings.FrameSkip, "FrameSkip");
@@ -5366,6 +5863,7 @@ void SaveCustomSettings()
 	SaveSetting(Settings.FullscreenY, "FullscreenY");
 	SaveSetting(Settings.FullscreenBpp, "FullscreenBpp");
 	SaveSetting(Settings.FullscreenRefreshRate, "FullscreenRefreshRate");
+	SaveSetting(Settings.AutoFullscreen, "AutoFullscreen");
 
 	SaveStringSetting(szStringFilename, "Language");
 
@@ -5870,6 +6368,11 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 	InitInputDevice(JoyGuid[1], &JoyGuid[0], 1);
 
 
+	if (Settings.uiRefreshDebugInterval)
+	{
+		uiRefreshDebugTimer = SetTimer(hWnd, 1, Settings.uiRefreshDebugInterval, NULL);
+	}
+
 	//Main message loop
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
@@ -5907,6 +6410,11 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpCmdLine, 
 
 	ENDLOG;
 
+
+	if (uiRefreshDebugTimer)
+	{
+		KillTimer(hWnd, uiRefreshDebugTimer);
+	}
 
 	CloseGfx();
 	CloseSound();

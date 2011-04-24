@@ -1704,18 +1704,22 @@ NoLatch:
 		ret
 
 RomBankSelect:
+		push	ebx
+		mov		ebx, dword ptr [ecx + Offset_MEM_ROM]
+		cmp		byte ptr [ebx + 0x0147], 0x19
+		jb		NotMBC5
+		cmp		byte ptr [ebx + 0x0147], 0x1E
+		jbe		IsMBC5
+
+NotMBC5:
+		pop		ebx
+
 		cmp		al, byte ptr [ecx + Offset_MaxRomBank]
 		ja		IllegalBank
 
 		test	al, al
 		jnz		NotBankZero
-		cmp		byte ptr [ecx + Offset_MEM_ROM + 0x0147], 0x19
-		jb		NotMBC5
-		cmp		byte ptr [ecx + Offset_MEM_ROM + 0x0147], 0x1E
-		jbe		IsMBC5
-NotMBC5:
 		mov		al, 1
-IsMBC5:
 NotBankZero:
 
 		mov		byte ptr [ecx + Offset_ActiveRomBank], al
@@ -1734,6 +1738,63 @@ NotBankZero:
 		pop		eax
 
 IllegalBank:
+		ret
+
+IsMBC5:
+		pop		ebx
+
+		cmp		dh, 0x30
+		jae		HighRomBankSelect
+
+		push	eax
+
+		mov		ah, byte ptr [ecx + Offset_MaxRomBank + 1]
+		and		ah, 1
+		jnz		Is64Mbit
+		cmp		al, byte ptr [ecx + Offset_MaxRomBank]
+		ja		IllegalBank2
+Is64Mbit:
+
+		mov		byte ptr [ecx + Offset_ActiveRomBank], al
+
+		and		eax, 0x1FF
+		shl		eax, 14
+		add		eax, dword ptr [ecx + Offset_MEM_ROM]
+		mov		dword ptr [ecx + Offset_MEM + 0x04 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x05 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x06 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x07 * 4], eax
+
+IllegalBank2:
+		pop		eax
+		ret
+
+HighRomBankSelect:
+		push	eax
+		and		al, 1
+		jz		Not64Mbit
+		test	byte ptr [ecx + Offset_MaxRomBank + 1], 1
+		jz		IllegalBank2
+Not64Mbit:
+
+		mov		ah, al
+		mov		byte ptr [ecx + Offset_ActiveRomBank + 1], al
+		mov		al, byte ptr [ecx + Offset_ActiveRomBank]
+
+		and		eax, 0x1FF
+		shl		eax, 14
+		add		eax, dword ptr [ecx + Offset_MEM_ROM]
+		mov		dword ptr [ecx + Offset_MEM + 0x04 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x05 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x06 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x07 * 4], eax
+		pop		eax
 		ret
 
 RamBankSelect:
@@ -3167,18 +3228,22 @@ IsRom:
 		ret
 
 RomBankSelect:
+		push	ebx
+		mov		ebx, dword ptr [ecx + Offset_MEM_ROM]
+		cmp		byte ptr [ebx + 0x0147], 0x19
+		jb		NotMBC5
+		cmp		byte ptr [ebx + 0x0147], 0x1E
+		jbe		IsMBC5
+
+NotMBC5:
+		pop		ebx
+
 		cmp		al, byte ptr [ecx + Offset_MaxRomBank]
 		ja		IllegalBank
 
 		test	al, al
 		jnz		NotBankZero
-		cmp		byte ptr [ecx + Offset_MEM_ROM + 0x0147], 0x19
-		jb		NotMBC5
-		cmp		byte ptr [ecx + Offset_MEM_ROM + 0x0147], 0x1E
-		jbe		IsMBC5
-NotMBC5:
 		mov		al, 1
-IsMBC5:
 NotBankZero:
 
 		mov		byte ptr [ecx + Offset_ActiveRomBank], al
@@ -3186,6 +3251,7 @@ NotBankZero:
 		push	eax
 		and		eax, 0xFF
 		shl		eax, 14
+		push	eax
 		add		eax, dword ptr [ecx + Offset_MEM_ROM]
 		mov		dword ptr [ecx + Offset_MEM + 0x04 * 4], eax
 		add		eax, 0x1000
@@ -3194,7 +3260,7 @@ NotBankZero:
 		mov		dword ptr [ecx + Offset_MEM + 0x06 * 4], eax
 		add		eax, 0x1000
 		mov		dword ptr [ecx + Offset_MEM + 0x07 * 4], eax
-		sub		eax, dword ptr [ecx + Offset_MEM_ROM]
+		pop		eax
 		add		eax, dword ptr [ecx + Offset_MemStatus_ROM]
 		mov		dword ptr [ecx + Offset_MemStatus + 0x07 * 4], eax
 		sub		eax, 0x1000
@@ -3206,6 +3272,83 @@ NotBankZero:
 		pop		eax
 
 IllegalBank:
+		ret
+
+IsMBC5:
+		pop		ebx
+
+		cmp		dh, 0x30
+		jae		HighRomBankSelect
+
+		push	eax
+
+		mov		ah, byte ptr [ecx + Offset_MaxRomBank + 1]
+		and		ah, 1
+		jnz		Is64Mbit
+		cmp		al, byte ptr [ecx + Offset_MaxRomBank]
+		ja		IllegalBank2
+Is64Mbit:
+
+		mov		byte ptr [ecx + Offset_ActiveRomBank], al
+
+		and		eax, 0x1FF
+		shl		eax, 14
+		push	eax
+		add		eax, dword ptr [ecx + Offset_MEM_ROM]
+		mov		dword ptr [ecx + Offset_MEM + 0x04 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x05 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x06 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x07 * 4], eax
+		pop		eax
+		add		eax, dword ptr [ecx + Offset_MemStatus_ROM]
+		mov		dword ptr [ecx + Offset_MemStatus + 0x07 * 4], eax
+		sub		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MemStatus + 0x06 * 4], eax
+		sub		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MemStatus + 0x05 * 4], eax
+		sub		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MemStatus + 0x04 * 4], eax
+
+IllegalBank2:
+		pop		eax
+		ret
+
+HighRomBankSelect:
+		push	eax
+		and		al, 1
+		jz		Not64Mbit
+		test	byte ptr [ecx + Offset_MaxRomBank + 1], 1
+		jz		IllegalBank2
+Not64Mbit:
+
+		mov		ah, al
+		mov		byte ptr [ecx + Offset_ActiveRomBank + 1], al
+		mov		al, byte ptr [ecx + Offset_ActiveRomBank]
+
+		and		eax, 0x1FF
+		shl		eax, 14
+		push	eax
+		add		eax, dword ptr [ecx + Offset_MEM_ROM]
+		mov		dword ptr [ecx + Offset_MEM + 0x04 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x05 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x06 * 4], eax
+		add		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MEM + 0x07 * 4], eax
+		pop		eax
+		add		eax, dword ptr [ecx + Offset_MemStatus_ROM]
+		mov		dword ptr [ecx + Offset_MemStatus + 0x07 * 4], eax
+		sub		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MemStatus + 0x06 * 4], eax
+		sub		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MemStatus + 0x05 * 4], eax
+		sub		eax, 0x1000
+		mov		dword ptr [ecx + Offset_MemStatus + 0x04 * 4], eax
+		pop		eax
 		ret
 
 RamBankSelect:

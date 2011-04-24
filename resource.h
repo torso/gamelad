@@ -470,6 +470,11 @@
 #define IDS_VIEW_FRAMESKIP_AUTO         384
 #define IDS_STATUS_SELECTFRAMESKIPAUTO  385
 #define IDS_GRAPHIC_MANUALFRAMESKIP     386
+#define IDS_GRAPHIC_AUTOFULLSCREEN      387
+#define IDS_VIEW_FULLSCREEN_MENU        388
+#define IDS_VIEW_FULLSCREEN             389
+#define IDS_OPTIONS_DEBUG               390
+#define IDS_OPTIONS_DEBUG_REFRESHDEBUGINTERVAL 391
 #define IDC_AUTOLOADBATTERY             1021
 #define IDC_PLAYER                      1022
 #define IDC_NUMBER                      1023
@@ -505,6 +510,7 @@
 #define IDC_CODE                        1062
 #define IDC_TRANSLATOR                  1062
 #define IDC_LANGUAGE                    1063
+#define IDC_REFRESHDEBUGINTERVAL_STATIC 1064
 #define IDC_BUTTONLIST                  1066
 #define IDC_SAVESCHEMEAS                1067
 #define IDC_DELETESCHEME                1068
@@ -531,6 +537,7 @@
 #define IDC_INITIALZOOM_STATIC          1089
 #define IDC_MANUALFRAMESKIP             1090
 #define IDC_STATE_DIR                   1091
+#define IDC_FS_AUTOFULLSCREEN           1091
 #define IDC_STATE_USEROMDIR             1092
 #define IDC_STATE_DIR_RADIO             1093
 #define IDC_STATE_FRAME                 1094
@@ -540,6 +547,8 @@
 #define IDC_BATTERY_DIR_RADIO           1098
 #define IDC_STATE_BROWSE                1099
 #define IDC_BATTERY_BROWSE              1100
+#define IDC_DEBUG                       1100
+#define IDC_REFRESHDEBUGINTERVAL        1102
 #define ID_HELP_ABOUT                   40022
 #define ID_WINDOW_NEXT                  40033
 #define ID_WINDOW_PREVIOUS              40034
@@ -618,7 +627,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        141
 #define _APS_NEXT_COMMAND_VALUE         40121
-#define _APS_NEXT_CONTROL_VALUE         1100
+#define _APS_NEXT_CONTROL_VALUE         1103
 #define _APS_NEXT_SYMED_VALUE           172
 #endif
 #endif

@@ -17,7 +17,7 @@
 
 
 
-#define		GAME_LAD_SAVE_STATE_VERSION			1
+#define		GAME_LAD_SAVE_STATE_VERSION			2
 
 #define		STOPEMULATION									\
 	CloseSound();											\
@@ -101,9 +101,9 @@ WORD		GreyScales[4] =	{	0x7FFF,
 
 
 
-BYTE RomSize(BYTE Byte148)
+WORD RomSize(BYTE Byte148)
 {
-	if (Byte148 <= 7)
+	if (Byte148 <= 8)
 	{
 		return (2 << Byte148) - 1;
 	}
@@ -282,14 +282,6 @@ CGameBoy::~CGameBoy()
 void CGameBoy::AddRef()
 {
 	EnterCriticalSection(&csGameBoy);
-	if (!GameBoys.GameBoyExists(this))
-	{
-#ifdef _DEBUG
-		__asm int 3;
-#endif
-		LeaveCriticalSection(&csGameBoy);
-		return;
-	}
 	RefCount++;
 	LeaveCriticalSection(&csGameBoy);
 }
@@ -311,17 +303,6 @@ void CGameBoy::Release()
 		cs = false;
 	}
 
-	if (!GameBoys.GameBoyExists(this))
-	{
-#ifdef _DEBUG
-		__asm int 3;
-#endif
-		if (cs)
-		{
-			LeaveCriticalSection(&csGameBoy);
-		}
-		return;
-	}
 	if (RefCount > 0)
 	{
 		RefCount--;
@@ -408,14 +389,14 @@ BYTE border[] = {16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 1
 
 
 
-/* Huffman code lookup table entry--this entry is four bytes for machines
-   that have 16-bit pointers (e.g. PC's in the small or medium model).
-   Valid extra bits are 0..13.  e == 15 is EOB (end of block), e == 16
-   means that v is a literal, 16 < e < 32 means that v is a pointer to
-   the next table, which codes e - 16 bits, and lastly e == 99 indicates
-   an unused code.  If a code with e == 99 is looked up, this implies an
-   error in the data. */
-/*struct huft {
+// Huffman code lookup table entry--this entry is four bytes for machines
+// that have 16-bit pointers (e.g. PC's in the small or medium model).
+// Valid extra bits are 0..13.  e == 15 is EOB (end of block), e == 16
+// means that v is a literal, 16 < e < 32 means that v is a pointer to
+// the next table, which codes e - 16 bits, and lastly e == 99 indicates
+// an unused code.  If a code with e == 99 is looked up, this implies an
+// error in the data.
+struct huft {
   BYTE e;                //number of extra bits or operation
   BYTE b;                //number of bits in this code or subcode
   union {
@@ -456,15 +437,15 @@ int dbits = 6;          //bits in base distance lookup table
 
 
 
-/* Given a list of code lengths and a maximum table size, make a set of
-   tables to decode that set of codes.  Return zero on success, one if
-   the given code set is incomplete (the tables are still built in this
-   case), two if the input is invalid (all zero length codes or an
-   oversubscribed set of lengths), and three if not enough memory.
-   The code with value 256 is special, and the tables are constructed
-   so that no bits beyond that code are fetched when that code is
-   decoded. */
-/*int huft_build(
+// Given a list of code lengths and a maximum table size, make a set of
+// tables to decode that set of codes.  Return zero on success, one if
+// the given code set is incomplete (the tables are still built in this
+// case), two if the input is invalid (all zero length codes or an
+// oversubscribed set of lengths), and three if not enough memory.
+// The code with value 256 is special, and the tables are constructed
+// so that no bits beyond that code are fetched when that code is
+// decoded.
+int huft_build(
 DWORD *b,				//code lengths in bits (all assumed <= BMAX)
 DWORD n,				//number of codes (assumed <= N_MAX)
 DWORD s,				//number of simple-valued codes (0..s-1)
@@ -695,18 +676,18 @@ int *m)					//maximum lookup bits, returns actual
 
 	//Return true (1) if we were given an incomplete table
 	return y != 0 && g != 1;
-}*/
+}
 
 
 
-/* inflate (decompress) the codes in a deflated (compressed) block.
-   Return an error code or zero if it all goes ok. */
+// inflate (decompress) the codes in a deflated (compressed) block.
+// Return an error code or zero if it all goes ok.
 
-/*
-tl, td		literal/length and distance decoder tables
-bl, bd		number of bits decoded by tl[] and td[]
-*/
-/*int inflate_codes(HANDLE hFile, struct huft *tl, struct huft *td, int bl, int bd, BYTE *pOutput, DWORD dwOutputOffset)
+
+//tl, td		literal/length and distance decoder tables
+//bl, bd		number of bits decoded by tl[] and td[]
+
+int inflate_codes(HANDLE hFile, struct huft *tl, struct huft *td, int bl, int bd, BYTE *pOutput, DWORD dwOutputOffset)
 {
 	DWORD			e;		//table entry flag/number of extra bits
 	DWORD			n, d;	//length and index for copy
@@ -814,8 +795,8 @@ bl, bd		number of bits decoded by tl[] and td[]
 	wp = w;                       //restore global window pointer
 	*/
 
-/*	return 0;
-}*/
+//	return 0;
+//}
 
 
 
@@ -827,6 +808,7 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 	BOOL			Maximized;//, zip;
 	char			szBuffer[0x100 * 2];
 	SYSTEMTIME		SystemTime;
+	BYTE			bByte;
 
 
 	LOG("CGameBoy::Init(\"");
@@ -922,8 +904,8 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 	}
 	LOGSUCCESS;
 
-	/*if (!zip)
-	{*/
+	//if (!zip)
+	//{
 		FileSize = GetFileSize(hFile, NULL);
 		if (SetFilePointer(hFile, 0x148, NULL, FILE_BEGIN) == 0xFFFFFFFF)
 		{
@@ -931,13 +913,13 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 			DisplayErrorMessage();
 			return true;
 		}
-		if (!ReadFile(hFile, &MaxRomBank, 1, &nBytes, NULL))
+		if (!ReadFile(hFile, &bByte, 1, &nBytes, NULL))
 		{
 			CloseHandle(hFile);
 			DisplayErrorMessage();
 			return true;
 		}
-		MaxRomBank = RomSize(MaxRomBank);
+		MaxRomBank = RomSize(bByte);
 		if (FileSize != (((DWORD)MaxRomBank + 1) * 16384))
 		{
 			if (MessageBox(hMsgParent, String(IDS_STATUS_ROMSIZEDIFFER), NULL, MB_OKCANCEL | MB_ICONWARNING) == IDCANCEL)
@@ -1055,9 +1037,9 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 			struct huft		*td;			//distance code table
 			int				bl;				//lookup bits for tl
 			int				bd;				//lookup bits for td
-			DWORD			nb;				//number of bit length codes
-			DWORD			nl;				//number of literal/length codes
-			DWORD			nd;				//number of distance codes
+			DWORD			nBitLenghtCodes;//number of bit length codes
+			DWORD			nLiteralCodes;	//number of literal/length codes
+			DWORD			nDistCodes;		//number of distance codes
 			DWORD			ll[286 + 30];	//literal/length and distance code lengths
 			DWORD			b;				//bit buffer
 
@@ -1079,30 +1061,30 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 					td = NULL;
 
 					ResetReadBits();
-					if (!ReadBits(hFile, 5, &nl))
+					if (!ReadBits(hFile, 5, &nLiteralCodes))
 					{
 						return true;
 					}
-					nl = (nl & 0x1F) + 257;
-					if (!ReadBits(hFile, 5, &nd))
+					nLiteralCodes = (nLiteralCodes & 0x1F) + 256;
+					if (!ReadBits(hFile, 5, &nDistCodes))
 					{
 						return true;
 					}
-					nd = (nd & 0x1F) + 1;
-					if (!ReadBits(hFile, 5, &nb))
+					nDistCodes = (nDistCodes & 0x1F) + 1;
+					if (!ReadBits(hFile, 4, &nBitLengthCodes))
 					{
 						return true;
 					}
-					nb = (nb & 0x0F) + 4;
+					nBitLengthCodes = (nBitLengthCodes & 0x0F) + 3;
 
-					if (nl > 286 || nd > 30)
+					/*if (nl > 286 || nd > 30)
 					{
 						CloseHandle(hFile);
 						MessageBox(hMsgParent, "Error in file.", "Game Lad", MB_OK | MB_ICONERROR);
 						return true;
-					}
+					}*/
 
-					for (j = 0; j < nb; j++)
+					/*for (j = 0; j < nb; j++)
 					{
 						if (!ReadBits(hFile, 3, &ll[border[j]]))
 						{
@@ -2053,21 +2035,38 @@ BOOL CGameBoy::SaveState(char *pszFilename)
 
 	Value = 'g' | ('l' << 8) | ('s' << 16);
 	WriteToFile(Value);
-	if (MEM_ROM[0x147] >= 0xF && MEM_ROM[0x147] <= 0x10)
+	if (MaxRomBank & 0x100)
 	{
-		//Includes RTC
-		Value = 1;
+		//64 Mbit carts
+		Value = 2;
 		WriteToFile(Value);
-		WriteToFile2("1.6", 4);
+		WriteToFile2("1.61", 5);
 	}
 	else
 	{
-		Value = 0;
-		WriteToFile(Value);
-		WriteToFile2("1.2", 4);
+		if (MEM_ROM[0x147] >= 0xF && MEM_ROM[0x147] <= 0x10)
+		{
+			//Includes RTC
+			Value = 1;
+			WriteToFile(Value);
+			WriteToFile2("1.6", 4);
+		}
+		else
+		{
+			Value = 0;
+			WriteToFile(Value);
+			WriteToFile2("1.2", 4);
+		}
 	}
 
-	WriteToFile(MaxRomBank);
+	if (MaxRomBank & 0x100)
+	{
+		WriteToFile(MaxRomBank);
+	}
+	else
+	{
+		WriteToFile2(MaxRomBank, 1);
+	}
 	WriteToFile(MaxRamBank);
 
 	for (y = 0; y < 144; y++)
@@ -2099,7 +2098,14 @@ BOOL CGameBoy::SaveState(char *pszFilename)
 	WriteToFile(Reg_HL);
 	WriteToFile(Reg_SP);
 	WriteToFile(Reg_PC);
-	WriteToFile(ActiveRomBank);
+	if (MaxRomBank & 0x100)
+	{
+		WriteToFile(ActiveRomBank);
+	}
+	else
+	{
+		WriteToFile2(ActiveRomBank, 1);
+	}
 	WriteToFile(ActiveRamBank);
 	WriteToFile(MEM_CPU);
 	WriteToFile2(*MEM_RAM, SaveRamSize);
@@ -2258,7 +2264,7 @@ BOOL CGameBoy::LoadState()
 BOOL CGameBoy::LoadState(char *pszFilename, BOOL QuickLoad)
 {
 	HANDLE		hFile;
-	DWORD		nBytes, Value, y, Pos, pByte, RamSize;
+	DWORD		nBytes, Version, Value, y, Pos, pByte, RamSize;
 	char		szBuffer[0x200], szPath[MAX_PATH + 2];
 	int			Slot1, Slot2;
 	FILETIME	FileTime1, FileTime2;
@@ -2350,14 +2356,14 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL QuickLoad)
 		Resume();
 		return true;
 	}
-	if (!ReadFile(hFile, &Value, sizeof(Value), &nBytes, NULL))
+	if (!ReadFile(hFile, &Version, sizeof(Version), &nBytes, NULL))
 	{
 		CloseHandle(hFile);
 		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 		Resume();
 		return true;
 	}
-	if (nBytes != sizeof(Value))
+	if (nBytes != sizeof(Version))
 	{
 		CloseHandle(hFile);
 		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
@@ -2395,7 +2401,7 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL QuickLoad)
 		}
 	}
 	while (szPath[Pos - 1] != '\0');
-	if (Value > GAME_LAD_SAVE_STATE_VERSION)
+	if (Version > GAME_LAD_SAVE_STATE_VERSION)
 	{
 		CloseHandle(hFile);
 		LoadString(IDS_HIGHERVERSIONREQUIRED, szBuffer, sizeof(szBuffer), szPath);
@@ -2411,8 +2417,16 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL QuickLoad)
 		return true;
 	}
 
-	ReadFromFile2(Value, 1);
-	if (MaxRomBank != (BYTE)Value)
+	Value = 0;
+	if (Version >= 2)
+	{
+		ReadFromFile2(Value, 2);
+	}
+	else
+	{
+		ReadFromFile2(Value, 1);
+	}
+	if (MaxRomBank != (WORD)Value)
 	{
 		CloseHandle(hFile);
 		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
@@ -2456,7 +2470,15 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL QuickLoad)
 	ReadFromFile(Reg_HL);
 	ReadFromFile(Reg_SP);
 	ReadFromFile(Reg_PC);
-	ReadFromFile(ActiveRomBank);
+	if (Version >= 2)
+	{
+		ReadFromFile2(ActiveRomBank, 2);
+	}
+	else
+	{
+		ActiveRomBank = 0;
+		ReadFromFile2(ActiveRomBank, 1);
+	}
 	ReadFromFile(ActiveRamBank);
 	ReadFromFile(MEM_CPU);
 	ReadFromFile2(*MEM_RAM, SaveRamSize);
@@ -2654,6 +2676,10 @@ LRESULT CGameBoy::GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 	switch (uMsg)
 	{
 	case WM_PAINT:
+		if (hGfxWnd)
+		{
+			return 0;
+		}
 		if (GetUpdateRect(hGBWnd, NULL, true))
 		{
 			BeginPaint(hGBWnd, &Paint);
@@ -2985,7 +3011,7 @@ void CGameBoy::RemoveCheats()
 
 
 
-BYTE CGameBoy::GetRealByte(WORD Offset, BYTE Bank)
+BYTE CGameBoy::GetRealByte(WORD Offset, WORD Bank)
 {
 	CHEATDATA		*pCheatData;
 
@@ -3183,7 +3209,7 @@ BOOL CGameBoy::AddCheat(WORD Offset, BYTE Value, BYTE CompareValue, char *pszCod
 
 
 
-BOOL CGameBoy::AddCheat(BYTE Bank, WORD Offset, BYTE Value, char *pszCode)
+BOOL CGameBoy::AddCheat(WORD Bank, WORD Offset, BYTE Value, char *pszCode)
 {
 	CHEATDATA		CheatData;
 
@@ -5551,6 +5577,11 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 		break;
 	}
 
+	//It is not very efficient to initialize sound and graphic when only one
+	//line should be run.
+	//
+	//At this point, one line has already been passed. Automatic fullscreen
+	//when using step commands is prevented. It has to be toggled manually.
 	if (Settings.SoundEnabled)
 	{
 		RestoreSound();
@@ -5559,7 +5590,7 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 	{
 		if (!m_pd3dd)
 		{
-			InitGfx(&m_pd3dd);
+			InitGfx(&m_pd3dd, NULL);
 		}
 	}
 
@@ -5836,7 +5867,7 @@ BOOL CGameBoy::StartDebug()
 	{
 		if (!m_pd3dd)
 		{
-			InitGfx(&m_pd3dd);
+			InitGfx(&m_pd3dd, &hGfxWnd);
 		}
 	}
 
@@ -5952,7 +5983,7 @@ void CGameBoy::Resume()
 		{
 			if (!m_pd3dd)
 			{
-				InitGfx(&m_pd3dd);
+				InitGfx(&m_pd3dd, &hGfxWnd);
 			}
 		}
 
@@ -6047,6 +6078,10 @@ void CGameBoy::Stop()
 				return;
 			}
 			Terminating = TERMINATING_STOP;
+			if (pLinkGameBoy)
+			{
+				pLinkGameBoy->Terminating = TERMINATING_STOP;
+			}
 			LeaveCriticalSection(&csTerminate);
 			if (GetCurrentThreadId() != ThreadId)
 			{
@@ -6065,6 +6100,10 @@ void CGameBoy::Stop()
 			}
 			EnterCriticalSection(&csTerminate);
 			Terminating = TERMINATING_FALSE;
+			if (pLinkGameBoy)
+			{
+				pLinkGameBoy->Terminating = TERMINATING_FALSE;
+			}
 			LeaveCriticalSection(&csTerminate);
 		}
 		else
@@ -6151,7 +6190,7 @@ BOOL CGameBoy::HasBattery()
 
 
 
-BOOL CGameBoy::SwitchRomBank(BYTE Bank)
+BOOL CGameBoy::SwitchRomBank(WORD Bank)
 {
 	if (Emulating || Bank > MaxRomBank)
 	{
@@ -13262,7 +13301,7 @@ void CGameBoy::RefreshScreen()
 				{
 					m_pd3dd->Release();
 					m_pd3dd = NULL;
-					InitGfx(&m_pd3dd);
+					InitGfx(&m_pd3dd, NULL);
 				}
 			}
 		}

@@ -410,37 +410,6 @@ const char OpCodeCBArgument[8][5] =
 
 
 
-char *ToHex(unsigned int n, BOOL Word)
-{
-	if (Word)
-	{
-		NumBuffer[0] = ((n & 0xFFFF) >> 12) + 48;
-		if (NumBuffer[0] > 57)
-		{
-			NumBuffer[0] += 7;
-		}
-		NumBuffer[1] = (((n & 0xFFFF) >> 8) & 0xF) + 48;
-		if (NumBuffer[1] > 57)
-		{
-			NumBuffer[1] += 7;
-		}
-	}
-	NumBuffer[Word ? 2 : 0] = ((n >> 4) & 0xF) + 48;
-	if (NumBuffer[Word ? 2 : 0] > 57)
-	{
-		NumBuffer[Word ? 2 : 0] += 7;
-	}
-	NumBuffer[Word ? 3 : 1] = (n & 0xF) + 48;
-	if (NumBuffer[Word ? 3 : 1] > 57)
-	{
-		NumBuffer[Word ? 3 : 1] += 7;
-	}
-
-	return NumBuffer;
-}
-
-
-
 LRESULT CALLBACK TileZoomWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CGameBoy		*pGameBoy;
@@ -2767,7 +2736,8 @@ BOOL		MemoryCaret;
 int			MemoryCaretX, MemoryCaretY;
 WORD		MemoryTopByte;
 
-BYTE		MemoryROM, MemoryRAM, MemorySVBK, MemoryVBK;
+WORD		MemoryROM;
+BYTE		MemoryRAM, MemorySVBK, MemoryVBK;
 
 
 
@@ -2848,7 +2818,7 @@ BOOL CALLBACK GotoEnumChildProc(HWND hWin, LPARAM lParam)
 
 BOOL CALLBACK MemoryRomBankEnumChildProc(HWND hWin, LPARAM lParam)
 {
-	char		szText[4];
+	char		szText[5];
 
 
 	if (GetWindowLong(hWin, GWL_ID) != IDC_NUMBER)
@@ -2863,8 +2833,8 @@ BOOL CALLBACK MemoryRomBankEnumChildProc(HWND hWin, LPARAM lParam)
 	}
 	else
 	{
-		SendMessage(hWin, WM_GETTEXT, 4, (LPARAM)&szText);
-		if (szText[0] && szText[1] && szText[2])
+		SendMessage(hWin, WM_GETTEXT, 5, (LPARAM)&szText);
+		if (szText[0] && szText[1] && szText[2] && szText[3])
 		{
 			return true;
 		}
@@ -2880,7 +2850,18 @@ BOOL CALLBACK MemoryRomBankEnumChildProc(HWND hWin, LPARAM lParam)
 			{
 				return true;
 			}
-			MemoryROM = (szText[0] << 4) | szText[1];
+			if (szText[2] != '\0')
+			{
+				if (szText[0] > '1' || HexToNum(&szText[2]))
+				{
+					return true;
+				}
+				MemoryROM = (szText[0] << 8) | (szText[1] << 4) | szText[2];
+			}
+			else
+			{
+				MemoryROM = (szText[0] << 4) | szText[1];
+			}
 		}
 		else
 		{
@@ -2980,7 +2961,7 @@ BOOL CALLBACK MemoryRomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM l
 
 BOOL CreateBankMenu(CGameBoy *pGameBoy, HMENU hMenu, DWORD dwFirstPos)
 {
-	HMENU			hRAMMenu = GetSubMenu(hMenu, dwFirstPos + 2);
+	HMENU			hRAMMenu = GetSubMenu(hMenu, dwFirstPos + MENU_VIEW_BANK_RAM);
 	BYTE			Banks;
 	MENUITEMINFO	mmi;
 	char			szBuffer[0x100];
@@ -2996,8 +2977,8 @@ BOOL CreateBankMenu(CGameBoy *pGameBoy, HMENU hMenu, DWORD dwFirstPos)
 	{
 		mmi.fState = MFS_GRAYED;
 	}
-	SetMenuItemInfo(hMenu, dwFirstPos + 1, true, &mmi);
-	SetMenuItemInfo(hMenu, dwFirstPos + 3, true, &mmi);
+	SetMenuItemInfo(hMenu, dwFirstPos + MENU_VIEW_BANK_VBK, true, &mmi);
+	SetMenuItemInfo(hMenu, dwFirstPos + MENU_VIEW_BANK_SVBK, true, &mmi);
 	if (pGameBoy->MaxRomBank > 1)
 	{
 		mmi.fState = MFS_ENABLED;
@@ -3029,12 +3010,12 @@ BOOL CreateBankMenu(CGameBoy *pGameBoy, HMENU hMenu, DWORD dwFirstPos)
 	if (Banks <= 1)
 	{
 		mmi.fState = MFS_GRAYED;
-		SetMenuItemInfo(hMenu, dwFirstPos + 2, true, &mmi);
+		SetMenuItemInfo(hMenu, dwFirstPos + MENU_VIEW_BANK_RAM, true, &mmi);
 	}
 	else
 	{
 		mmi.fState = MFS_ENABLED;
-		SetMenuItemInfo(hMenu, dwFirstPos + 2, true, &mmi);
+		SetMenuItemInfo(hMenu, dwFirstPos + MENU_VIEW_BANK_RAM, true, &mmi);
 		if (Banks >= 4)
 		{
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK2, MF_BYCOMMAND);
@@ -3144,7 +3125,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 	HBRUSH			hBrush;
 	HPEN			hPen;
 	SCROLLINFO		si;
-	WORD			pByte;
+	WORD			pByte, Word;
 	BYTE			Byte, Access, Banks, NewByte, *p;
 	int				x, y, BytesPerLine, nBytes;
 	char			szBuffer[0x100];
@@ -3175,7 +3156,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			{
 				MemoryROM = pGameBoy->ActiveRomBank;
 			}
-			Byte = MemoryROM;
+			Word = MemoryROM;
 			if (!DialogBox(hInstance, MAKEINTRESOURCE(IDD_ENTERNUMBER), hWnd, MemoryRomBankDlgProc))
 			{
 				if (MemoryROM <= pGameBoy->MaxRomBank)
@@ -3184,7 +3165,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				}
 				else
 				{
-					MemoryROM = Byte;
+					MemoryROM = Word;
 				}
 			}
 			return 0;
@@ -3460,7 +3441,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 								MemoryCaretX++;
 								break;
 							}
-							MemoryROM = (Byte << 4) | (MemoryROM & 0x0F);
+							MemoryROM = (Byte << 4) | (MemoryROM & 0x10F);
 						}
 						else
 						{
@@ -3470,7 +3451,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 								break;
 							}
 							MemoryFlags |= MEMORY_ROM;
-							MemoryROM = (Byte << 4) | (pGameBoy->ActiveRomBank & 0x0F);
+							MemoryROM = (Byte << 4) | (pGameBoy->ActiveRomBank & 0x10F);
 						}
 						MemoryCaretX++;
 						InvalidateRect(hWin, &rct, true);
@@ -3498,7 +3479,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 								{
 									break;
 								}
-								MemoryROM = (MemoryROM & 0xF0) | Byte;
+								MemoryROM = (MemoryROM & 0x1F0) | Byte;
 							}
 							else
 							{
@@ -3512,7 +3493,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 									break;
 								}
 								MemoryFlags |= MEMORY_ROM;
-								MemoryROM = (pGameBoy->ActiveRomBank & 0xF0) | Byte;
+								MemoryROM = (pGameBoy->ActiveRomBank & 0x1F0) | Byte;
 							}
 						}
 						else if (pByte < 0xA000)
@@ -4234,7 +4215,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					{
 						if (MemoryFlags & MEMORY_ROM)
 						{
-							TextOut(Paint.hdc, 0, y, ToHex(MemoryROM, false), 2);
+							TextOut(Paint.hdc, 0, y, ToHex(MemoryROM & 0xFF, false), 2);
 						}
 						else
 						{
@@ -4498,11 +4479,12 @@ int			DisAsmCaretX, DisAsmCaretY;
 WORD		DisAsmTopByte, DisAsmCaretByte, DisAsmLastPC;
 int			DisAsmScroll;
 
-BYTE		DisAsmROM, DisAsmRAM, DisAsmSVBK, DisAsmVBK;
+WORD		DisAsmROM;
+BYTE		DisAsmRAM, DisAsmSVBK, DisAsmVBK;
 
 BOOL CALLBACK DisAsmRomBankEnumChildProc(HWND hWin, LPARAM lParam)
 {
-	char		szText[4];
+	char		szText[5];
 
 
 	if (GetWindowLong(hWin, GWL_ID) != IDC_NUMBER)
@@ -4517,8 +4499,8 @@ BOOL CALLBACK DisAsmRomBankEnumChildProc(HWND hWin, LPARAM lParam)
 	}
 	else
 	{
-		SendMessage(hWin, WM_GETTEXT, 4, (LPARAM)&szText);
-		if (szText[0] && szText[1] && szText[2])
+		SendMessage(hWin, WM_GETTEXT, 5, (LPARAM)&szText);
+		if (szText[0] && szText[1] && szText[2] && szText[3])
 		{
 			return true;
 		}
@@ -4534,7 +4516,18 @@ BOOL CALLBACK DisAsmRomBankEnumChildProc(HWND hWin, LPARAM lParam)
 			{
 				return true;
 			}
-			DisAsmROM = (szText[0] << 4) | szText[1];
+			if (szText[2] != '\0')
+			{
+				if (szText[0] > '1' || HexToNum(&szText[2]))
+				{
+					return true;
+				}
+				DisAsmROM = (szText[0] << 8) | (szText[1] << 4) | szText[2];
+			}
+			else
+			{
+				DisAsmROM = (szText[0] << 4) | szText[1];
+			}
 		}
 		else
 		{
@@ -4632,7 +4625,7 @@ BOOL CALLBACK DisAsmRomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM l
 
 
 
-void DisAsmReadMem(CGameBoy *pGameBoy, WORD pByte, BYTE **p, BYTE **Access, BYTE *pBank)
+void DisAsmReadMem(CGameBoy *pGameBoy, WORD pByte, BYTE **p, BYTE **Access, WORD *pBank)
 {
 	if (pByte < 0x4000)
 	{
@@ -4749,7 +4742,8 @@ BOOL OutputLabel(CGameBoy *pGameBoy, WORD Offset, HDC hdc, int y, int *x)
 {
 	char		*pszLabel;
 	SIZE		Size;
-	BYTE		*p, *Access, Bank;
+	BYTE		*p, *Access;
+	WORD		Bank;
 
 
 	if (pGameBoy->pDebugInfo)
@@ -4772,7 +4766,7 @@ BOOL OutputLabel(CGameBoy *pGameBoy, WORD Offset, HDC hdc, int y, int *x)
 
 
 
-void OutputLabels(CGameBoy *pGameBoy, BYTE Bank, WORD Offset, HDC hdc, int *y)
+void OutputLabels(CGameBoy *pGameBoy, WORD Bank, WORD Offset, HDC hdc, int *y)
 {
 	char		*pszLabel;
 
@@ -4790,7 +4784,7 @@ void OutputLabels(CGameBoy *pGameBoy, BYTE Bank, WORD Offset, HDC hdc, int *y)
 
 
 
-DWORD GetNumberOfLabels(CGameBoy *pGameBoy, BYTE Bank, WORD Offset)
+DWORD GetNumberOfLabels(CGameBoy *pGameBoy, WORD Bank, WORD Offset)
 {
 	DWORD		dwLabelNo;
 
@@ -4886,8 +4880,8 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 	HPEN			hPen;
 	HANDLE			hBitmap;
 	SCROLLINFO		si;
-	WORD			pByte, pByte2;
-	BYTE			Byte, *p, *p2, *p3, *Access, *Access2, *Access3, Bank;
+	WORD			pByte, pByte2, Bank;
+	BYTE			Byte, *p, *p2, *p3, *Access, *Access2, *Access3;
 	DWORD			dw;
 	int				x, y;
 	BOOL			SetY, Label;
@@ -4921,7 +4915,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			{
 				DisAsmROM = pGameBoy->ActiveRomBank;
 			}
-			Byte = DisAsmROM;
+			Bank = DisAsmROM;
 			if (!DialogBox(hInstance, MAKEINTRESOURCE(IDD_ENTERNUMBER), hWnd, DisAsmRomBankDlgProc))
 			{
 				if (DisAsmROM <= pGameBoy->MaxRomBank)
@@ -4930,7 +4924,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				}
 				else
 				{
-					DisAsmROM = Byte;
+					DisAsmROM = Bank;
 				}
 			}
 			pGameBoy->Release();
@@ -5199,7 +5193,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			{
 				if ((pGameBoy->MEM_CPU[0x8F4F] & 1) != Bank)
 				{
-					pGameBoy->SwitchVBK(Bank);
+					pGameBoy->SwitchVBK((BYTE)Bank);
 					InvalidateRect(hWin, NULL, true);
 					if (hRegisters)
 					{
@@ -5211,7 +5205,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			{
 				if (pGameBoy->ActiveRamBank != Bank)
 				{
-					pGameBoy->SwitchRamBank(Bank);
+					pGameBoy->SwitchRamBank((BYTE)Bank);
 					InvalidateRect(hWin, NULL, true);
 					if (hRegisters)
 					{
@@ -5225,7 +5219,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				{
 					if ((pGameBoy->MEM_CPU[0x8F70] & 7) != Bank)
 					{
-						pGameBoy->SwitchSVBK(Bank);
+						pGameBoy->SwitchSVBK((BYTE)Bank);
 						InvalidateRect(hWin, NULL, true);
 						if (hRegisters)
 						{
@@ -5237,7 +5231,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				{
 					if (Bank != 1)
 					{
-						pGameBoy->SwitchSVBK(Bank);
+						pGameBoy->SwitchSVBK((BYTE)Bank);
 						InvalidateRect(hWin, NULL, true);
 						if (hRegisters)
 						{

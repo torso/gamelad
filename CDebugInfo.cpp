@@ -190,7 +190,7 @@ BOOL CDebugInfo::LoadFile(char *pszRomPath)
 
 
 
-BOOL CDebugInfo::AddLabel(BYTE Bank, WORD Offset, char *pszName)
+BOOL CDebugInfo::AddLabel(WORD Bank, WORD Offset, char *pszName)
 {
 	LABELDATA		LabelData;
 
@@ -224,7 +224,7 @@ void CDebugInfo::ResetSearch()
 
 
 
-char *CDebugInfo::GetNextLabel(BYTE Bank, WORD Offset)
+char *CDebugInfo::GetNextLabel(WORD Bank, WORD Offset)
 {
 	LABELDATA		*pLabelData;
 

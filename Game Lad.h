@@ -7,9 +7,9 @@
 
 
 
-#define		GAME_LAD_RELEASENO				8
+#define		GAME_LAD_RELEASENO				9
 #define		VERSION_MAJOR					1
-#define		VERSION_MINOR					6
+#define		VERSION_MINOR					61
 
 
 
@@ -176,9 +176,11 @@ struct SETTINGS
 	BYTE	GbFile, GlsFile;
 	BYTE	LinkCable/*, NetworkLinkCable*/;
 
+	UINT	uiRefreshDebugInterval;
+
 	BOOL	Direct3D;
 	GUID	Direct3DDeviceGuid;
-	BYTE	FrameSkip, FrameSkipAuto, Zoom, Fullscreen, Fullscreen10_9, FullscreenZoom;
+	BYTE	FrameSkip, FrameSkipAuto, Zoom, Fullscreen, Fullscreen10_9, FullscreenZoom, AutoFullscreen;
 	DWORD	FullscreenX, FullscreenY, FullscreenBpp, FullscreenRefreshRate;
 
 	BYTE	State_UseRomDir, Battery_UseRomDir;
@@ -234,6 +236,23 @@ GAME_LAD_CPP	DWORD				LastOptionPage EQUALNULL;
 
 
 
+#define			MENU_FILE					0
+#define			MENU_FILE_STATE				7
+#define			MENU_EDIT					1
+#define			MENU_VIEW					2
+#define			MENU_VIEW_ZOOM				11
+#define			MENU_VIEW_FRAMESKIP			12
+#define			MENU_VIEW_BANK				13
+#define			MENU_VIEW_BANK_VBK			1
+#define			MENU_VIEW_BANK_RAM			2
+#define			MENU_VIEW_BANK_SVBK			3
+#define			MENU_EMULATION				3
+#define			MENU_TOOLS					4
+#define			MENU_WINDOW					5
+#define			MENU_HELP					6
+
+
+
 enum
 {
 	SF_MESSAGE,
@@ -249,6 +268,12 @@ GAME_LAD_CPP	void				DisplayErrorMessage(DWORD dwErrCode);
 GAME_LAD_CPP	BOOL				HexToNum(char *pc);
 GAME_LAD_CPP	char				*DwordToHex(DWORD dw, char *psz);
 GAME_LAD_CPP	char				NibbleToHex(BYTE b);
+
+//Compatibility if <vfw.h> has been included (defines a ToHex macro)
+#ifdef		ToHex
+#undef		ToHex
+#endif		//ToHex
+GAME_LAD_CPP	char				*ToHex(unsigned int n, BOOL Word);
 
 GAME_LAD_CPP	char				*LoadString(UINT uID, char *pszBuffer, int nBufferMax);
 GAME_LAD_CPP	char				*LoadString(UINT uID, char *pszBuffer, int nBufferMax, char *pszInsert);
