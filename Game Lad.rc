@@ -1,0 +1,339 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MENU MENU DISCARDABLE 
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Open Rom...\tCtrl+O",        ID_FILE_OPEN
+        MENUITEM "&Close\tCtrl+F4",             ID_FILE_CLOSE
+        MENUITEM SEPARATOR
+        MENUITEM "&Load Battery Ram",           ID_FILE_LOADBATTERY
+        MENUITEM "&Save Battery Ram\tCtrl+S",   ID_FILE_SAVEBATTERY
+        MENUITEM "Save Battery Ram &As...",     ID_FILE_SAVEBATTERYAS
+        MENUITEM "Clear &Battery Ram",          ID_FILE_CLEARBATTERY
+        MENUITEM SEPARATOR
+        MENUITEM "&Exit",                       ID_FILE_EXIT
+    END
+    POPUP "&View"
+    BEGIN
+        MENUITEM "&Disassembly\tAlt+8",         ID_VIEW_DISASSEMBLY
+        MENUITEM "&Memory\tAlt+6",              ID_VIEW_MEMORY
+        MENUITEM "&Registers\tAlt+5",           ID_VIEW_REGISTERS
+        MENUITEM "&Hardware",                   ID_VIEW_HARDWARE
+        MENUITEM SEPARATOR
+        MENUITEM "&Palettes",                   ID_VIEW_PALETTES
+        MENUITEM "T&ile Map",                   ID_VIEW_TILEMAP
+        MENUITEM "&Tiles",                      ID_VIEW_TILES
+        MENUITEM SEPARATOR
+        POPUP "&Zoom"
+        BEGIN
+            MENUITEM "&100%",                       ID_VIEW_ZOOM_100
+            MENUITEM "&200%",                       ID_VIEW_ZOOM_200
+            MENUITEM "&300%",                       ID_VIEW_ZOOM_300
+            MENUITEM "&400%",                       ID_VIEW_ZOOM_400
+        END
+    END
+    POPUP "&Emulation"
+    BEGIN
+        MENUITEM "Start &Debug\tF5",            ID_EMULATION_STARTDEBUG
+        MENUITEM "&Execute\tCtrl+F5",           ID_EMULATION_EXECUTE
+        MENUITEM "&Stop\tEsc",                  ID_EMULATION_STOP
+        MENUITEM SEPARATOR
+        MENUITEM "Step &Into\tF11",             ID_EMULATION_STEPINTO
+        MENUITEM "Step &Over\tF10",             ID_EMULATION_STEPOVER
+        MENUITEM "Step O&ut\tShift+F11",        ID_EMULATION_STEPOUT
+        MENUITEM "Run to &Cursor\tCtrl+F10",    ID_EMULATION_RUNTOCURSOR
+        MENUITEM "Set &Next Statement\tCtrl+Shift+F10", 
+                                                ID_EMULATION_SETNEXTSTATEMENT
+
+        MENUITEM "&Toggle Breakpoint\tF9",      ID_EMULATION_TOGGLEBREAKPOINT
+
+        MENUITEM SEPARATOR
+        MENUITEM "&Reset",                      ID_EMULATION_RESET
+    END
+    POPUP "&Tools"
+    BEGIN
+        MENUITEM "&Options",                    ID_TOOLS_OPTIONS
+    END
+    POPUP "&Window"
+    BEGIN
+        MENUITEM "&Next",                       ID_WINDOW_NEXT
+        MENUITEM "&Previous",                   ID_WINDOW_PREVIOUS
+        MENUITEM SEPARATOR
+        MENUITEM "&Cascade",                    ID_WINDOW_CASCADE
+        MENUITEM "Tile &Horizontally",          ID_WINDOW_TILEHORIZONTALLY
+        MENUITEM "&Tile Vertically",            ID_WINDOW_TILEVERTICALLY
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About",                      ID_HELP_ABOUT
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_MAINICON            ICON    DISCARDABLE     "mainicon.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUT DIALOG DISCARDABLE  0, 0, 194, 55
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About Game Lad"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,137,7,50,14
+    ICON            IDI_MAINICON,IDC_STATIC,7,15,20,20
+    LTEXT           "Game Lad 1.0",IDC_STATIC,36,7,100,14
+    LTEXT           "Written by: Torbjörn Söderstedt",IDC_STATIC,36,21,100,
+                    14
+    LTEXT           "http://gamelad.emuunlim.com",IDC_STATIC,36,35,100,14
+END
+
+IDD_OPTIONS_KEYS DIALOG DISCARDABLE  0, 0, 235, 156
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
+CAPTION "Keys"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "Up",IDC_STATIC,7,7,60,15
+    LTEXT           "Down",IDC_STATIC,7,22,60,15
+    LTEXT           "Left",IDC_STATIC,7,37,60,15
+    LTEXT           "Right",IDC_STATIC,7,52,60,15
+    LTEXT           "A",IDC_STATIC,7,67,60,15
+    LTEXT           "B",IDC_STATIC,7,82,60,15
+    LTEXT           "Start",IDC_STATIC,7,97,60,15
+    LTEXT           "Select",IDC_STATIC,7,112,60,15
+    LTEXT           "Fast Forward",IDC_STATIC,7,127,60,15
+    COMBOBOX        IDC_UP,67,7,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_DOWN,67,22,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_LEFT,67,37,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_RIGHT,67,52,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_A,67,67,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_B,67,82,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_START,67,97,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_SELECT,67,112,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_FASTFORWARD,67,127,91,82,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+END
+
+IDD_OPTIONS_SHELL DIALOG DISCARDABLE  0, 0, 235, 156
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
+CAPTION "Shell"
+FONT 8, "MS Sans Serif"
+BEGIN
+    PUSHBUTTON      "Register File Types",IDC_REGISTER_FILE_TYPES,138,7,71,
+                    14
+    COMBOBOX        IDC_AUTOSTART,137,40,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    CONTROL         "Load battery if possible",IDC_AUTOLOADBATTERY,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,138,73,88,10
+    COMBOBOX        IDC_GBTYPE,137,106,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    LTEXT           "This will register *.gb and *.gbc file extensions to be opened with Game Lad. This will take effect immediately.",
+                    IDC_STATIC,7,7,122,33
+    LTEXT           "Select whether emulation should start automatically when opening a ROM.",
+                    IDC_STATIC,7,40,122,33
+    LTEXT           "The file extension is removed, and .sav is appended. If a file is found, it is loaded as battery RAM.",
+                    IDC_STATIC,7,73,122,33
+    LTEXT           "The default hardware to emulate.",IDC_STATIC,7,106,122,
+                    33
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO DISCARDABLE 
+BEGIN
+    IDD_ABOUT, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 187
+        VERTGUIDE, 36
+        VERTGUIDE, 136
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 48
+        HORZGUIDE, 21
+        HORZGUIDE, 35
+    END
+
+    IDD_OPTIONS_KEYS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        VERTGUIDE, 67
+        VERTGUIDE, 158
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 149
+        HORZGUIDE, 22
+        HORZGUIDE, 37
+        HORZGUIDE, 52
+        HORZGUIDE, 67
+        HORZGUIDE, 82
+        HORZGUIDE, 97
+        HORZGUIDE, 112
+        HORZGUIDE, 127
+    END
+
+    IDD_OPTIONS_SHELL, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        VERTGUIDE, 129
+        VERTGUIDE, 138
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 149
+        HORZGUIDE, 40
+        HORZGUIDE, 73
+        HORZGUIDE, 106
+        HORZGUIDE, 139
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDR_ACCELERATOR ACCELERATORS DISCARDABLE 
+BEGIN
+    "5",            ID_VIEW_REGISTERS,      VIRTKEY, ALT, NOINVERT
+    "6",            ID_VIEW_MEMORY,         VIRTKEY, ALT, NOINVERT
+    "8",            ID_VIEW_DISASSEMBLY,    VIRTKEY, ALT, NOINVERT
+    "O",            ID_FILE_OPEN,           VIRTKEY, CONTROL, NOINVERT
+    "S",            ID_FILE_SAVEBATTERY,    VIRTKEY, CONTROL, NOINVERT
+    VK_ESCAPE,      ID_EMULATION_STOP,      VIRTKEY, NOINVERT
+    VK_F10,         ID_EMULATION_STEPOVER,  VIRTKEY, NOINVERT
+    VK_F10,         ID_EMULATION_RUNTOCURSOR, VIRTKEY, CONTROL, NOINVERT
+    VK_F10,         ID_EMULATION_SETNEXTSTATEMENT, VIRTKEY, SHIFT, CONTROL, 
+                                                    NOINVERT
+    VK_F11,         ID_EMULATION_STEPINTO,  VIRTKEY, NOINVERT
+    VK_F11,         ID_EMULATION_STEPOUT,   VIRTKEY, SHIFT, NOINVERT
+    VK_F4,          ID_FILE_CLOSE,          VIRTKEY, CONTROL, NOINVERT
+    VK_F5,          ID_EMULATION_STARTDEBUG, VIRTKEY, NOINVERT
+    VK_F5,          ID_EMULATION_EXECUTE,   VIRTKEY, CONTROL, NOINVERT
+    VK_F9,          ID_EMULATION_TOGGLEBREAKPOINT, VIRTKEY, NOINVERT
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_CURRENTSTATEMENT    BITMAP  DISCARDABLE     "Current Statement.bmp"
+IDB_BREAKPOINT          BITMAP  DISCARDABLE     "Breakpoint.bmp"
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Swedish resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_SVE)
+#ifdef _WIN32
+LANGUAGE LANG_SWEDISH, SUBLANG_DEFAULT
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_ICON1               ICON    DISCARDABLE     "icon1.ico"
+IDI_ICON2               ICON    DISCARDABLE     "icon2.ico"
+IDI_ICON3               ICON    DISCARDABLE     "icon3.ico"
+IDI_ICON4               ICON    DISCARDABLE     "icon4.ico"
+IDI_ICON5               ICON    DISCARDABLE     "icon5.ico"
+IDI_ICON6               ICON    DISCARDABLE     "icon6.ico"
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Swedish resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

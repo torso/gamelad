@@ -1,0 +1,167 @@
+#define		OIF_OFFSET				0x01
+#define		OIF_OFFSETEXPRESSION	0x02
+#define		OIF_BANKNUMBER			0x10
+#define		OIF_BANKNAME			0x20
+
+//In code, one or both of these flags can be specified
+#define		OIF_RAMBANK				0x40	//Located in RAM
+#define		OIF_FIXEDBANK			0x80	//Non-switchable bank
+
+struct Pointer
+{
+	BYTE	Flags;
+#if Flags & OIF_OFFSET
+	WORD	Offset;
+#endif
+#if Flags & OIF_OFFSETEXPRESSION
+	????	OffsetExpression;
+#endif
+#if Flags & OIF_BANKNUMBER
+	BYTE	BankNumber;
+#endif
+#if Flags & OIF_BANKNAME
+	char	szBankName[];
+#endif
+};
+
+
+
+//Header
+char		ID[4] = "GLGB"		//Always
+DWORD		Version				//Only 0 defined
+
+
+//Filenames
+DWORD		nFiles
+struct Files[nFiles]
+{
+	char		szFilename[]	//Full path to the file
+	QWORD		FileTime		//When data was last written to the file. (the number of 100-nanosecond intervals since January 1, 1601)
+								//See FILETIME in MSDN Library for details.
+}
+
+
+
+//Symbols
+DWORD		nSymbols			//Number of symbols
+static struct Symbols[nSymbols]
+{
+	char	szSymbol[]			//Name of symbol
+	BYTE	Type				//0 = LOCAL
+								//1 = IMPORT
+								//2 = EXPORT
+	if (Type != IMPORT)
+	{
+		BYTE	StorageClass	//0 = LABEL
+								//1 = UINT
+								//2 = INT
+								//3 = char
+								//4 = struct
+								//5 = struct_definition (no equ)
+								//0x10 equ
+								//0x20 textequ
+		if (StorageClass != LABEL && StorageClass != equ && StorageClass != textequ)
+		{
+			BYTE	Pointer		//0 if direct address. 1 = pointer, 2 = pointer to pointer...
+								//Do not confuse the two Pointer.
+								//This applies to the symbol itself. The previous to the type of the symbol.
+								//The difference shows when using arrays.
+			WORD	Dimension	//Creates an array (2 = Storage-class[3])
+
+			if (StorageClass == struct)
+			{
+				char	szStruct[]		//The type of struct to use
+			}
+			else
+			{
+				WORD	Size			//Size in bytes of one element (Zero if SZ, char == 1 if fixed length)
+			}
+		}
+		if (StorageClass == struct_definition)
+		{
+			DWORD		nMembers		//Number of symbols in struct
+			static struct Members[nMembers]
+			{
+				BYTE	StorageClass	//1 = UINT
+										//2 = INT
+										//3 = char
+										//4 = struct
+				BYTE	Pointer			//0 if direct address. 1 = pointer, 2 = pointer to pointer...
+				WORD	Dimension		//Creates an array (2 = Storage-class[3])
+				if (Storage-class == struct)
+				{
+					char		szStruct[]		//The type of struct to use
+				}
+				else
+				{
+					WORD		Size			//Size in bytes of one element
+				}
+				WORD	Offset			//Number of bytes from current position
+			}
+		}
+		else
+		{
+			if (StorageClass == equ)
+			{
+				QWORD			Value
+			}
+			else
+			{
+				if (StorageClass == textequ)
+				{
+					char			szValue[]
+				}
+				else
+				{
+					StorageClass	*Value
+				}
+			}
+		}
+		DWORD			File		//File id where the symbol is defined
+		DWORD			Line		//The line in the file
+	}
+}
+
+
+
+//Local symbols
+DWORD		nLocals			//Number of local symbols
+static struct Locals[nLocals]
+{
+}
+
+
+
+//Code
+static struct Code[]
+{
+	DWORD	File			//Current source file id
+	DWORD	Line			//Starting line. non-zero
+	BYTE	*Address
+
+	while (LineOffset != 0)
+	{
+		DWORD	LineOffset		//Number of lines to step (cumulative).
+		while (Size != 0)
+		{
+			WORD	Size			//Size of code generated for these lines.
+			BYTE	Type			//0 = unknown
+									//1 = const
+									//2 = code (valid address for PC)
+									//0x80 = expression
+			if (Type != unknown)
+			{
+				if (Type & expression)
+				{
+					char	szExpression[]	//Size sets the size of the result.
+											//1 = byte, 2 = word, 4 = dword, 8 = qword
+				}
+				else
+				{
+					BYTE	Code[Size]
+				}
+			}
+		}
+	}
+}
+

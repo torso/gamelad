@@ -1,0 +1,139 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ROMINFO DIALOG DISCARDABLE  0, 0, 235, 156
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "ROM Header"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "Static",IDC_TITLE,109,7,118,12
+    LTEXT           "Title",IDC_STATIC,7,7,96,12
+    LTEXT           "Game Boy Color",IDC_STATIC,7,19,96,12
+    LTEXT           "Static",IDC_GBC,109,19,118,12
+    LTEXT           "Super Game Boy",IDC_STATIC,7,31,96,12
+    LTEXT           "Static",IDC_SGB,109,31,118,12
+    LTEXT           "Cartridge Type",IDC_STATIC,7,43,96,12
+    LTEXT           "Static",IDC_CARTRIDGETYPE,109,43,118,12
+    LTEXT           "ROM Size",IDC_STATIC,7,55,96,12
+    LTEXT           "Static",IDC_ROMSIZE,109,55,118,12
+    LTEXT           "RAM Size",IDC_STATIC,7,67,96,12
+    LTEXT           "Static",IDC_RAMSIZE,109,67,118,12
+    LTEXT           "Bad Complement Check",IDC_BADCOMPLEMENTCHECK,7,85,96,12,
+                    NOT WS_VISIBLE
+    PUSHBUTTON      "&Fix",ID_FIXCOMPLEMENTCHECK,109,82,32,12,NOT WS_VISIBLE
+    LTEXT           "Bad Checksum",IDC_BADCHECKSUM,7,101,96,12,NOT 
+                    WS_VISIBLE
+    LTEXT           "Bad Nintendo Character Area",
+                    IDC_BADNINTENDOCHARACTERAREA,7,116,96,12,NOT WS_VISIBLE
+    PUSHBUTTON      "F&ix",ID_FIXCHECKSUM,109,97,32,12,NOT WS_VISIBLE
+    PUSHBUTTON      "Fi&x",ID_FIXNINTENDOCHARACTERAREA,109,113,32,12,NOT 
+                    WS_VISIBLE
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO DISCARDABLE 
+BEGIN
+    IDD_ROMINFO, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 227
+        VERTGUIDE, 103
+        VERTGUIDE, 109
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 149
+        HORZGUIDE, 19
+        HORZGUIDE, 31
+        HORZGUIDE, 43
+        HORZGUIDE, 55
+        HORZGUIDE, 67
+        HORZGUIDE, 79
+        HORZGUIDE, 97
+        HORZGUIDE, 113
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Swedish resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_SVE)
+#ifdef _WIN32
+LANGUAGE LANG_SWEDISH, SUBLANG_DEFAULT
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Swedish resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

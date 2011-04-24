@@ -1,0 +1,153 @@
+Jag har kommit fram till att uttrycket inte måste lösas helt förrän programmet länkas. Om uttrycket går att
+lösa till ett tal är det bra, men det får inte innehålla några fel. Det bästa är om mellansvaret är på en så
+enkel form som möjligt, så behöver inte funktionen i länkprogrammet vara så avancerad.
+
+
+Allmänna regler för detta projekt:
+
+void Error(char *String);
+void Warning(char *String);
+
+Skriver ut ett felmeddelande till skärmen och räknar antalet fel och varningar.
+
+void ErrorHeader();
+void WarningHeader();
+
+Skriver ut allt utom felmeddelandet. Funktionen som anropade dessa skall själv skriva ut felet och en radbrytning.
+
+BOOL FatalError;
+
+Om det uppstår ett allvarligt fel (t.ex. slut på minne) skall ett felmeddelande skrivas direkt till skärmen
+(ej via Error()) och FatalError sättas till true. Sen returnerar funktionen fel (true).
+
+
+
+BOOL Solve(VALUE *pValue);
+
+struct VALUE
+{
+	DWORD	Flags;
+	char	*pExpression;
+	QWORD	Value;
+};
+
+pExpression är uttrycket som skall lösas.
+
+Returvärden:
+false	Value är fylld med data om det lösta uttrycket (se nedan).
+true	Fel
+
+Flags är av följande värden:
+VALUE_VALUE			Value är ett tal utan tecken.
+VALUE_SIGNEDVALUE	Value är ett tal med tecken.
+VALUE_POINTER		Value är ((Bank << 16) | Offset) (se allmänt om pekare nedan).
+VALUE_EXPRESSION	pExpression är en giltig pekare till en buffer skapad med new, som innehåller ett halvlöst uttryck.
+VALUE_REGISTER_HL	Det lösta uttrycket är HL+Value
+
+
+HL?
+Är register i Z80-processorn. En instruktion är t.ex. ld sp, hl+d (d är en konstant).
+A, B, C, D, E, H, L, AF, BC, DE, HL, SP, PC är de register som finns.
+Om de finns i uttryck och inte kan förkortas bort är det Error("Invalid register."); som gäller.
+
+
+Identifierare:
+Om första tecknet är A-Z a-z _ @
+De får även innehålla siffror. Om det inte är ett register, kan man få värdet genom att anropa en metod i det
+globala objektet Identifier.
+
+BOOL CIdentifier::GetValue(IDENTIFIERINFO *pIdentifierInfo);
+
+struct IDENTIFIERINFO
+{
+	DWORD	Flags;
+	DWORD	Size;
+	char	*pExpression;
+	QWORD	Value;
+	char	*pBank;
+	BYTE	Bank;
+};
+
+Flags är ett av följande värden:
+CID_RESERVED		Reserverat ord (t.ex. register, mnemoniker...)
+CID_UNDEFINED		Identifieraren har ej deklarerats.
+CID_EXPRESSION		pExpression är en pekare till ett uttryck.
+CID_STRING			pExpression är en pekare till en sträng
+CID_VALUE			Value är ett tal utan tecken (med storleken Size).
+CID_SIGNEDVALUE		Value är ett tal med tecken (med storleken Size).
+CID_POINTER			(Value & 0xFFFF) är offset och pBank en pekare till namnet på en bank. Om pBank är NULL,
+					är ((Value >> 16) & 0xFF) numret på banken. (Se allmänt om pekare, samt inbyggda makron nedan.)
+
+
+Tal:
+Som standard är använder talen det decimala talsystemet, men det finns prefix och suffix för att ändra det.
+Det finns många olika prefix och suffix, men jag har valt några som verkar bra och standardiserade.
+Om du tycker att det finns bättre så är jag öppen för förslag.
+Prefix:
+0x	hexadecimalt
+$	hexadecimalt
+0n	decimalt
+0q	oktalt
+&	oktalt
+0b	binärt
+%	binärt
+Suffix (första tecknet måste vara en siffra):
+h	hexadecimalt
+q	oktalt
+b	binärt
+
+
+Operatorer:
+Antar att flera av dessa saknas i Java, så gör det enkelt att lägga till...
+
+Symbol	Name or Meaning			Associativity
+!		Logical NOT
+~		Bitwise NOT
+-		Unary minus
++		Unary plus
+*		Multiply				Left to right
+/		Divide
+%		Remainder
++		Add						Left to right
+-		Subtract
+<<		Left shift				Left to right
+>>		Right shift
+&		Bitwise AND				Left to right
+^		Bitwise exclusive OR	Left to right
+|		Bitwise OR				Left to right
+
+<		Less than				Left to right
+<=		Less than or equal to
+>		Greater than
+>=		Greater than or equal to
+==		Equal					Left to right
+!=		Not equal
+&&		Logical AND				Left to right
+||		Logical OR				Left to right
+
+
+
+Allmänt om pekare:
+Game Boy använder banker på ett liknande sätt som x86 processorers segment. Jag vet inte hur mycket du vet om
+sådana, men de är inte roliga. Att räkna med pekare i olika banker är omöjligt, men om det bara är en pekare
+och resten konstanter/variabler går det bra (då används enbart offset, banken är samma som innan).
+
+
+
+Inbyggda makron: (som du måste definiera)
+sizeof(n)
+	Kan vara BYTE = 1, WORD = 2, DWORD = 4, QWORD = 8 eller en identifierare.
+offset(n)
+	Offset för en pekare (CID_POINTER). Osäkert om det behövs.
+bank(n)
+	Banken för en pekare (CID_POINTER). Kommer att behövas.
+
+
+
+Konstanter: (antagligen hanterade av CIdentifier::GetValue)
+Namn				Kommentar
+$					Aktuell byte (pekare).
+__LINE__			Aktuell rad i filen.
+__FILE__			Sökväg för filen (sträng)
+__DATE__			Dagens datum. Osäker på format.
+__TIME__			Osäker på format.

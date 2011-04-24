@@ -1,0 +1,5 @@
+LIBRARY "GAME LAD"
+EXPORTS
+	DllCanUnloadNow		PRIVATE
+	DllGetClassObject	PRIVATE
+
