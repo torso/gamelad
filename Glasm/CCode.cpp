@@ -5,14 +5,14 @@
 #include	"..\CString\CString.h"
 #include	"..\CList\CList.h"
 #include	"..\Error.h"
-#include	"CSolver.h"
+#include	"..\CSolver\CSolver.h"
 #include	"Glasm.h"
 #include	"CInputFile.h"
 #include	"CCode.h"
 
 
 
-void CALLBACK DeleteSection(void *p)
+void CALLBACK DeleteSection(void *p, DWORD dw)
 {
 	if (((SECTION *)p)->Size > 4)
 	{
@@ -26,18 +26,18 @@ void CALLBACK DeleteSection(void *p)
 
 CCode::CCode()
 {
-	Offset.pOffset = NULL;
-	Offset.BankNumber = 0;
-	pSections = NULL;
+	m_Offset.pOffset = NULL;
+	m_Offset.BankNumber = 0;
+	m_pSections = NULL;
 }
 
 
 
 CCode::~CCode()
 {
-	if (pSections)
+	if (m_pSections)
 	{
-		delete pSections;
+		delete m_pSections;
 	}
 }
 
@@ -45,22 +45,20 @@ CCode::~CCode()
 
 BOOL CCode::SetOffset(DWORD SectionFlags, POINTER *pPointer)
 {
-	//Check if pPointer is a valid pointer
-
-	if (!Offset.pOffset)
+	if (!m_Offset.pOffset)
 	{
-		if (!(Offset.pOffset = new CSolver()))
+		if (!(m_Offset.pOffset = new CSolver()))
 		{
 			FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
 			return true;
 		}
 	}
 
-	if (*Offset.pOffset = pPointer->pOffset)
+	if (*m_Offset.pOffset = pPointer->pOffset)
 	{
 		return true;
 	}
-	Offset.BankNumber = pPointer->BankNumber;
+	m_Offset.BankNumber = pPointer->BankNumber;
 
 	return false;
 }
@@ -69,17 +67,17 @@ BOOL CCode::SetOffset(DWORD SectionFlags, POINTER *pPointer)
 
 BOOL CCode::SetOffset(POINTER *pPointer)
 {
-	if (!Offset.pOffset)
+	if (!m_Offset.pOffset)
 	{
 		CompileError(COMPILE_ERROR_CODEOUTSIDESECTION, NULL);
 		return true;
 	}
 
-	if (*Offset.pOffset = pPointer->pOffset)
+	if (*m_Offset.pOffset = pPointer->pOffset)
 	{
 		return true;
 	}
-	Offset.BankNumber = pPointer->BankNumber;
+	m_Offset.BankNumber = pPointer->BankNumber;
 
 	return false;
 }
@@ -88,37 +86,57 @@ BOOL CCode::SetOffset(POINTER *pPointer)
 
 BOOL CCode::GetOffset(POINTER *pPointer)
 {
-	if (*pPointer->pOffset = Offset.pOffset)
+	if (!m_Offset.pOffset)
+	{
+		CompileError(COMPILE_ERROR_CODEOUTSIDESECTION, NULL);
+		if (pPointer->pOffset)
+		{
+			delete pPointer->pOffset;
+			pPointer->pOffset = NULL;
+		}
+		return false;
+	}
+
+	if (!pPointer->pOffset)
+	{
+		if (!(pPointer->pOffset = new CSolver()))
+		{
+			FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
+			return true;
+		}
+	}
+	if (*pPointer->pOffset = m_Offset.pOffset)
 	{
 		return true;
 	}
-	pPointer->BankNumber = Offset.BankNumber;
+	pPointer->BankNumber = m_Offset.BankNumber;
 
 	return false;
 }
 
 
 
-BOOL CCode::InsertData(DWORD Bytes, WORD Flags)
+BOOL CCode::InsertData(BYTE Byte, DWORD Flags)
 {
 	SECTION		*pSection;
 
 
-	if (!Offset.pOffset)
+	if (!m_Offset.pOffset)
 	{
 		CompileError(COMPILE_ERROR_CODEOUTSIDESECTION, NULL);
-		return true;
+		return false;
 	}
 
-	if (!pSections)
+	if (!m_pSections)
 	{
-		if (!(pSections = new CList(NULL, DeleteSection)))
+		if (!(m_pSections = new CList(NULL, DeleteSection)))
 		{
+			FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
 			return true;
 		}
 	}
 
-	if (!(pSection = (SECTION *)pSections->NewItem(sizeof(SECTION))))
+	if (!(pSection = (SECTION *)m_pSections->NewItem(sizeof(SECTION))))
 	{
 		return true;
 	}
@@ -128,22 +146,55 @@ BOOL CCode::InsertData(DWORD Bytes, WORD Flags)
 	pSection->Lines = ((CInputFile *)InputFiles.GetCurrentItem())->GetCurrentLine() - pSection->LineFrom + 1;
 
 	pSection->Size = 1;
-	if (Bytes & 0x0000FF00)
-	{
-		pSection->Size = 2;
-	}
-	if (Bytes & 0x00FF0000)
-	{
-		pSection->Size = 3;
-	}
-	if (Bytes & 0xFF000000)
-	{
-		pSection->Size = 4;
-	}
 	pSection->Flags = Flags;
-	pSection->Bytes = Bytes;
+	pSection->Bytes = Byte;
 
-	*Offset.pOffset += pSection->Size;
+	*m_Offset.pOffset += pSection->Size;
+
+	return false;
+}
+
+
+
+BOOL CCode::InsertData(CSolver &Expression, BYTE Size, DWORD Flags)
+{
+	SECTION		*pSection;
+
+
+	if (!m_Offset.pOffset)
+	{
+		CompileError(COMPILE_ERROR_CODEOUTSIDESECTION, NULL);
+		return false;
+	}
+
+	if (!m_pSections)
+	{
+		if (!(m_pSections = new CList(NULL, DeleteSection)))
+		{
+			FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
+			return true;
+		}
+	}
+
+	if (!(pSection = (SECTION *)m_pSections->NewItem(sizeof(SECTION))))
+	{
+		return true;
+	}
+
+	pSection->File = InputFiles.GetCurrentItemNo();
+	pSection->LineFrom = ((CInputFile *)InputFiles.GetCurrentItem())->GetLastLine() + 1;
+	pSection->Lines = ((CInputFile *)InputFiles.GetCurrentItem())->GetCurrentLine() - pSection->LineFrom + 1;
+
+	pSection->Size = Size;
+	pSection->Flags = Flags | SF_EXPRESSION;
+	if (!(pSection->pExpression = new CSolver()))
+	{
+		FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
+		return true;
+	}
+	*pSection->pExpression = Expression;
+
+	*m_Offset.pOffset += pSection->Size;
 
 	return false;
 }
@@ -235,95 +286,127 @@ BOOL CCode::SaveObj(HANDLE hObjFile)
 	DWORD		BytesWritten, MaxItemNo, ItemNo, /*MaxItemNo2, ItemNo2,*/ File = 0, Line;
 	SECTION		*pSection;
 	DWORD		Data;
+	BOOL		Size0 = false;
+	DWORD		dwValue;
+	char		*pszExpression;
 
 
-	if (!pSections)
+	if (!m_pSections)
 	{
 		MaxItemNo = 0;
 		WriteToFile(hObjFile, &MaxItemNo, sizeof(MaxItemNo));
 		return false;
 	}
 
-	MaxItemNo = pSections->GetMaxItemNo();
+	cout << endl << "Writing code" << endl;
+
+	MaxItemNo = m_pSections->GetMaxItemNo();
 	ItemNo = 1;
+
+	pSection = (SECTION *)m_pSections->GetItem(ItemNo);
+	File = pSection->File;
+	WriteToFile(hObjFile, &File, sizeof(File));
+	cout << "File: " << File << endl;
+	Line = pSection->LineFrom;
+	WriteToFile(hObjFile, &Line, sizeof(Line));
+	cout << "Line: " << Line << endl;
+	//Address
+
 	while (ItemNo <= MaxItemNo)
 	{
-		pSection = (SECTION *)pSections->GetItem(ItemNo);
-		if (pSection->File != File || pSection->LineFrom != Line)
+		pSection = (SECTION *)m_pSections->GetItem(ItemNo);
+		if (pSection->Lines != 0)
 		{
-			File = pSection->File;
-			WriteToFile(hObjFile, &File, sizeof(File));
-			cout << "File: " << File << endl;
-			Line = pSection->LineFrom;
-			WriteToFile(hObjFile, &Line, sizeof(Line));
-			cout << "Line: " << Line << endl;
-			//Address
-		}
-		Line += pSection->Lines;
-		WriteToFile(hObjFile, &pSection->Lines, sizeof(pSection->Lines));
-		cout << "Lines: " << pSection->Lines << " (" << Line << ")" << endl;
-		if (pSection->Flags & SF_CODE)
-		{
-			Data = 1;
-			WriteToFile(hObjFile, &Data, sizeof(WORD));
-			Data = 2;
-			WriteToFile(hObjFile, &Data, sizeof(BYTE));
-			WriteToFile(hObjFile, ((BYTE *)&pSection->Bytes) + pSection->Size - 1, 1);
-			if (pSection->Size != 1)
+			if (Size0)
 			{
-				Data = pSection->Size - 1;
+				Size0 = false;
+
+				//Size
+				Data = 0;
 				WriteToFile(hObjFile, &Data, sizeof(WORD));
-				Data = 1;
-				WriteToFile(hObjFile, &Data, sizeof(BYTE));
-				WriteToFile(hObjFile, &pSection->Bytes, (unsigned)pSection->Size - 1);
+				cout << "  Size: 0" << endl << endl;
 			}
-		}
-		else
-		{
-		}
-		Data = 0;
-		WriteToFile(hObjFile, &Data, sizeof(WORD));
-		/*WriteToFile(hObjFile, &pSection->Size, sizeof(pSection->Size));
-		cout << "Size: " << (int)pSection->Size << endl;
-		if (!(p = new BYTE[pSection->Size + (((pSection->Size == 1 && pSection->Flags & SF_CODE) || pSection->Flags & SF_UNKNOWN) ? 2 : 4)]))
-		{
-			return true;
-		}
-		if (pSection->Size > 4)
-		{
-			p[0] = 1;
-			p[1] = pSection->Size;
-			CopyMemory(&p[2], pSection->pBytes, pSection->Size);
-			WriteToFile(hObjFile, p, (unsigned)pSection->Size + 2);
-		}
-		else
-		{
-			if (pSection->File & SF_CODE)
+			if (pSection->File != File || pSection->LineFrom != Line)
 			{
-				p[0] = 2;
-				p[1] = 1;
-				p[2] = (BYTE)(pSection->Bytes >> (pSection->Size * 8 - 8));
-				if (pSection->Size > 1)
+				//Lines
+				Data = 0;
+				WriteToFile(hObjFile, &Data, sizeof(Data));
+				cout << " Lines: " << 0 << endl;
+
+				File = pSection->File;
+				WriteToFile(hObjFile, &File, sizeof(File));
+				cout << "File: " << File << endl;
+				Line = pSection->LineFrom;
+				WriteToFile(hObjFile, &Line, sizeof(Line));
+				cout << "Line: " << Line << endl;
+				//Address
+			}
+			Line += pSection->Lines;
+			WriteToFile(hObjFile, &pSection->Lines, sizeof(pSection->Lines));
+			cout << " Lines: " << pSection->Lines << " (" << Line << ")" << endl;
+		}
+		if (pSection->Flags & (SF_CODE | SF_CONST))
+		{
+			Size0 = true;
+
+			Data = pSection->Size;
+			WriteToFile(hObjFile, &Data, sizeof(WORD));
+			cout << "  Size: " << Data << endl;
+			pszExpression = NULL;
+			if (pSection->Flags & SF_EXPRESSION)
+			{
+				if (pSection->pExpression->GetNumber(&dwValue, &pszExpression))
 				{
-					p[3] = 1;
-					p[4] = (BYTE)pSection->Size - 1;
-					CopyMemory(&p[5], &pSection->Bytes, pSection->Size - 1);
-					WriteToFile(hObjFile, p, (unsigned)pSection->Size + 4);
+					return true;
+				}
+			}
+			Data = pSection->Flags & (SF_CODE | SF_CONST | (pszExpression ? SF_EXPRESSION : 0));
+			WriteToFile(hObjFile, &Data, sizeof(BYTE));
+			if (Data & 1)
+			{
+				cout << "  Type: const";
+			}
+			else if (Data & 2)
+			{
+				cout << "  Type: code";
+			}
+			else
+			{
+				cout << "  Type: unknown";
+			}
+			if (Data & SF_EXPRESSION)
+			{
+				cout << ", expression";
+			}
+			cout << endl;
+			if (pSection->Flags & SF_EXPRESSION)
+			{
+				if (pszExpression)
+				{
+					WriteToFile(hObjFile, &pszExpression, strlen(pszExpression) + 1);
+					delete pszExpression;
 				}
 				else
 				{
-					WriteToFile(hObjFile, p, (unsigned)pSection->Size + 2);
+					WriteToFile(hObjFile, &dwValue, (unsigned)pSection->Size);
 				}
 			}
 			else
 			{
-				p[0] = 1;
-				p[1] = pSection->Size;
-				CopyMemory(&p[2], &pSection->Bytes, pSection->Size);
-				WriteToFile(hObjFile, p, (unsigned)pSection->Size + 2);
+				if (pSection->Size <= 4)
+				{
+					WriteToFile(hObjFile, &pSection->Bytes, (unsigned)pSection->Size);
+				}
+				else
+				{
+					WriteToFile(hObjFile, pSection->pBytes, (unsigned)pSection->Size);
+				}
 			}
-		}*/
-		cout << endl;
+		}
+		else
+		{
+		}
+
 		ItemNo++;
 	}
 

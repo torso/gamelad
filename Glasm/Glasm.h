@@ -49,7 +49,7 @@ GLASM_CPP	void	Warning(DWORD WarningNo, char *pszText);
 #define		PF_OFFSET				0x01
 #define		PF_OFFSETEXPRESSION		0x02
 
-struct POINTER
+struct		POINTER
 {
 	CSolver	*pOffset;
 	DWORD	BankNumber;
@@ -98,7 +98,7 @@ struct IDENTIFIER
 
 	static union
 	{
-		POINTER	Pointer;
+		POINTER		Pointer;
 		static struct
 		{
 			MNEMONIC	*Mnemonic;

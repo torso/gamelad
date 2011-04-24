@@ -3,27 +3,19 @@
 
 
 
-typedef		BOOL (CALLBACK *CLIST_CREATECALLBACK)(void **);
-typedef		void (CALLBACK *CLIST_DELETECALLBACK)(void *);
-
-#define		CLIST_LISTSIZE		0x100
+typedef		BOOL (CALLBACK *CLIST_CREATECALLBACK)(void *, DWORD);
+typedef		void (CALLBACK *CLIST_DELETECALLBACK)(void *, DWORD);
 
 
 
-struct LISTELEMENT
+struct ITEM
 {
-	void		*pv;
-	DWORD		Size;
-	DWORD		Number;
-	void		*pvPrevious;
-};
-
-
-
-struct LIST
-{
-	LISTELEMENT	le[CLIST_LISTSIZE];
-	LIST		*pNext;
+	struct ITEMHEADER
+	{
+		DWORD		dwSize;
+		ITEM		*pNext, *pPrevious;
+	} Header;
+	BYTE		Data[1];
 };
 
 
@@ -31,30 +23,30 @@ struct LIST
 class CList
 {
 private:
-	LIST					*pList, *pFirstList;
-	LISTELEMENT				*pCurrentItem;
-	DWORD					MaxItemNo;
-	CLIST_CREATECALLBACK	CreateCallback;
-	CLIST_DELETECALLBACK	DeleteCallback;
+	ITEM					*m_pFirstItem, *m_pCurrentItem;
+	DWORD					m_dwItems;
+	CLIST_CREATECALLBACK	m_CreateCallback;
+	CLIST_DELETECALLBACK	m_DeleteCallback;
+	DWORD					m_dwCreateData, m_dwDeleteData;
 
-	void					Init(CLIST_CREATECALLBACK _CreateCallback, CLIST_DELETECALLBACK _DeleteCallback);
-	LISTELEMENT				*GetListNo(DWORD dwNumber);
+	void					Init(CLIST_CREATECALLBACK CreateCallback, DWORD dwCreateData, CLIST_DELETECALLBACK DeleteCallback, DWORD dwDeleteData);
 
 public:
-	DWORD					dwUserData;
+	DWORD					m_dwUserData;
 
-	CList(CLIST_CREATECALLBACK _CreateCallback, CLIST_DELETECALLBACK _DeleteCallback);
+	CList(CLIST_CREATECALLBACK CreateCallback, CLIST_DELETECALLBACK DeleteCallback);
+	CList(CLIST_CREATECALLBACK CreateCallback, DWORD dwCreateData, CLIST_DELETECALLBACK DeleteCallback, DWORD dwDeleteData);
 	CList();
 	~CList();
 
+	DWORD					GetMaxItemNo();
+	BOOL					DeleteItem(void *pvItem);
+
 	void					*NewItem(DWORD dwSize);
 	void					*NewItem(DWORD dwSize, void *pv);
-	void					PreviousItemToCurrent();
-	void					*GetCurrentItem();
-	DWORD					GetCurrentItemNo();
-	DWORD					GetMaxItemNo();
-	void					*GetItem(DWORD dwNumber);
-	DWORD					GetSizeofItem(DWORD dwNumber);
+
+	void					ResetSearch();
+	void					*GetNextItem();
 };
 
 

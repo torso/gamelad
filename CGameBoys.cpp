@@ -3,6 +3,7 @@
 
 #define		CGAMEBOYS_CPP
 #include	"Game Lad.h"
+#include	"Game Boy.h"
 #include	"CGameBoys.h"
 #include	"Debugger.h"
 
@@ -23,7 +24,7 @@ CGameBoy *CGameBoys::NewGameBoy(char *pszROMFilename, char *pszStateFilename, ch
 
 	if (!(LastGameBoy = new GameBoy))
 	{
-		MessageBox(NULL, OutOfMemoryMsg, NULL, MB_OK | MB_ICONERROR);
+		DisplayErrorMessage(ERROR_OUTOFMEMORY);
 		return NULL;
 	}
 	LastGameBoy->pNext = FirstGameBoy;
@@ -33,7 +34,7 @@ CGameBoy *CGameBoys::NewGameBoy(char *pszROMFilename, char *pszStateFilename, ch
 	{
 		FirstGameBoy = LastGameBoy->pNext;
 		delete LastGameBoy;
-		MessageBox(NULL, OutOfMemoryMsg, NULL, MB_OK | MB_ICONERROR);
+		DisplayErrorMessage(ERROR_OUTOFMEMORY);
 		return NULL;
 	}
 	if (LastGameBoy->pGameBoy->Init(pszROMFilename, pszStateFilename, pszBatteryFilename))
@@ -63,6 +64,7 @@ CGameBoy *CGameBoys::NewGameBoy(char *pszROMFilename, char *pszStateFilename, ch
 BOOL CGameBoys::DeleteGameBoy(CGameBoy *pCGameBoy)
 {
 	GameBoy		*pGameBoy = FirstGameBoy, *pGameBoy2;
+	char		szBuffer[0x100];
 
 
 	pCGameBoy->Stop();
@@ -73,7 +75,7 @@ BOOL CGameBoys::DeleteGameBoy(CGameBoy *pCGameBoy)
 		pCGameBoy->SaveState();
 		break;
 	case SAVESTATE_PROMPT:
-		switch (MessageBox(hWnd, "Save state?", "Game Lad", MB_ICONQUESTION | MB_YESNOCANCEL))
+		switch (MessageBox(hMsgParent, String(IDS_PROMPT_SAVESTATE), "Game Lad", MB_ICONQUESTION | MB_YESNOCANCEL))
 		{
 		case IDYES:
 			pCGameBoy->SaveState();

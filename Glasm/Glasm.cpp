@@ -7,7 +7,7 @@
 #include	"..\CString\CString.h"
 #include	"..\CList\CList.h"
 #include	"..\Error.h"
-#include	"CSolver.h"
+#include	"..\CSolver\CSolver.h"
 #include	"Glasm.h"
 #include	"OpCodes.h"
 #include	"CCode.h"
@@ -31,6 +31,23 @@ BOOL			bTerminate = false;
 BOOL			GenerateCode = true;
 DWORD			Errors = 0;
 DWORD			Warnings = 0;
+
+
+
+BOOL ChangeExtension(char *pszFilename, char *pszExtension)
+{
+	if (strrchr(pszFilename, '.') > strrchr(pszFilename, '\\'))
+	{
+		*strrchr(pszFilename, '.') = 0;
+	}
+	if (strlen(pszFilename) + strlen(pszExtension) + 1 >= MAX_PATH)
+	{
+		return true;
+	}
+	strcat(pszFilename, pszExtension);
+
+	return false;
+}
 
 
 
@@ -407,7 +424,15 @@ void Assemble(CString &String)
 					MnemonicFound = true;
 					if (GenerateCode)
 					{
-						Code.InsertData(OpCodeList[ItemNo].Code, SF_CODE);
+						if (OpCodeList[ItemNo].Code & 0xFF00)
+						{
+							Code.InsertData(OpCodeList[ItemNo].Code >> 8, SF_CODE);
+							Code.InsertData((BYTE)OpCodeList[ItemNo].Code, SF_CONST);
+						}
+						else
+						{
+							Code.InsertData((BYTE)OpCodeList[ItemNo].Code, SF_CODE);
+						}
 					}
 					cout << "Cmd: \'" << Identifier.Mnemonic->Name << "\' Code: 0x" << itoa(OpCodeList[ItemNo].Code, NumBuffer, 16);
 					cout << " Line: "<< itoa(((CInputFile *)InputFiles.GetCurrentItem())->GetCurrentLine(), NumBuffer, 10) << endl;
@@ -491,6 +516,22 @@ void Assemble(CString &String)
 						MachineCode += Data1;
 					}
 
+					if (GenerateCode)
+					{
+						if (MachineCode & 0xFF00)
+						{
+							Code.InsertData((BYTE)(MachineCode >> 8), SF_CODE);
+							Code.InsertData((BYTE)MachineCode, SF_CONST);
+						}
+						else
+						{
+							Code.InsertData((BYTE)MachineCode, SF_CODE);
+							if (OpCodeList[ItemNo].Flags & ARG1(ARG_DATA))
+							{
+								Code.InsertData(Expression2, SF_CONST, OpCodeList[ItemNo].Flags & ARG1(ARG_BITS16) ? 2 : 1);
+							}
+						}
+					}
 					cout << "Cmd: \'" << Identifier.Mnemonic->Name << "\' Code: 0x" << itoa(MachineCode, NumBuffer, 16);
 					cout << " Line: "<< itoa(((CInputFile *)InputFiles.GetCurrentItem())->GetCurrentLine(), NumBuffer, 10) << endl;
 					return;
@@ -568,7 +609,7 @@ BOOL SaveObj(char *pszFilename)
 			if (GetLastError() != ERROR_ALREADY_EXISTS)
 			{
 				cerr << "Couldn't create directory." << endl;
-				return 1;
+				return true;
 			}
 		}
 		*(pszFilename + strlen(pszFilename)) = '\\';
@@ -576,7 +617,7 @@ BOOL SaveObj(char *pszFilename)
 	if ((hFile = CreateFile(pszFilename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL)) == INVALID_HANDLE_VALUE)
 	{
 		cerr << "Couldn't create \'" << pszFilename << "\'" << endl;
-		return 1;
+		return true;
 	}
 
 	ObjHeader.nFiles = InputFiles.GetMaxItemNo();
@@ -585,13 +626,13 @@ BOOL SaveObj(char *pszFilename)
 	{
 		CloseHandle(hFile);
 		FatalError(FATAL_ERROR_WRITEFILE, pszFilename);
-		return 1;
+		return true;
 	}
 	if (BytesWritten != sizeof(ObjHeader))
 	{
 		CloseHandle(hFile);
 		FatalError(FATAL_ERROR_WRITEFILE, pszFilename);
-		return 1;
+		return true;
 	}
 
 
@@ -602,26 +643,26 @@ BOOL SaveObj(char *pszFilename)
 		{
 			CloseHandle(hFile);
 			FatalError(FATAL_ERROR_WRITEFILE, pszFilename);
-			return 1;
+			return true;
 		}
 		if (BytesWritten != strlen(pInputFile->GetFilename()) + 1)
 		{
 			CloseHandle(hFile);
 			FatalError(FATAL_ERROR_WRITEFILE, pszFilename);
-			return 1;
+			return true;
 		}
 		pInputFile->GetLastWriteFileTime(&FileTime);
 		if (!WriteFile(hFile, &FileTime, sizeof(FileTime), &BytesWritten, NULL))
 		{
 			CloseHandle(hFile);
 			FatalError(FATAL_ERROR_WRITEFILE, pszFilename);
-			return 1;
+			return true;
 		}
 		if (BytesWritten != sizeof(FileTime))
 		{
 			CloseHandle(hFile);
 			FatalError(FATAL_ERROR_WRITEFILE, pszFilename);
-			return 1;
+			return true;
 		}
 		ItemNo++;
 	}
@@ -629,13 +670,13 @@ BOOL SaveObj(char *pszFilename)
 	{
 		CloseHandle(hFile);
 		FatalError(FATAL_ERROR_WRITEFILE, pszFilename);
-		return 1;
+		return true;
 	}
 	if (Code.SaveObj(hFile))
 	{
 		CloseHandle(hFile);
 		FatalError(FATAL_ERROR_WRITEFILE, pszFilename);
-		return 1;
+		return true;
 	}
 
 
@@ -654,7 +695,7 @@ int main(int argc, char *argv[], char *envp[])
 	CString		String;
 
 
-	cout << "Glasm v1.0" << endl << endl;
+	cout << "Glasm v1.0 Preview 1" << endl << endl;
 
 	if (argc < 2)
 	{
@@ -697,11 +738,7 @@ int main(int argc, char *argv[], char *envp[])
 	else
 	{
 		strcpy(ObjFilename, argv[1]);
-		if (strrchr(ObjFilename, '.') > strrchr(ObjFilename, '\\'))
-		{
-			*strrchr(ObjFilename, '.') = 0;
-		}
-		if (strlen(ObjFilename) + 4 >= MAX_PATH)
+		if (ChangeExtension(ObjFilename, ".obj"))
 		{
 			cout << "Path too long." << endl;
 #ifdef WAIT
@@ -709,9 +746,10 @@ int main(int argc, char *argv[], char *envp[])
 #endif //WAIT
 			return 1;
 		}
-		strcat(ObjFilename, ".obj");
 	}
 
+
+	ZeroMemory(&Identifier, sizeof(Identifier));
 
 	while (!bTerminate && !bFatalError && Errors < 100)
 	{
@@ -729,7 +767,16 @@ int main(int argc, char *argv[], char *envp[])
 #endif //WAIT
 				return 1;
 			}
-			Identifiers.AddIdentifier(String, IF_LABEL, &Identifier.Pointer);
+			if (Identifier.Pointer.pOffset)
+			{
+				if (Identifiers.AddIdentifier(String, IF_LABEL, &Identifier.Pointer))
+				{
+#ifdef WAIT
+					getch();
+#endif //WAIT
+					return 1;
+				}
+			}
 			break;
 
 		case ' ':

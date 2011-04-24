@@ -1,0 +1,488 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Swedish resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_SVE)
+#ifdef _WIN32
+LANGUAGE LANG_SWEDISH, SUBLANG_DEFAULT
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_OPEN           "Öppna en Game Boy ROM-fil"
+    IDS_FILE_CLOSE          "Stäng aktiv Game Boy"
+    IDS_FILE_SAVESTATE      "Sparar den aktiva Game Boy:ens läge till vald plats"
+    IDS_FILE_LOADSTATE      "Laddar läge från den valda platsen"
+    IDS_FILE_SAVESTATEAS    "Sparar Game Boy:ens läge till en fil"
+    IDS_FILE_LOADSTATEAS    "Laddar ett sparat läge från fil"
+    IDS_FILE_STATESLOT_0    "Väljer sparplats noll"
+    IDS_FILE_STATESLOT_1    "Väljer sparplats ett"
+    IDS_FILE_STATESLOT_2    "Väljer sparplats två"
+    IDS_FILE_STATESLOT_3    "Väljer sparplats tre"
+    IDS_FILE_STATESLOT_4    "Väljer sparplats fyra"
+    IDS_FILE_STATESLOT_5    "Väljer sparplats fem"
+    IDS_FILE_STATESLOT_6    "Väljer sparplats sex"
+    IDS_FILE_STATESLOT_7    "Väljer sparplats sju"
+    IDS_FILE_STATESLOT_8    "Väljer sparplats åtta"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_STATESLOT_9    "Väljer sparplats nio"
+    IDS_FILE_SAVEBATTERY    "Sparar batteriminne"
+    IDS_FILE_LOADBATTERY    "Laddar batteriminne"
+    IDS_FILE_SAVEBATTERYAS  "Sparar batteriminne i en annan fil"
+    IDS_FILE_CLEARBATTERY   "Rensar batteriminne"
+    IDS_FILE_EXIT           "Avslutar Game Lad"
+    IDS_EDIT_GOTO           "Flyttar till en specificerad position"
+    IDS_VIEW_DISASSEMBLY    "Aktiverar disassembleringsfönstret"
+    IDS_VIEW_MEMORY         "Aktiverar minnesfönstret"
+    IDS_VIEW_REGISTERS      "Aktiverar registerfönstret"
+    IDS_VIEW_HARDWARE       "Aktiverar hårdvarufönstret"
+    IDS_VIEW_PALETTES       "Aktiverar palettfönstret"
+    IDS_VIEW_TILEMAP        "Aktiverar tile-kartefönstret"
+    IDS_VIEW_TILES          "Aktiverar tile-fönstret"
+    IDS_VIEW_STATUSBAR      "Visar eller döljer statusfältet"
+    IDS_VIEW_ZOOM_100       "Zoomar fönstret till 100%"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_ZOOM_200       "Zoomar fönstret till 200%"
+    IDS_VIEW_ZOOM_300       "Zoomar fönstret till 300%"
+    IDS_VIEW_ZOOM_400       "Zoomar fönstret till 400%"
+    IDS_VIEW_FRAMESKIP_0    "Sätter bildrutehopp till noll"
+    IDS_VIEW_FRAMESKIP_1    "Sätter bildrutehopp till ett"
+    IDS_VIEW_FRAMESKIP_2    "Sätter bildrutehopp till två"
+    IDS_VIEW_FRAMESKIP_3    "Sätter bildrutehopp till tre"
+    IDS_VIEW_FRAMESKIP_4    "Sätter bildrutehopp till fyra"
+    IDS_VIEW_FRAMESKIP_5    "Sätter bildrutehopp till fem"
+    IDS_VIEW_FRAMESKIP_6    "Sätter bildrutehopp till sex"
+    IDS_VIEW_FRAMESKIP_7    "Sätter bildrutehopp till sju"
+    IDS_VIEW_FRAMESKIP_8    "Sätter bildrutehopp till åtta"
+    IDS_VIEW_FRAMESKIP_9    "Sätter bildrutehopp till nio"
+    IDS_MEMORY_ROM          "Visar specificerad ROM-bank"
+    IDS_MEMORY_VBK_BANK0    "Visar VRAM-bank noll"
+    IDS_MEMORY_VBK_BANK1    "Visar VRAM-bank ett"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MEMORY_RAM_BANK0    "Visar RAM-bank noll"
+    IDS_MEMORY_RAM_BANK1    "Visar RAM-bank ett"
+    IDS_MEMORY_RAM_BANK2    "Visar RAM-bank två"
+    IDS_MEMORY_RAM_BANK3    "Visar RAM-bank tre"
+    IDS_MEMORY_RAM_BANK4    "Visar RAM-bank fyra"
+    IDS_MEMORY_RAM_BANK5    "Visar RAM-bank fem"
+    IDS_MEMORY_RAM_BANK6    "Visar RAM-bank sex"
+    IDS_MEMORY_RAM_BANK7    "Visar RAM-bank sju"
+    IDS_MEMORY_RAM_BANK8    "Visar RAM-bank åtta"
+    IDS_MEMORY_RAM_BANK9    "Visar RAM-bank nio"
+    IDS_MEMORY_RAM_BANK10   "Visar RAM-bank tio"
+    IDS_MEMORY_RAM_BANK11   "Visar RAM-bank elva"
+    IDS_MEMORY_RAM_BANK12   "Visar RAM-bank tolv"
+    IDS_MEMORY_RAM_BANK13   "Visar RAM-bank tretton"
+    IDS_MEMORY_RAM_BANK14   "Visar RAM-bank fjorton"
+    IDS_MEMORY_RAM_BANK15   "Visar RAM-bank femton"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MEMORY_SVBK_BANK1   "Visar intern RAM-bank noll"
+    IDS_MEMORY_SVBK_BANK2   "Visar intern RAM-bank två"
+    IDS_MEMORY_SVBK_BANK3   "Visar intern RAM-bank tre"
+    IDS_MEMORY_SVBK_BANK4   "Visar intern RAM-bank fyra"
+    IDS_MEMORY_SVBK_BANK5   "Visar intern RAM-bank fem"
+    IDS_MEMORY_SVBK_BANK6   "Visar intern RAM-bank sex"
+    IDS_MEMORY_SVBK_BANK7   "Visar intern RAM-bank sju"
+    IDS_EMULATION_STARTDEBUG "Startar debugger"
+    IDS_EMULATION_EXECUTE   "Exekverar programmet utan debuggervarningar"
+    IDS_EMULATION_STOP      "Stoppar emulering"
+    IDS_EMULATION_STEPINTO  "Stegar in i nästa programrad"
+    IDS_EMULATION_STEPOVER  "Stegar över nästa programrad"
+    IDS_EMULATION_STEPOUT   "Stegar ut ur aktuell funktion"
+    IDS_EMULATION_RUNTOCURSOR "Kör programmet till raden med markören"
+    IDS_EMULATION_SETNEXTSTATEMENT 
+                            "Sätter programpekaren till raden med markören"
+    IDS_EMULATION_TOGGLEBREAKPOINT "Sätter eller tar bort brytpunkt"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMULATION_RESET     "Startar om programmet"
+    IDS_TOOLS_OPTIONS       "Ändrar inställningar"
+    IDS_TOOLS_SOUNDENABLED  "Aktiverar ljud"
+    IDS_WINDOW_NEXT         "Aktiverar nästa fönster"
+    IDS_WINDOW_PREVIOUS     "Aktiverar föregående fönster"
+    IDS_WINDOW_CASCADE      "Arranges the windows as overlapping tiles"
+    IDS_WINDOW_TILEHORIZONTALLY 
+                            "Arranges the windows as horizontal, nonoverlapping tiles"
+    IDS_WINDOW_TILEVERTICALLY 
+                            "Arranges the windows as vertical, nonoverlapping tiles"
+    IDS_HELP_ABOUT          "Visar information och kopieringsrättigheter"
+    IDS_ABOUT_TITLE         "Om Game Lad"
+    IDS_ABOUT_WRITTENBY     "Skrivet av $"
+    IDS_TRANSLATOR_NAME     "[mailto:torbjrn@emuunlim.com;Torbjörn Söderstedt]"
+    IDS_FILE_MENU           "&Arkiv"
+    IDS_FILE_OPEN_MENU      "&Öppna ROM...\tCtrl+O"
+    IDS_FILE_CLOSE_MENU     "&Stäng\tCtrl+F4"
+    IDS_FILE_SAVESTATE_MENU "S&para läge\tF2"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_LOADSTATE_MENU "&Ladda läge\tF3"
+    IDS_FILE_SAVESTATEAS_MENU "Sp&ara läge som...\tShift+F2"
+    IDS_FILE_LOADSTATEAS_MENU "La&dda läge...\tShift+F3"
+    IDS_FILE_STATESLOT_MENU "S&tate Slot"
+    IDS_FILE_STATESLOT_0_MENU "&0 $\tF4,0"
+    IDS_FILE_STATESLOT_1_MENU "&1 $\tF4,1"
+    IDS_FILE_STATESLOT_2_MENU "&2 $\tF4,2"
+    IDS_FILE_STATESLOT_3_MENU "&3 $\tF4,3"
+    IDS_FILE_STATESLOT_4_MENU "&4 $\tF4,4"
+    IDS_FILE_STATESLOT_5_MENU "&5 $\tF4,5"
+    IDS_FILE_STATESLOT_6_MENU "&6 $\tF4,6"
+    IDS_FILE_STATESLOT_7_MENU "&7 $\tF4,7"
+    IDS_FILE_STATESLOT_8_MENU "&8 $\tF4,8"
+    IDS_FILE_STATESLOT_9_MENU "&9 $\tF4,9"
+    IDS_FILE_SAVEBATTERY_MENU "Spa&ra batteriminne\tCtrl+S"
+    IDS_FILE_LOADBATTERY_MENU "Ladda &batteriminne..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_SAVEBATTERYAS_MENU "Spara batter&iminne som..."
+    IDS_FILE_CLEARBATTERY_MENU "&Nollställ batteriminne"
+    IDS_FILE_EXIT_MENU      "A&vsluta"
+    IDS_EDIT_MENU           "&Redigera"
+    IDS_EDIT_GOTO_MENU      "&Gå till...\tCtrl+G"
+    IDS_VIEW_MENU           "&Visa"
+    IDS_VIEW_DISASSEMBLY_MENU "&Disassemblering\tAlt+8"
+    IDS_VIEW_MEMORY_MENU    "&Minne\tAlt+6"
+    IDS_VIEW_REGISTERS_MENU "&Register\tAlt+5"
+    IDS_VIEW_HARDWARE_MENU  "&Hårdvara"
+    IDS_VIEW_PALETTES_MENU  "&Paletter"
+    IDS_VIEW_TILEMAP_MENU   "T&ile-karta"
+    IDS_VIEW_TILES_MENU     "&Tiles"
+    IDS_VIEW_STATUSBAR_MENU "&Statusfält"
+    IDS_VIEW_ZOOM_MENU      "&Zoom"
+    IDS_VIEW_ZOOM_100_MENU  "&100%"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_ZOOM_200_MENU  "&200%"
+    IDS_VIEW_ZOOM_300_MENU  "&300%"
+    IDS_VIEW_ZOOM_400_MENU  "&400%"
+    IDS_VIEW_FRAMESKIP_MENU "&Bildrutehopp"
+    IDS_VIEW_FRAMESKIP_0_MENU "&0"
+    IDS_VIEW_FRAMESKIP_1_MENU "&1"
+    IDS_VIEW_FRAMESKIP_2_MENU "&2"
+    IDS_VIEW_FRAMESKIP_3_MENU "&3"
+    IDS_VIEW_FRAMESKIP_4_MENU "&4"
+    IDS_VIEW_FRAMESKIP_5_MENU "&5"
+    IDS_VIEW_FRAMESKIP_6_MENU "&6"
+    IDS_VIEW_FRAMESKIP_7_MENU "&7"
+    IDS_VIEW_FRAMESKIP_8_MENU "&8"
+    IDS_VIEW_FRAMESKIP_9_MENU "&9"
+    IDS_VIEW_BANK_MENU      "&Bank"
+    IDS_VIEW_BANK_ROM_MENU  "&ROM..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_BANK_VBK_MENU  "&VBK"
+    IDS_VIEW_BANK_VBK_0_MENU "Bank &0"
+    IDS_VIEW_BANK_VBK_1_MENU "Bank &1"
+    IDS_VIEW_BANK_RAM_MENU  "R&AM"
+    IDS_VIEW_BANK_RAM_0_MENU "Bank &0"
+    IDS_VIEW_BANK_RAM_1_MENU "Bank &1"
+    IDS_VIEW_BANK_RAM_2_MENU "Bank &2"
+    IDS_VIEW_BANK_RAM_3_MENU "Bank &3"
+    IDS_VIEW_BANK_RAM_4_MENU "Bank &4"
+    IDS_VIEW_BANK_RAM_5_MENU "Bank &5"
+    IDS_VIEW_BANK_RAM_6_MENU "Bank &6"
+    IDS_VIEW_BANK_RAM_7_MENU "Bank &7"
+    IDS_VIEW_BANK_RAM_8_MENU "Bank &8"
+    IDS_VIEW_BANK_RAM_9_MENU "Bank &9"
+    IDS_VIEW_BANK_RAM_10_MENU "Bank &10"
+    IDS_VIEW_BANK_RAM_11_MENU "Bank &11"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_BANK_RAM_12_MENU "Bank &12"
+    IDS_VIEW_BANK_RAM_13_MENU "Bank &13"
+    IDS_VIEW_BANK_RAM_14_MENU "Bank &14"
+    IDS_VIEW_BANK_RAM_15_MENU "Bank &15"
+    IDS_VIEW_BANK_SVBK_MENU "&SVBK"
+    IDS_VIEW_BANK_SVBK_1_MENU "Bank &1"
+    IDS_VIEW_BANK_SVBK_2_MENU "Bank &2"
+    IDS_VIEW_BANK_SVBK_3_MENU "Bank &3"
+    IDS_VIEW_BANK_SVBK_4_MENU "Bank &4"
+    IDS_VIEW_BANK_SVBK_5_MENU "Bank &5"
+    IDS_VIEW_BANK_SVBK_6_MENU "Bank &6"
+    IDS_VIEW_BANK_SVBK_7_MENU "Bank &7"
+    IDS_EMULATION_MENU      "E&mulering"
+    IDS_EMULATION_STARTDEBUG_MENU "Starta &debugger\tF5"
+    IDS_EMULATION_EXECUTE_MENU "&Exekvera\tCtrl+F5"
+    IDS_EMULATION_STOP_MENU "&Stoppa\tEsc"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMULATION_STEPINTO_MENU "Stega &in\tF11"
+    IDS_EMULATION_STEPOVER_MENU "Stega &över\tF10"
+    IDS_EMULATION_STEPOUT_MENU "Stega &ut\tShift+F11"
+    IDS_EMULATION_RUNTOCURSOR_MENU "&Kör till markör\tCtrl+F10"
+    IDS_EMULATION_SETNEXTSTATEMENT_MENU 
+                            "Sätt &nästa programrad\tCtrl+Shift+F10"
+    IDS_EMULATION_TOGGLEBREAKPOINT_MENU "Sätt &brytpunkt\tF9"
+    IDS_EMULATION_RESET_MENU "N&ollställ"
+    IDS_TOOLS_MENU          "&Verktyg"
+    IDS_TOOLS_OPTIONS_MENU  "&Inställningar..."
+    IDS_TOOLS_SOUNDENABLED_MENU "&Aktivera ljud"
+    IDS_WINDOW_MENU         "&Fönster"
+    IDS_WINDOW_NEXT_MENU    "&Nästa"
+    IDS_WINDOW_PREVIOUS_MENU "&Föregående"
+    IDS_WINDOW_CASCADE_MENU "&Cascade"
+    IDS_WINDOW_TILEHORIZONTALLY_MENU "Tile &Horizontally"
+    IDS_WINDOW_TILEVERTICALLY_MENU "&Tile Vertically"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_HELP_MENU           "&Hjälp"
+    IDS_HELP_ABOUT_MENU     "&Om"
+    IDS_STATUS_READY        "Klar"
+    IDS_STATUS_ENTERSLOTNUMBER 
+                            "Tryck en siffra för att välja fil för sparade lägen"
+    IDS_OPEN_TITLE          "Titel: $"
+    IDS_OPEN_LOADBATTERY    "Ladda batteriminne"
+    IDS_STOPPED             "Stoppad"
+    IDS_STARTDEBUG          "Starta debugger"
+    IDS_EXECUTE             "Exekvera"
+    IDS_VK_APPS             "Application"
+    IDS_VK_BACK             "Baksteg"
+    IDS_VK_CONTROL          "Control"
+    IDS_VK_DELETE           "Delete"
+    IDS_VK_DOWN             "Nedpil"
+    IDS_VK_END              "End"
+    IDS_VK_RETURN           "Enter"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VK_HOME             "Home"
+    IDS_VK_INSERT           "Insert"
+    IDS_VK_LEFT             "Vänsterpil"
+    IDS_VK_NUMLOCK          "Num Lock"
+    IDS_VK_NUMPAD0          "Numpad 0"
+    IDS_VK_NUMPAD1          "Numpad 1"
+    IDS_VK_NUMPAD2          "Numpad 2"
+    IDS_VK_NUMPAD3          "Numpad 3"
+    IDS_VK_NUMPAD4          "Numpad 4"
+    IDS_VK_NUMPAD5          "Numpad 5"
+    IDS_VK_NUMPAD6          "Numpad 6"
+    IDS_VK_NUMPAD7          "Numpad 7"
+    IDS_VK_NUMPAD8          "Numpad 8"
+    IDS_VK_NUMPAD9          "Numpad 9"
+    IDS_VK_ADD              "Numpad Add"
+    IDS_VK_DECIMAL          "Numpad Decimal"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VK_DIVIDE           "Numpad Divide"
+    IDS_VK_MULTIPLY         "Numpad Multiply"
+    IDS_VK_SUBTRACT         "Numpad Subtract"
+    IDS_VK_NEXT             "Page Down"
+    IDS_VK_PRIOR            "Page Up"
+    IDS_VK_PAUSE            "Pause"
+    IDS_VK_RIGHT            "Högerpil"
+    IDS_VK_SHIFT            "Shift"
+    IDS_VK_SPACE            "Blanksteg"
+    IDS_VK_TAB              "Tabb"
+    IDS_VK_UP               "Uppil"
+    IDS_YES                 "Ja"
+    IDS_NO                  "Nej"
+    IDS_PROMPT              "Fråga"
+    IDS_OPTIONS_KEYS        "Tangenter"
+    IDS_OPTIONS_KEYS_UP     "Upp"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_OPTIONS_KEYS_DOWN   "Ner"
+    IDS_OPTIONS_KEYS_LEFT   "Vänster"
+    IDS_OPTIONS_KEYS_RIGHT  "Höger"
+    IDS_OPTIONS_KEYS_A      "A"
+    IDS_OPTIONS_KEYS_B      "B"
+    IDS_OPTIONS_KEYS_START  "Start"
+    IDS_OPTIONS_KEYS_SELECT "Select"
+    IDS_OPTIONS_KEYS_FASTFORWARD "Snabbknapp"
+    IDS_OPTIONS_GENERAL     "Generellt"
+    IDS_FILEASSOC_FRAME     "Filassociationer"
+    IDS_FILEASSOC_GB        "Game Boy ROM-filer (.gb och .gbc)"
+    IDS_FILEASSOC_GLS       "Sparade lägen för Game Lad (.gls)"
+    IDS_SAVE_FRAME          "Spara"
+    IDS_SAVE_LOADBATTERY    "Ladda batteriminne"
+    IDS_SAVE_LOADSTATE      "Ladda senast sparat läge"
+    IDS_SAVE_SAVEBATTERY    "Spara batteriminne vid stängning"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_SAVE_SAVESTATE      "Spara läge vid stängning"
+    IDS_MISC_FRAME          "Övrigt"
+    IDS_MISC_FRAMESKIP      "Skippa bildrutor"
+    IDS_MISC_HARDWARE       "Hårdvara att emulera"
+    IDS_MISC_AUTOSTART      "Börja emulering vid öppning"
+    IDS_OPTIONS_LANGUAGE    "Språk"
+    IDS_OPTIONS             "Inställningar"
+    IDS_OPEN_GBROM          "Game Boy ROM-filer (*.gb; *.gbc)"
+    IDS_OPEN_ALLFILES       "Alla filer (*.*)"
+    IDS_OPEN_BATTERY        "Game Boy batteriminnen (*.sav)"
+    IDS_OPEN_SAVESTATE      "Game Lad sparade lägen (*.gls)"
+    IDS_WND_REGISTERS       "Register"
+    IDS_WND_DISASSEMBLY     "Disassemblering"
+    IDS_WND_MEMORY          "Minne"
+    IDS_WND_TILES           "Tiles"
+    IDS_WND_TILEMAP         "Tile-karta"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_WND_PALETTES        "Paletter"
+    IDS_WND_HARDWARE        "Hårdvara"
+    IDS_OPEN                "Öppna"
+    IDS_SAVEAS              "Spara som"
+    IDS_STATUS_LOADED       "$ laddad"
+    IDS_STATUS_SAVED        "$ sparad"
+    IDS_STATUS_NOTFOUND     "$ ej funnen"
+    IDS_STATUS_READERROR    "Fel vid läsning från $"
+    IDS_STATUS_WRITEERROR   "Fel vid skrivning till $"
+    IDS_PROMPT_SAVESTATE    "Spara läge?"
+    IDS_PROMPT_SAVEBATTERY  "Spara batteriminne?"
+    IDS_STATUS_ROMNOTFOUND  "ROM-fil ej funnen"
+    IDS_STATUS_ROMSIZEDIFFER "Filstorlek annorlunda än angivet i ROM-huvud"
+    IDS_STATUS_SELECTSTATESLOT "Sparplats för lägen $ vald"
+    IDS_STATUS_SELECTFRAMESKIP "Bildrutehopp satt till $"
+    IDS_EMU_INVALIDOPCODE   "Otillåten programinstruktion"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMU_READACCESSDENIED "Läsning ej tillåten"
+    IDS_EMU_WRITEACCESSDENIED "Skrivning ej tillåten"
+    IDS_EMU_EXECUTEACCESSDENIED "Exekvering ej tillåten"
+    IDS_EMU_WRITEACCESSDENIED_INT 
+                            "Skrivning ej tillåten för stackpekare, avbrott kan inte hanteras"
+    IDS_EMU_HALTQUIRK       "Halt-fel"
+    IDS_NOAUDIO             "Ingen ljudenhet tillgänglig"
+    IDS_OPENAUDIOERROR      "Kan inte initiera ljudenhet"
+    IDS_HIGHERVERSIONREQUIRED "$ eller högre krävs"
+    IDS_TOOLS_CHEAT_MENU    "&Fusk..."
+    IDS_TOOLS_CHEAT         "Aktivera fuskkoder"
+    IDS_CHEAT_TITLE         "Fusk"
+    IDS_CHEAT_ADDCHEAT      "Lägg till fusk"
+    IDS_CHEAT_ADDCODE       "Lägg till kod"
+    IDS_CHEAT_INVALID       "Felaktig kod"
+    IDS_CHEAT_GAMEGENIE     "Game Genie-kod"
+    IDS_CHEAT_GAMESHARK     "Game Shark-kod"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_CHEAT_INEFFECTIVE   "Kod ineffektiv"
+    IDS_FILE_SAVESNAPSHOTAS_MENU "Spara bild..."
+    IDS_FILE_SAVESNAPSHOTAS "Sparar bild till fil"
+    IDS_FILE_SAVEVIDEOAS_MENU "Spara vid&eo..."
+    IDS_FILE_SAVEVIDEOAS    "Sparar som filmfil"
+    IDS_WND_TILEMAP_XFLIP   "X-Flip"
+    IDS_WND_TILEMAP_YFLIP   "Y-Flip"
+    IDS_WND_TILEMAP_PRIORITY "Prio"
+    IDS_WND_TILEMAP_BACKGROUNDENABLED "Bgnd"
+    IDS_WND_TILEMAP_WINDOWENABLED "Fönster"
+    IDS_WND_PALETTES_BACKGROUND "Bakgrund"
+    IDS_WND_PALETTES_SPRITE "Sprite"
+    IDS_WND_HARDWARE_ROMSIZE "ROM Storlek:"
+    IDS_WND_HARDWARE_RAMSIZE "RAM Storlek:"
+    IDS_WND_REGISTERS_HBLANK "H-Blank"
+    IDS_WND_REGISTERS_VBLANK "V-Blank"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_WND_REGISTERS_OAMSEARCH "OAM"
+    IDS_WND_REGISTERS_LCDTRANSFER "LCD"
+    IDS_FILE_MERGECHEATS_MENU "L&ägg till fusk..."
+    IDS_FILE_MERGECHEATS    "Laddar fuskkoder från fil och lägger till dem i fusklistan"
+    IDS_OPTIONS_FILE        "Fil"
+    IDS_OPEN_LOADSTATE      "Ladda senast sparat läge"
+    IDS_OPEN_CHEATXML       "Fuskfiler (*.xml)"
+    IDS_ENTERADDRESS        "Ange adress"
+    IDS_ENTERROMBANKNO      "Ange ROM bank"
+    IDS_OPTIONS_LANGUAGE_TRANSLATEDBY "Översatt av: $"
+END
+
+#endif    // Swedish resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

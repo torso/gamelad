@@ -15,6 +15,18 @@ Package=<4>
 
 ###############################################################################
 
+Project: "CSolver"=".\CSolver\CSolver.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "CString"=".\CString\CString.dsp" - Package Owner=<4>
 
 Package=<5>
@@ -40,6 +52,9 @@ Package=<4>
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name CList
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name Sound
     End Project Dependency
 }}}
 
@@ -71,6 +86,9 @@ Package=<4>
     Begin Project Dependency
     Project_Dep_Name CString
     End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name CSolver
+    End Project Dependency
 }}}
 
 ###############################################################################
@@ -86,11 +104,17 @@ Package=<4>
     Begin Project Dependency
     Project_Dep_Name CList
     End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name CSolver
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name CString
+    End Project Dependency
 }}}
 
 ###############################################################################
 
-Project: "Language"=".\Language\Language.dsp" - Package Owner=<4>
+Project: "Sound"=".\Sound\Sound.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{

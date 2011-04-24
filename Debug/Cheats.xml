@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<cheatlist>
+	<game>
+		<title>chaos</title>
+		<name>Binary Chaos</name>
+		<color>1</color>
+		<japan>0</japan>
+		<checksum>8FBB</checksum>
+		<cheat>
+			<comment>Warning mode always on</comment>
+			<code>0101-A4C2</code>
+		</cheat>
+		<cheat>
+			<comment>Warning mode always off</comment>
+			<code>0100-A4C2</code>
+		</cheat>
+		<cheat>
+			<comment>Stack moves very slowly</comment>
+			<code>0101-A0C4</code>
+		</cheat>
+		<cheat>
+			<comment>Secret character select</comment>
+			<code>0101-A1C2</code>
+		</cheat>
+		<cheat>
+			<comment>Once on, rumble pack doesn't shut off</comment>
+			<code>0102-E0C4</code>
+		</cheat>
+		<cheat>
+			<comment>Objective is always cleared</comment>
+			<code>0100-B9C4</code>
+		</cheat>
+		<cheat>
+			<comment>Infinite super bombs</comment>
+			<code>0101-B3C4</code>
+		</cheat>
+		<cheat>
+			<comment>Infinite clocks</comment>
+			<code>0101-B4C4</code>
+		</cheat>
+		<cheat>
+			<comment>Infinite cash</comment>
+			<code>0104-A1C4</code>
+		</cheat>
+		<cheat>
+			<comment>Infinite bombs</comment>
+			<code>0101-B2C4</code>
+		</cheat>
+	</game>
+</cheatlist>

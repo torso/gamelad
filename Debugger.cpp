@@ -6,6 +6,7 @@
 #define		DEBUGGER_CPP
 #include	"CDebugInfo.h"
 #include	"Game Lad.h"
+#include	"Game Boy.h"
 #include	"CGameBoys.h"
 #include	"Debugger.h"
 #include	"Emulation.h"
@@ -13,9 +14,12 @@
 
 
 
-#define		WM_APP_SELECTTILE		WM_APP
-#define		WM_APP_HOVERTILE		(WM_APP + 1)
-#define		WM_APP_SETTILE			(WM_APP + 2)
+enum DebuggerMessages
+{
+	WM_APP_SELECTTILE = WM_APP_FIRSTFREEMESSAGE,
+	WM_APP_HOVERTILE,
+	WM_APP_SETTILE
+};
 
 
 
@@ -1304,7 +1308,7 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 	CGameBoy	*pGameBoy;
 	RECT		rct, Rect2;
 	DWORD		TileMapNo;
-	char		szTileAddress[8];
+	char		szTileAddress[8], szBuffer[0x100];
 	SCROLLINFO	si;
 	POINT		Pt;
 	long		x, y;
@@ -1378,6 +1382,15 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		*(WORD *)&szTileAddress[2] = *(WORD *)ToHex(lParam, false);
 		szTileAddress[4] = '\0';
 		SendMessage(hTileNo, WM_SETTEXT, 0, (LPARAM)&szTileAddress);
+		return 0;
+
+	case WM_APP_CHANGELANGUAGE:
+		SetWindowText(hWin, String(IDS_WND_TILEMAP));
+		SetWindowText(hFlipX, String(IDS_WND_TILEMAP_XFLIP));
+		SetWindowText(hFlipY, String(IDS_WND_TILEMAP_YFLIP));
+		SetWindowText(hPriority, String(IDS_WND_TILEMAP_PRIORITY));
+		SetWindowText(hBGEnabled, String(IDS_WND_TILEMAP_BACKGROUNDENABLED));
+		SetWindowText(hWNDEnabled, String(IDS_WND_TILEMAP_WINDOWENABLED));
 		return 0;
 
 	case WM_COMMAND:
@@ -1796,13 +1809,13 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		SendMessage(hPaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP6");
 		SendMessage(hPaletteNo, CB_ADDSTRING, 0, (LPARAM)&"BGP7");
 		SetWindowLong(hPaletteNo, GWL_ID, ID_TILEMAP_PALETTENO);
-		hFlipX = CreateWindow("BUTTON", "X-Flip", WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		hFlipX = CreateWindow("BUTTON", String(IDS_WND_TILEMAP_XFLIP), WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
 		SendMessage(hFlipX, WM_SETFONT, (WPARAM)hFixedFont, 0);
 		SetWindowLong(hFlipX, GWL_ID, ID_TILEMAP_FLIPX);
-		hFlipY = CreateWindow("BUTTON", "Y-Flip", WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		hFlipY = CreateWindow("BUTTON", String(IDS_WND_TILEMAP_YFLIP), WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
 		SendMessage(hFlipY, WM_SETFONT, (WPARAM)hFixedFont, 0);
 		SetWindowLong(hFlipY, GWL_ID, ID_TILEMAP_FLIPY);
-		hPriority = CreateWindow("BUTTON", "Prio", WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		hPriority = CreateWindow("BUTTON", String(IDS_WND_TILEMAP_PRIORITY), WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
 		SendMessage(hPriority, WM_SETFONT, (WPARAM)hFixedFont, 0);
 		SetWindowLong(hPriority, GWL_ID, ID_TILEMAP_PRIORITY);
 
@@ -1811,7 +1824,7 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		SendMessage(hTileData, CB_ADDSTRING, 0, (LPARAM)&"8000");
 		SendMessage(hTileData, CB_ADDSTRING, 0, (LPARAM)&"8800");
 		SetWindowLong(hTileData, GWL_ID, ID_TILEMAP_TILEDATA);
-		hBGEnabled = CreateWindow("BUTTON", "Bgnd", WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		hBGEnabled = CreateWindow("BUTTON", String(IDS_WND_TILEMAP_BACKGROUNDENABLED), WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
 		SendMessage(hBGEnabled, WM_SETFONT, (WPARAM)hFixedFont, 0);
 		SetWindowLong(hBGEnabled, GWL_ID, ID_TILEMAP_BGENABLED);
 		hBGAddress = CreateWindow("COMBOBOX", NULL, WS_VISIBLE | WS_CHILD | WS_TABSTOP | WS_BORDER | CBS_DROPDOWNLIST | CBS_HASSTRINGS, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
@@ -1819,7 +1832,7 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		SendMessage(hBGAddress, CB_ADDSTRING, 0, (LPARAM)&"9800");
 		SendMessage(hBGAddress, CB_ADDSTRING, 0, (LPARAM)&"9C00");
 		SetWindowLong(hBGAddress, GWL_ID, ID_TILEMAP_BGADDRESS);
-		hWNDEnabled = CreateWindow("BUTTON", "Window Enabled", WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
+		hWNDEnabled = CreateWindow("BUTTON", String(IDS_WND_TILEMAP_WINDOWENABLED), WS_VISIBLE | WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
 		SendMessage(hWNDEnabled, WM_SETFONT, (WPARAM)hFixedFont, 0);
 		SetWindowLong(hWNDEnabled, GWL_ID, ID_TILEMAP_WNDENABLED);
 		hWNDAddress = CreateWindow("COMBOBOX", NULL, WS_VISIBLE | WS_CHILD | WS_TABSTOP | WS_BORDER | CBS_DROPDOWNLIST | CBS_HASSTRINGS, 0, 0, 0, 0, hWin, NULL, hInstance, NULL);
@@ -1853,11 +1866,16 @@ LRESULT CALLBACK PalettesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 	BYTE			x, y;
 	HBRUSH			hBrush, hOldBrush;
 	DWORD			Color;
-	char			c[1];
+	char			c[1], szBuffer[0x100];
 
 
 	switch (uMsg)
 	{
+	case WM_APP_CHANGELANGUAGE:
+		SetWindowText(hWin, String(IDS_WND_PALETTES));
+		InvalidateRect(hWin, NULL, true);
+		return 0;
+
 	case WM_PAINT:
 		if (GetUpdateRect(hWin, NULL, true))
 		{
@@ -1869,8 +1887,8 @@ LRESULT CALLBACK PalettesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 			SetBkMode(Paint.hdc, TRANSPARENT);
 			SetTextColor(Paint.hdc, 0);
 
-			TextOut(Paint.hdc, 20, 10, "Background", 10);
-			TextOut(Paint.hdc, 200, 10, "Sprite", 6);
+			TextOut(Paint.hdc, 20, 10, String(IDS_WND_PALETTES_BACKGROUND), 10);
+			TextOut(Paint.hdc, 200, 10, String(IDS_WND_PALETTES_SPRITE), 6);
 
 			if (!pGameBoy)
 			{
@@ -2490,10 +2508,15 @@ LRESULT CALLBACK TilesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 	SCROLLINFO			si;
 	POINT				Pt;
 	DWORD				x, y;
+	char				szBuffer[0x100];
 
 
 	switch (uMsg)
 	{
+	case WM_APP_CHANGELANGUAGE:
+		SetWindowText(hWin, String(IDS_WND_TILES));
+		return 0;
+
 	case WM_APP_SELECTTILE:
 		si.cbSize = sizeof(si);
 		si.fMask = SIF_POS;
@@ -2828,6 +2851,7 @@ BOOL CALLBACK MemoryRomBankEnumChildProc(HWND hWin, LPARAM lParam)
 BOOL CALLBACK MemoryGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	DWORD		NewNumber;
+	char		szBuffer[0x100];
 
 
 	switch (uMsg)
@@ -2860,6 +2884,7 @@ BOOL CALLBACK MemoryGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		return true;*/
 
 	case WM_INITDIALOG:
+		SetWindowText(hWin, String(IDS_ENTERADDRESS));
 		itoa(MemoryTopByte, NumBuffer, 16);
 		EnumChildWindows(hWin, SetAddressEnumChildProc, (LPARAM)&NumBuffer);
 		return true;
@@ -2872,6 +2897,9 @@ BOOL CALLBACK MemoryGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 BOOL CALLBACK MemoryRomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	char		szBuffer[0x100];
+
+
 	switch (uMsg)
 	{
 	case WM_COMMAND:
@@ -2893,7 +2921,7 @@ BOOL CALLBACK MemoryRomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM l
 		return true;*/
 
 	case WM_INITDIALOG:
-		SendMessage(hWin, WM_SETTEXT, 0, (LPARAM)&"Enter ROM Bank");
+		SetWindowText(hWin, String(IDS_ENTERROMBANKNO));
 		EnumChildWindows(hWin, MemoryRomBankEnumChildProc, true);
 		return true;
 	}
@@ -2908,6 +2936,7 @@ BOOL CreateBankMenu(CGameBoy *pGameBoy, HMENU hMenu, DWORD dwFirstPos)
 	HMENU			hRAMMenu = GetSubMenu(hMenu, dwFirstPos + 2);
 	BYTE			Banks;
 	MENUITEMINFO	mmi;
+	char			szBuffer[0x100];
 
 
 	mmi.cbSize = sizeof(mmi);
@@ -2962,90 +2991,90 @@ BOOL CreateBankMenu(CGameBoy *pGameBoy, HMENU hMenu, DWORD dwFirstPos)
 		if (Banks >= 4)
 		{
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK2, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK2, "Bank &2"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK2, LoadString(IDS_VIEW_BANK_RAM_2_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK3, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK3, "Bank &3"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK3, LoadString(IDS_VIEW_BANK_RAM_3_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 		}
 		if (Banks >= 16)
 		{
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK4, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK4, "Bank &4"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK4, LoadString(IDS_VIEW_BANK_RAM_4_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK5, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK5, "Bank &5"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK5, LoadString(IDS_VIEW_BANK_RAM_5_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK6, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK6, "Bank &6"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK6, LoadString(IDS_VIEW_BANK_RAM_6_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK7, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK7, "Bank &7"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK7, LoadString(IDS_VIEW_BANK_RAM_7_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK8, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK8, "Bank &8"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK8, LoadString(IDS_VIEW_BANK_RAM_8_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK9, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK9, "Bank &9"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK9, LoadString(IDS_VIEW_BANK_RAM_9_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK10, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK10, "Bank &10"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK10, LoadString(IDS_VIEW_BANK_RAM_10_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK11, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK11, "Bank &11"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK11, LoadString(IDS_VIEW_BANK_RAM_11_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK12, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK12, "Bank &12"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK12, LoadString(IDS_VIEW_BANK_RAM_12_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK13, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK13, "Bank &13"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK13, LoadString(IDS_VIEW_BANK_RAM_13_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK14, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK14, "Bank &14"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK14, LoadString(IDS_VIEW_BANK_RAM_14_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 			DeleteMenu(hRAMMenu, ID_MEMORY_RAM_BANK15, MF_BYCOMMAND);
-			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK15, "Bank &15"))
+			if (!AppendMenu(hRAMMenu, MF_STRING, ID_MEMORY_RAM_BANK15, LoadString(IDS_VIEW_BANK_RAM_15_MENU, szBuffer, sizeof(szBuffer))))
 			{
-				DisplayErrorMessage(hWnd);
+				DisplayErrorMessage();
 				return true;
 			}
 		}
@@ -3071,10 +3100,15 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 	WORD			pByte;
 	BYTE			Byte, Access, Banks, NewByte, *p;
 	int				x, y, BytesPerLine, nBytes;
+	char			szBuffer[0x100];
 
 
 	switch (uMsg)
 	{
+	case WM_APP_CHANGELANGUAGE:
+		SetWindowText(hWin, String(IDS_WND_MEMORY));
+		return 0;
+
 	case WM_COMMAND:
 		if (!(pGameBoy = GameBoys.GetActive()))
 		{
@@ -4463,6 +4497,7 @@ BOOL CALLBACK DisAsmRomBankEnumChildProc(HWND hWin, LPARAM lParam)
 BOOL CALLBACK DisAsmGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	DWORD		NewNumber;
+	char		szBuffer[0x100];
 
 
 	switch (uMsg)
@@ -4495,6 +4530,7 @@ BOOL CALLBACK DisAsmGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		return true;*/
 
 	case WM_INITDIALOG:
+		SetWindowText(hWin, String(IDS_ENTERADDRESS));
 		itoa(DisAsmCaretByte, NumBuffer, 16);
 		EnumChildWindows(hWin, SetAddressEnumChildProc, (LPARAM)&NumBuffer);
 		return true;
@@ -4507,6 +4543,9 @@ BOOL CALLBACK DisAsmGotoDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 BOOL CALLBACK DisAsmRomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	char		szBuffer[0x100];
+
+
 	switch (uMsg)
 	{
 	case WM_COMMAND:
@@ -4528,7 +4567,7 @@ BOOL CALLBACK DisAsmRomBankDlgProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM l
 		return true;*/
 
 	case WM_INITDIALOG:
-		SendMessage(hWin, WM_SETTEXT, 0, (LPARAM)&"Enter ROM Bank");
+		SetWindowText(hWin, String(IDS_ENTERROMBANKNO));
 		EnumChildWindows(hWin, DisAsmRomBankEnumChildProc, true);
 		return true;
 	}
@@ -4662,7 +4701,8 @@ BOOL OutputLabel(CGameBoy *pGameBoy, WORD Offset, HDC hdc, int y, int *x)
 	{
 		DisAsmReadMem(pGameBoy, Offset, &p, &Access, &Bank);
 
-		if (pszLabel = pGameBoy->pDebugInfo->GetLabel(Bank, Offset))
+		pGameBoy->pDebugInfo->ResetSearch();
+		if (pszLabel = pGameBoy->pDebugInfo->GetNextLabel(Bank, Offset))
 		{
 			TextOut(hdc, *x, y, pszLabel, strlen(pszLabel));
 			GetTextExtentPoint32(hdc, pszLabel, strlen(pszLabel), &Size);
@@ -4684,15 +4724,11 @@ void OutputLabels(CGameBoy *pGameBoy, BYTE Bank, WORD Offset, HDC hdc, int *y)
 
 	if (pGameBoy->pDebugInfo)
 	{
-		if (pszLabel = pGameBoy->pDebugInfo->GetLabel(Bank, Offset))
+		pGameBoy->pDebugInfo->ResetSearch();
+		while (pszLabel = pGameBoy->pDebugInfo->GetNextLabel(Bank, Offset))
 		{
 			TextOut(hdc, 15, *y, pszLabel, strlen(pszLabel));
 			*y += FixedFontHeight;
-			while (pszLabel = pGameBoy->pDebugInfo->GetNextLabel(Bank, Offset))
-			{
-				TextOut(hdc, 15, *y, pszLabel, strlen(pszLabel));
-				*y += FixedFontHeight;
-			}
 		}
 	}
 }
@@ -4708,13 +4744,10 @@ DWORD GetNumberOfLabels(CGameBoy *pGameBoy, BYTE Bank, WORD Offset)
 
 	if (pGameBoy->pDebugInfo)
 	{
-		if (pGameBoy->pDebugInfo->GetLabel(Bank, Offset))
+		pGameBoy->pDebugInfo->ResetSearch();
+		while (pGameBoy->pDebugInfo->GetNextLabel(Bank, Offset))
 		{
 			dwLabelNo++;
-			while (pGameBoy->pDebugInfo->GetNextLabel(Bank, Offset))
-			{
-				dwLabelNo++;
-			}
 		}
 	}
 
@@ -4741,10 +4774,15 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 	int				x, y;
 	BOOL			SetY, Label;
 	EMULATIONINFO	EmulationInfo;
+	char			szBuffer[0x100];
 
 
 	switch (uMsg)
 	{
+	case WM_APP_CHANGELANGUAGE:
+		SetWindowText(hWin, String(IDS_WND_DISASSEMBLY));
+		return 0;
+
 	case WM_COMMAND:
 		if (!(pGameBoy = GameBoys.GetActive()))
 		{
@@ -6100,6 +6138,7 @@ void PaintRegisters(HDC hdc, RECT *pRect)
 {
 	BYTE		Byte;
 	CGameBoy	*pGameBoy;
+	char		szBuffer[0x100];
 
 
 	pGameBoy = GameBoys.GetActive();
@@ -6249,19 +6288,19 @@ void PaintRegisters(HDC hdc, RECT *pRect)
 		switch (pGameBoy->FF00_C(0x41) & 3)
 		{
 		case 0:
-			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, "H-Blank", 7);
+			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, String(IDS_WND_REGISTERS_HBLANK), 7);
 			break;
 
 		case 1:
-			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, "V-Blank", 7);
+			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, String(IDS_WND_REGISTERS_VBLANK), 7);
 			break;
 
 		case 2:
-			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, "OAM", 3);
+			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, String(IDS_WND_REGISTERS_OAMSEARCH), 3);
 			break;
 
 		case 3:
-			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, "LCD", 3);
+			TextOut(hdc, pRect->left, pRect->top + 13 * FixedFontHeight, String(IDS_WND_REGISTERS_LCDTRANSFER), 3);
 			break;
 		}
 		if ((pGameBoy->MEM_CPU[0x8F41] & 3) == 1)
@@ -6291,10 +6330,16 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 	CGameBoy		*pGameBoy;
 	BYTE			*pByte;
 	BOOL			HiNibble;
+	char			szBuffer[0x100];
 
 
 	switch (uMsg)
 	{
+	case WM_APP_CHANGELANGUAGE:
+		SetWindowText(hWin, String(IDS_WND_REGISTERS));
+		InvalidateRect(hWin, NULL, true);
+		return 0;
+
 	case WM_SETFOCUS:
 		if (GameBoys.GetActive())
 		{
@@ -6502,10 +6547,16 @@ LPARAM CALLBACK HardwareWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 	DWORD			Size;
 	DWORD			x, y;
 	SCROLLINFO		si;
+	char			szBuffer[0x100];
 
 
 	switch (uMsg)
 	{
+	case WM_APP_CHANGELANGUAGE:
+		SetWindowText(hWin, String(IDS_WND_HARDWARE));
+		InvalidateRect(hWin, NULL, true);
+		return 0;
+
 	case WM_PAINT:
 		if (GetUpdateRect(hWin, NULL, true))
 		{
@@ -6518,8 +6569,8 @@ LPARAM CALLBACK HardwareWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			BeginPaint(hWin, &Paint);
 			SelectObject(Paint.hdc, hFixedFont);
 			SetBkMode(Paint.hdc, TRANSPARENT);
-			TextOut(Paint.hdc, FixedFontWidth - x, FixedFontHeight - y, "ROM Size:", 9);
-			TextOut(Paint.hdc, FixedFontWidth - x, FixedFontHeight + FixedFontHeight - y, "RAM Size:", 9);
+			TextOut(Paint.hdc, FixedFontWidth - x, FixedFontHeight - y, String(IDS_WND_HARDWARE_ROMSIZE), 9);
+			TextOut(Paint.hdc, FixedFontWidth - x, FixedFontHeight + FixedFontHeight - y, String(IDS_WND_HARDWARE_RAMSIZE), 9);
 			if (pGameBoy = GameBoys.GetActive())
 			{
 				if (pGameBoy->MEM_ROM)
@@ -6703,7 +6754,7 @@ BOOL CreateDebugWindows()
 	wc.lpszClassName = "Registers";
 	if (!RegisterClass(&wc))
 	{
-		DisplayErrorMessage(NULL);
+		DisplayErrorMessage();
 		return true;
 	}
 	hRegisters = NULL;
@@ -6711,7 +6762,7 @@ BOOL CreateDebugWindows()
 	wc.lpszClassName = "DisAsm";
 	if (!RegisterClass(&wc))
 	{
-		DisplayErrorMessage(NULL);
+		DisplayErrorMessage();
 		return true;
 	}
 	hDisAsm = NULL;
@@ -6719,7 +6770,7 @@ BOOL CreateDebugWindows()
 	wc.lpszClassName = "Memory";
 	if (!RegisterClass(&wc))
 	{
-		DisplayErrorMessage(NULL);
+		DisplayErrorMessage();
 		return true;
 	}
 	hMemory = NULL;
@@ -6728,7 +6779,7 @@ BOOL CreateDebugWindows()
 	wc.lpszClassName = "TileAddress";
 	if (!RegisterClass(&wc))
 	{
-		DisplayErrorMessage(NULL);
+		DisplayErrorMessage();
 		return true;
 	}*/
 
@@ -6739,7 +6790,7 @@ BOOL CreateDebugWindows()
 	wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
 	if (!RegisterClass(&wc))
 	{
-		DisplayErrorMessage(NULL);
+		DisplayErrorMessage();
 		return true;
 	}
 	hTiles = NULL;
@@ -6748,7 +6799,7 @@ BOOL CreateDebugWindows()
 	wc.lpszClassName = "TilesChild";
 	if (!RegisterClass(&wc))
 	{
-		DisplayErrorMessage(NULL);
+		DisplayErrorMessage();
 		return true;
 	}
 	wc.style = 0;
@@ -6756,7 +6807,7 @@ BOOL CreateDebugWindows()
 	wc.lpszClassName = "Palettes";
 	if (!RegisterClass(&wc))
 	{
-		DisplayErrorMessage(NULL);
+		DisplayErrorMessage();
 		return true;
 	}
 	hPalettes = NULL;
@@ -6764,7 +6815,7 @@ BOOL CreateDebugWindows()
 	wc.lpszClassName = "TileMap";
 	if (!RegisterClass(&wc))
 	{
-		DisplayErrorMessage(NULL);
+		DisplayErrorMessage();
 		return true;
 	}
 	hTileMap = NULL;
@@ -6772,14 +6823,14 @@ BOOL CreateDebugWindows()
 	wc.lpszClassName = "TileMapChild";
 	if (!RegisterClass(&wc))
 	{
-		DisplayErrorMessage(NULL);
+		DisplayErrorMessage();
 		return true;
 	}
 	wc.lpfnWndProc = TileZoomWndProc;
 	wc.lpszClassName = "TileZoom";
 	if (!RegisterClass(&wc))
 	{
-		DisplayErrorMessage(NULL);
+		DisplayErrorMessage();
 		return true;
 	}
 	wc.style = CS_HREDRAW | CS_VREDRAW;
@@ -6787,7 +6838,7 @@ BOOL CreateDebugWindows()
 	wc.lpszClassName = "Hardware";
 	if (!RegisterClass(&wc))
 	{
-		DisplayErrorMessage(NULL);
+		DisplayErrorMessage();
 		return true;
 	}
 	hHardware = NULL;

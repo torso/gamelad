@@ -1,4 +1,4 @@
-Game Lad 1.2
+Game Lad 1.3
 
 Written by Torbjörn Söderstedt
 
@@ -9,6 +9,22 @@ All information about this program is available online at http://gamelad.emuunli
 
 What's New
 ----------
+
+Version 1.3
+*Game Genie and Game Shark support
+*Translation support
+*Save video as avi
+*Save snapshot as bitmap
+*Date and time of latest save shown in state slot menu
+*Loading states from explorer sets the active slot to that file
+*Open multiple ROMs from open dialog
+*Truncate/zero pad ROMs with odd file sizes
+*STAT bits 3-5 enables LCDC interrupts
+*Carry no longer affected by inc/dec [hl] (Damien Lanza Brun)
+*Half-carry set correctly at add a,*
+*Timer frequency corrected
+*ROM bank 0 can only be selected on MBC5
+*Sound emulation requires DirectX 8.0 or higher
 
 Version 1.2
 *Save States

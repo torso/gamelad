@@ -12,6 +12,9 @@ public:
 	CSolver();
 	~CSolver();
 
+
+	BOOL		GetNumber(DWORD *pdw, char **psz);
+
 	void		operator =(DWORD dwNewNumber);
 	BOOL		operator =(CString &String);
 	BOOL		operator =(CSolver *NewNumber);

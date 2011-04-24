@@ -6,11 +6,10 @@
 
 
 
-#define		SF_CODE			0x01
-#define		SF_CONST		0x02
-#define		SF_DATA			0x04
-#define		SF_DATA_UNKNOWN	0x08
-#define		SF_UNKNOWN		0x10
+#define		SF_CONST		0x00000001
+#define		SF_CODE			0x00000002
+#define		SF_UNKNOWN		0x00000004
+#define		SF_EXPRESSION	0x00000080
 
 
 
@@ -20,12 +19,13 @@ struct SECTION
 	DWORD	LineFrom;
 	DWORD	Lines;
 
-	WORD	Flags;
-	BYTE	Size;
+	DWORD	Flags;
+	DWORD	Size;
 	static union
 	{
 		DWORD	Bytes;
-		char	*pBytes;
+		BYTE	*pBytes;
+		CSolver	*pExpression;
 	};
 };
 
@@ -34,8 +34,8 @@ struct SECTION
 class CCode
 {
 private:
-	POINTER		Offset;
-	CList		*pSections;
+	POINTER		m_Offset;
+	CList		*m_pSections;
 
 public:
 	CCode();
@@ -45,7 +45,8 @@ public:
 	BOOL		SetOffset(POINTER *pPointer);
 	BOOL		GetOffset(POINTER *pPointer);
 
-	BOOL		InsertData(DWORD Bytes, WORD Flags);
+	BOOL		InsertData(BYTE Byte, DWORD Flags);
+	BOOL		InsertData(CSolver &Expression, BYTE Size, DWORD Flags);
 
 	BOOL		SaveObj(HANDLE hObjFile);
 } CCODE_CPP Code;

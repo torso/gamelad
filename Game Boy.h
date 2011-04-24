@@ -1,3 +1,7 @@
+#include	"CList\\CList.h"
+
+
+
 #ifndef		GAME_BOY_CPP
 
 #define		GAME_BOY_CPP	extern
@@ -21,10 +25,16 @@ struct EMULATIONINFO
 
 
 
-struct SOUNDBUFFER
+struct CHEATDATA
 {
-	BYTE			Data[2048];
-	WAVEHDR			wh;
+	WORD		Offset;
+	BYTE		Bank;
+	static union
+	{
+		BYTE	Value;
+		BYTE	OldValue;
+	};
+	char		*pszCode;
 };
 
 
@@ -60,6 +70,7 @@ struct SOUNDBUFFER
 #define		MEM_STACK				0x08	//Valid address for SP
 #define		MEM_BREAKPOINT			0x10
 #define		MEM_CHANGED				0x20
+#define		MEM_FIXED				0x40	//Data cannot be changed (due to cheats)
 
 
 #define		Offset_Reg_F			0
@@ -82,8 +93,6 @@ struct SOUNDBUFFER
 #define		Offset_ActiveRamBank	29
 #define		Offset_MaxRomBank		30
 #define		Offset_MaxRamBank		31
-
-//#define		Offset_DrawLineMask		33
 
 #define		Offset_MEM				32
 #define		Offset_MEM_CPU			0x60
@@ -113,7 +122,8 @@ struct SOUNDBUFFER
 
 #define		Offset_WindowY			0x03A140 //1
 #define		Offset_WindowY2			0x03A141 //1
-//#define		Offset_				0x03A142 //1
+
+//#define		Offset_DrawLineMask		0x03A142 //1
 
 #define		Offset_SoundTicks		0x03A143 //1
 #define		Offset_Sound1Enabled	0x03A144 //1
@@ -145,13 +155,13 @@ struct SOUNDBUFFER
 #define		Offset_Sound4TimeOut	0x03A18C //4
 #define		Offset_Sound4Frequency	0x03A190 //4
 #define		Offset_Sound4Envelope	0x03A194 //4
-#define		Offset_hWaveOut			0x03A198 //4
-#define		Offset_pSoundBuffer		0x03A19C //4
-#define		Offset_SoundBufferPosition	0x03A1A0 //4
-#define		Offset_nSoundBuffers	0x03A1A4 //1
-#define		Offset_FastFwd			0x03A1A5 //1
-#define		Offset_FramesToSkip		0x03A1A6 //1
-#define		Offset_FrameSkip		0x03A1A7 //1
+#define		Offset_FastFwd			0x03A198 //1
+#define		Offset_FramesToSkip		0x03A199 //1
+#define		Offset_FrameSkip		0x03A19A //1
+#define		Offset_pAVISoundBuffer	0x03A19C //4
+#define		Offset_dwAVISoundPos	0x03A1A0 //4
+#define		Offset_pPalette			0x03A1A4 //4
+#define		Offset_SoundBuffer		0x03A1A8
 /*#define		Offset_SerialOutput		0x03A198 //4
 #define		Offset_SerialInput		0x03A199 //1
 #define		Offset_SerialByte		0x03A19A //1
@@ -274,13 +284,15 @@ public:
 	DWORD			Sound3Ticks, Sound3TimeOut, Sound3Frequency;
 	DWORD			Sound4Ticks, Sound4TimeOut, Sound4Frequency, Sound4Envelope;
 
-	HWAVEOUT		hWaveOut;
-	SOUNDBUFFER		*SoundBuffer;
-	DWORD			SoundBufferPosition;
-	BYTE			nSoundBuffers;
-
 	BYTE			FastFwd;
 	BYTE			FramesToSkip, FrameSkip;
+
+	void			*pAVISoundBuffer;
+	DWORD			dwAVISoundPos;
+
+	WORD			*pPalette;
+
+	SOUNDBUFFER		SoundBuffer;
 
 	BYTE			StateSlot;
 
@@ -302,6 +314,8 @@ private:
 	HANDLE			hThread;
 	DWORD			ThreadId;
 
+	BOOL			Terminating;
+
 	char			Rom[MAX_PATH];
 	char			Battery[MAX_PATH];
 	unsigned int	SaveRamSize;
@@ -310,6 +324,8 @@ private:
 
 	LARGE_INTEGER	LastTimerCount;
 	LONGLONG		DelayTime;
+
+	CList			*m_pCheatList;
 
 
 private:
@@ -320,13 +336,24 @@ private:
 	void			SetStartDelay();
 	void			Delay();
 
+	void			ClearDebugRunInfo();
 	void			PrepareEmulation(BOOL Debug);
 	void			MainLoop();
 	void			DebugMainLoop();
 	void			RefreshScreen();
 	BOOL			RestoreSound();
 
-	char			*CGameBoy::GetStateFilename(char *szFilename);
+	void			CloseAVI();
+	BOOL			WriteAVI();
+
+	char			*GetStateFilename(char *pszFilename);
+
+	BYTE			GetRealByte(WORD Offset, BYTE Bank);
+	BOOL			AddCheat(WORD Offset, BYTE Value, char *pszCode);
+	BOOL			AddCheat(WORD Offset, BYTE Value, BYTE CompareValue, char *pszCode);
+	BOOL			AddCheat(BYTE Bank, WORD Offset, BYTE Value, char *pszCode);
+	void			ReApplyCheats();
+
 
 public:
 	CGameBoy(BYTE Flags);
@@ -336,6 +363,7 @@ public:
 	BOOL			LoadBattery(char *BatteryFilename);
 	BOOL			SaveBattery(BOOL Prompt, BOOL SaveAs);
 	void			GetBatteryFilename(char *Filename);
+	char			*GetStateFilename(char *pszFilename, DWORD dwStateSlot);
 	LPARAM			GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 	void			Reset(DWORD Flags);
 	void			Reset();
@@ -358,21 +386,32 @@ public:
 	BOOL			SaveState(char *pszFilename, BOOL AlreadyStopped);
 	BOOL			SaveStateAs();
 	BOOL			LoadState();
-	BOOL			LoadState(char *pszFilename, BOOL AlreadyStopped);
+	BOOL			LoadState(char *pszFilename, BOOL AlreadyStopped, BOOL QuickLoad);
 	BOOL			LoadStateAs();
 	void			SetStateSlot(int nSlot);
 	int				GetStateSlot();
+
+	BOOL			SaveSnapshot();
+	BOOL			SaveVideo();
 
 	BOOL			SwitchRomBank(BYTE Bank);
 	BOOL			SwitchRamBank(BYTE Bank);
 	BOOL			SwitchVBK(BYTE Bank);
 	BOOL			SwitchSVBK(BYTE Bank);
+
+	void			RemoveCheats();
+	int				VerifyCode(char *pszCode, BOOL CompareValue);
+	BOOL			AddCheat(char *pszCode);
+	BOOL			IsApplied(char *pszCode);
 };
 
 
 
-#define			WM_APP_STEP		WM_APP
-#define			WM_APP_RESUME	(WM_APP + 1)
+enum GameBoyMessages
+{
+	WM_APP_STEP = WM_APP_FIRSTFREEMESSAGE,
+	WM_APP_RESUME
+};
 
 
 

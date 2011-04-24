@@ -5,7 +5,6 @@
 #include	"..\CString\CString.h"
 #include	"..\Error.h"
 #include	"CSolver.h"
-#include	"Glasm.h"
 
 
 
@@ -75,7 +74,6 @@ void CNumber::operator =(DWORD dwNewNumber)
 CSolver::CSolver()
 {
 	dwFlags = 0;
-	dwNumber = 0;
 }
 
 
@@ -86,6 +84,27 @@ CSolver::~CSolver()
 	{
 		delete pExpression;
 	}
+}
+
+
+
+BOOL CSolver::GetNumber(DWORD *pdw, char **psz)
+{
+	if (dwFlags & CSF_NUMBER)
+	{
+		*pdw = dwNumber;
+		return false;
+	}
+	if (dwFlags & CSF_EXPRESSION)
+	{
+		if (pExpression->GetString(psz))
+		{
+			return true;
+		}
+		return false;
+	}
+
+	return true;
 }
 
 
@@ -124,7 +143,7 @@ BOOL CSolver::ReadNumber(CString &String, DWORD *Pos, CString &Number, DWORD *dw
 
 	if (Number.GetLength() == 0)
 	{
-		CompileError(COMPILE_ERROR_BADNUMBER, NULL);
+		//CompileError(COMPILE_ERROR_BADNUMBER, NULL);
 		*Pos = -1;
 		return false;
 	}
@@ -135,7 +154,7 @@ BOOL CSolver::ReadNumber(CString &String, DWORD *Pos, CString &Number, DWORD *dw
 	case 'H':
 		if (Flags & NUMBER_RADIX)
 		{
-			CompileError(COMPILE_ERROR_BADNUMBER, NULL);
+			//CompileError(COMPILE_ERROR_BADNUMBER, NULL);
 			*Pos = -1;
 			return false;
 		}
@@ -147,7 +166,7 @@ BOOL CSolver::ReadNumber(CString &String, DWORD *Pos, CString &Number, DWORD *dw
 	case 'Q':
 		if (Flags & NUMBER_RADIX)
 		{
-			CompileError(COMPILE_ERROR_BADNUMBER, NULL);
+			//CompileError(COMPILE_ERROR_BADNUMBER, NULL);
 			*Pos = -1;
 			return false;
 		}
@@ -159,7 +178,7 @@ BOOL CSolver::ReadNumber(CString &String, DWORD *Pos, CString &Number, DWORD *dw
 	case 'B':
 		if (Flags & NUMBER_RADIX)
 		{
-			CompileError(COMPILE_ERROR_BADNUMBER, NULL);
+			//CompileError(COMPILE_ERROR_BADNUMBER, NULL);
 			*Pos = -1;
 			return false;
 		}
@@ -193,7 +212,7 @@ BOOL CSolver::ReadNumber(CString &String, DWORD *Pos, CString &Number, DWORD *dw
 		case 'A':
 			if (Flags & (NUMBER_DECIMAL | NUMBER_OCTAL | NUMBER_BINARY))
 			{
-				CompileError(COMPILE_ERROR_BADNUMBER, NULL);
+				//CompileError(COMPILE_ERROR_BADNUMBER, NULL);
 				*Pos = -1;
 				return false;
 			}
@@ -201,7 +220,7 @@ BOOL CSolver::ReadNumber(CString &String, DWORD *Pos, CString &Number, DWORD *dw
 		case '9':
 			if (Flags & (NUMBER_OCTAL | NUMBER_BINARY))
 			{
-				CompileError(COMPILE_ERROR_BADNUMBER, NULL);
+				//CompileError(COMPILE_ERROR_BADNUMBER, NULL);
 				*Pos = -1;
 				return false;
 			}
@@ -215,7 +234,7 @@ BOOL CSolver::ReadNumber(CString &String, DWORD *Pos, CString &Number, DWORD *dw
 		case '2':
 			if (Flags & NUMBER_BINARY)
 			{
-				CompileError(COMPILE_ERROR_BADNUMBER, NULL);
+				//CompileError(COMPILE_ERROR_BADNUMBER, NULL);
 				*Pos = -1;
 				return false;
 			}
@@ -231,7 +250,7 @@ BOOL CSolver::ReadNumber(CString &String, DWORD *Pos, CString &Number, DWORD *dw
 			break;
 
 		default:
-			CompileError(COMPILE_ERROR_BADNUMBER, NULL);
+			//CompileError(COMPILE_ERROR_BADNUMBER, NULL);
 			*Pos = -1;
 			return false;
 		}
@@ -266,11 +285,18 @@ BOOL CSolver::ReadNumber(CString &String, DWORD *Pos, CString &Number, DWORD *dw
 		if (Number.GetLength() - Pos3 <= 10)
 		{
 			*dwNewNumber = 0;
-			do
+			DWORD dw;
+			dw = 1;
+			while (Pos3 < Pos2--)
+			{
+				*dwNewNumber += (Number[Pos2] - '0') * dw;
+				dw *= 10;
+			}
+			/*do
 			{
 				*dwNewNumber += (Number[Pos3] - '0') * ((Number.GetLength() - Pos3 - 1) * 10);
 			}
-			while (++Pos3 < Pos2);
+			while (++Pos3 < Pos2);*/
 			Number = (char *)NULL;
 			return false;
 		}
@@ -305,7 +331,7 @@ BOOL CSolver::ReadNumber(CString &String, DWORD *Pos, CString &Number, DWORD *dw
 		break;
 	}
 
-	CompileError(COMPILE_ERROR_BADNUMBER, NULL);
+	//CompileError(COMPILE_ERROR_BADNUMBER, NULL);
 	*Pos = -1;
 	return false;
 }
@@ -315,7 +341,7 @@ BOOL CSolver::ReadNumber(CString &String, DWORD *Pos, CString &Number, DWORD *dw
 BOOL CSolver::operator =(CString &String)
 {
 	CString		Number;
-	DWORD		Pos = 0, dwNumber;
+	DWORD		Pos = 0;
 
 
 	if (dwFlags & CSF_EXPRESSION)
@@ -421,7 +447,7 @@ BOOL CSolver::operator =(CString &String)
 				}
 				if (Number == "")
 				{
-					//dwNumber
+					dwFlags |= CSF_NUMBER;
 				}
 				else
 				{
@@ -507,18 +533,21 @@ BOOL CSolver::operator =(CSolver *NewNumber)
 		delete pExpression;
 	}
 
+	if (!NewNumber)
+	{
+		dwFlags &= ~(CSF_NUMBER | CSF_EXPRESSION);
+		return false;
+	}
+
 	dwFlags = NewNumber->dwFlags;
 	dwNumber = NewNumber->dwNumber;
 
 	if (NewNumber->dwFlags & CSF_EXPRESSION)
 	{
-		if (!(dwFlags & CSF_EXPRESSION))
+		if (!(pExpression = new CString()))
 		{
-			if (!(pExpression = new CString()))
-			{
-				FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
-				return true;
-			}
+			FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
+			return true;
 		}
 		if (*pExpression = NewNumber->pExpression)
 		{

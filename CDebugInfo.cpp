@@ -8,7 +8,6 @@
 CDebugInfo::CDebugInfo()
 {
 	m_pLabelList = NULL;
-	m_dwCurrentItem = 0;
 }
 
 
@@ -36,7 +35,7 @@ BOOL ReadLine(HANDLE hFile, char *pBuffer)
 		if (!ReadFile(hFile, &c, 1, &nBytes, NULL))
 		{
 			CloseHandle(hFile);
-			DisplayErrorMessage(hWnd);
+			DisplayErrorMessage();
 			return true;
 		}
 		if (pBuffer)
@@ -77,7 +76,7 @@ BOOL RemoveWhiteSpaces(HANDLE hFile, char *pc)
 		if (!ReadFile(hFile, pc, 1, &nBytes, NULL))
 		{
 			CloseHandle(hFile);
-			DisplayErrorMessage(hWnd);
+			DisplayErrorMessage();
 			return true;
 		}
 		if (nBytes == 0)
@@ -127,7 +126,7 @@ BOOL CDebugInfo::LoadFile(char *pszRomPath)
 		if (!ReadFile(hFile, &Buffer[1], 7, &nBytes, NULL))
 		{
 			CloseHandle(hFile);
-			DisplayErrorMessage(hWnd);
+			DisplayErrorMessage();
 			return false;
 		}
 		if (nBytes == 0 || Buffer[2] != ':' || Buffer[7] != ' ' || HexToNum(&Buffer[0]) || HexToNum(&Buffer[1])
@@ -179,7 +178,14 @@ BOOL CDebugInfo::AddLabel(BYTE Bank, WORD Offset, char *pszName)
 
 
 
-char *CDebugInfo::GetLabel(BYTE Bank, WORD Offset, DWORD dwStartItemNo)
+void CDebugInfo::ResetSearch()
+{
+	m_pLabelList->ResetSearch();
+}
+
+
+
+char *CDebugInfo::GetNextLabel(BYTE Bank, WORD Offset)
 {
 	LABELDATA		*pLabelData;
 
@@ -189,31 +195,14 @@ char *CDebugInfo::GetLabel(BYTE Bank, WORD Offset, DWORD dwStartItemNo)
 		return NULL;
 	}
 
-	m_dwCurrentItem = dwStartItemNo + 1;
-
-	while (pLabelData = (LABELDATA *)m_pLabelList->GetItem(m_dwCurrentItem))
+	while (pLabelData = (LABELDATA *)m_pLabelList->GetNextItem())
 	{
 		if (pLabelData->Offset == Offset && pLabelData->Bank == Bank)
 		{
 			return (char *)&pLabelData->LabelName;
 		}
-		m_dwCurrentItem++;
 	}
 
 	return NULL;
-}
-
-
-
-char *CDebugInfo::GetLabel(BYTE Bank, WORD Offset)
-{
-	return GetLabel(Bank, Offset, 0);
-}
-
-
-
-char *CDebugInfo::GetNextLabel(BYTE Bank, WORD Offset)
-{
-	return GetLabel(Bank, Offset, m_dwCurrentItem);
 }
 

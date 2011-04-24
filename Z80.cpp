@@ -17,6 +17,7 @@
 
 #define		Z80_CPP
 #include	"Game Lad.h"
+#include	"Game Boy.h"
 #include	"Debugger.h"
 #include	"resource.h"
 
@@ -168,6 +169,9 @@ void __declspec(naked) __fastcall SetAccess(CGameBoy *pGameBoy, DWORD Addr, BYTE
 
 void __fastcall WriteAccessNeeded(CGameBoy *pGameBoy, DWORD Addr)
 {
+	char		szBuffer[0x100];
+
+
 	SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)pGameBoy->hGBWnd, 0);
 	if (!hDisAsm)
 	{
@@ -177,7 +181,7 @@ void __fastcall WriteAccessNeeded(CGameBoy *pGameBoy, DWORD Addr)
 	{
 		SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hDisAsm, 0);
 	}
-	MessageBox(hWnd, "Access violation.", "Game Lad", MB_ICONWARNING | MB_OK);
+	MessageBox(hMsgParent, String(IDS_EMU_WRITEACCESSDENIED), "Game Lad", MB_ICONWARNING | MB_OK);
 	pGameBoy->Stop();
 	pGameBoy->Flags |= GB_ERROR | GB_EXITLOOPDIRECTLY;
 }
@@ -263,16 +267,19 @@ WriteAccessDenied:
 
 void __fastcall ReadAccessNeeded(CGameBoy *pGameBoy, DWORD Addr)
 {
-	SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)pGameBoy->hGBWnd, 0);
+	char		szBuffer[0x100];
+
+
+	PostMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)pGameBoy->hGBWnd, 0);
 	if (!hDisAsm)
 	{
-		SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+		PostMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 	}
 	else
 	{
-		SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hDisAsm, 0);
+		PostMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hDisAsm, 0);
 	}
-	MessageBox(hWnd, "Access violation.", "Game Lad", MB_ICONWARNING | MB_OK);
+	MessageBox(hMsgParent, String(IDS_EMU_READACCESSDENIED), "Game Lad", MB_ICONWARNING | MB_OK);
 	pGameBoy->Stop();
 	pGameBoy->Flags |= GB_ERROR | GB_EXITLOOPDIRECTLY;
 }
@@ -296,7 +303,7 @@ AccessDenied:
 		push	ebx
 		push	ecx
 		push	edx
-		call	WriteAccessNeeded
+		call	ReadAccessNeeded
 		pop		edx
 		pop		ecx
 		pop		ebx
@@ -348,6 +355,8 @@ void __declspec(naked) __fastcall Port(CGameBoy *pGameBoy, BYTE Addr)
 		jz		NoPort
 
 		//GBC ports
+		cmp		dl, 0x4D
+		je		Key1
 		cmp		dl, 0x4F
 		je		VRAMBankSelect
 		cmp		dl, 0x55
@@ -472,21 +481,21 @@ TAC:
 		test	al, 2
 		jz		TAC_01
 		//11 = 16.384 Hz
-		mov		dword ptr [ecx + Offset_Hz], 256
+		mov		dword ptr [ecx + Offset_Hz], 128
 		ret
 TAC_01:
 		//01 = 262.144 Hz
-		mov		dword ptr [ecx + Offset_Hz], 16
+		mov		dword ptr [ecx + Offset_Hz], 8
 		ret
 TAC_Not1:
 		test	al, 2
 		jz		TAC_1
 		//10 = 65.536 Hz
-		mov		dword ptr [ecx + Offset_Hz], 64
+		mov		dword ptr [ecx + Offset_Hz], 32
 		ret
 TAC_1:
 		//00 = 4.096 Hz
-		mov		dword ptr [ecx + Offset_Hz], 1024
+		mov		dword ptr [ecx + Offset_Hz], 512
 		ret
 
 NR14:
@@ -824,11 +833,17 @@ DMA:
 
 		ret
 
+Key1:
+		and		al, 0x01
+		or		[ecx + FF00_ASM + 0x4D], al
+		ret
+
 VRAMBankSelect:
 		//VRAM bank select
 		push	eax
-		and		eax, 1
+		or		al, 0xFE
 		mov		byte ptr [ecx + FF00_ASM + 0x4F], al
+		and		eax, 1
 		shl		eax, 13
 		add		eax, Offset_MEM_VRAM
 		add		eax, ecx
@@ -996,6 +1011,8 @@ SVBK_NotZero:
 		add		ebx, ecx
 		add		ebx, Offset_MEM_CPU
 		mov		dword ptr [ecx + Offset_MEM + 0xD * 4], ebx
+		//add		ebx, Offset_MemStatus_CPU - Offset_MEM_CPU
+		//mov		dword ptr [ecx + Offset_MemStatus + 0xD * 4], ebx
 		pop		ebx
 		ret
 	}
@@ -1028,6 +1045,44 @@ NotPorts:
 		add		ebx, dword ptr [ecx + Offset_MEM + edx * 4]
 		pop		edx
 
+		cmp		edx, 0xDFFF
+		ja		NotFixed
+		cmp		edx, 0xC000
+		jb		NotIntRAM
+		/*cmp		edx, 0xD000
+		jb		TestIfFixed
+		push	eax
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x70]
+		and		ah, 7
+		cmp		ah, 1
+		pop		eax
+		ja		NotFixed
+TestIfFixed:*/
+		test	byte ptr [ebx + Offset_MemStatus_CPU - Offset_MEM_CPU], MEM_FIXED
+		jz		NotFixed
+		pop		ebx
+		ret
+
+NotIntRAM:
+		cmp		edx, 0xA000
+		jb		NotFixed
+		push	eax
+		push	ebx
+		xor		eax, eax
+		mov		ebx, edx
+		and		ebx, 0x1FFF
+		mov		al, byte ptr [ecx + Offset_ActiveRamBank]
+		add		ebx, dword ptr [ecx + Offset_MemStatus_RAM]
+		shl		eax, 13
+		mov		al, byte ptr [ebx + eax]
+		test	al, MEM_FIXED
+		pop		ebx
+		pop		eax
+		jz		NotFixed
+		pop		ebx
+		ret
+
+NotFixed:
 		mov		byte ptr [ebx], al
 
 		//Echo?
@@ -1071,6 +1126,17 @@ IsRom:
 RomBankSelect:
 		cmp		al, byte ptr [ecx + Offset_MaxRomBank]
 		ja		IllegalBank
+
+		test	al, al
+		jnz		NotBankZero
+		cmp		byte ptr [ecx + Offset_MEM_ROM + 0x0147], 0x19
+		jb		NotMBC5
+		cmp		byte ptr [ecx + Offset_MEM_ROM + 0x0147], 0x1E
+		jbe		IsMBC5
+NotMBC5:
+		mov		al, 1
+IsMBC5:
+NotBankZero:
 
 		mov		byte ptr [ecx + Offset_ActiveRomBank], al
 
@@ -1167,6 +1233,8 @@ void __declspec(naked) __fastcall Debug_Port(CGameBoy *pGameBoy, BYTE Addr)
 		jz		NoPort
 
 		//GBC ports
+		cmp		dl, 0x4D
+		je		Key1
 		cmp		dl, 0x4F
 		je		VRAMBankSelect
 		cmp		dl, 0x55
@@ -1291,21 +1359,21 @@ TAC:
 		test	al, 2
 		jz		TAC_01
 		//11 = 16.384 Hz
-		mov		dword ptr [ecx + Offset_Hz], 256
+		mov		dword ptr [ecx + Offset_Hz], 128
 		ret
 TAC_01:
 		//01 = 262.144 Hz
-		mov		dword ptr [ecx + Offset_Hz], 16
+		mov		dword ptr [ecx + Offset_Hz], 8
 		ret
 TAC_Not1:
 		test	al, 2
 		jz		TAC_1
 		//10 = 65.536 Hz
-		mov		dword ptr [ecx + Offset_Hz], 64
+		mov		dword ptr [ecx + Offset_Hz], 32
 		ret
 TAC_1:
 		//00 = 4.096 Hz
-		mov		dword ptr [ecx + Offset_Hz], 1024
+		mov		dword ptr [ecx + Offset_Hz], 512
 		ret
 
 NR14:
@@ -1528,13 +1596,20 @@ DMA_NextStatusDWORD:
 
 		ret
 
+Key1:
+		and		al, 0x01
+		or		byte ptr [ecx + FF00_ASM + 0x4D], al
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F4D], MEM_CHANGED
+		ret
+
 VRAMBankSelect:
 		//VRAM bank select
 		and		byte ptr [ecx + FF00_ASM + 0x4F], ~1
 
 		push	eax
+		or		al, 0xFE
+		mov		byte ptr [ecx + FF00_ASM + 0x4F], al
 		and		eax, 1
-		or		byte ptr [ecx + FF00_ASM + 0x4F], al
 		shl		eax, 13
 		add		eax, Offset_MEM_VRAM
 		add		eax, ecx
@@ -1733,7 +1808,7 @@ void __declspec(naked) __fastcall Debug_LD_mem8(CGameBoy *pGameBoy, DWORD Addr)
 		cmp		dh, 0xFF
 		jne		NotPorts
 
-		call	Port
+		call	Debug_Port
 		ret
 
 NotPorts:
@@ -1751,6 +1826,44 @@ NotPorts:
 		add		ebx, dword ptr [ecx + Offset_MEM + edx * 4]
 		pop		edx
 
+		cmp		edx, 0xDFFF
+		ja		NotFixed
+		cmp		edx, 0xC000
+		jb		NotIntRAM
+		/*cmp		edx, 0xD000
+		jb		TestIfFixed
+		push	eax
+		mov		ah, byte ptr [ecx + FF00_ASM + 0x70]
+		and		ah, 7
+		cmp		ah, 1
+		pop		eax
+		ja		NotFixed
+TestIfFixed:*/
+		test	byte ptr [ebx + Offset_MemStatus_CPU - Offset_MEM_CPU], MEM_FIXED
+		jz		NotFixed
+		pop		ebx
+		ret
+
+NotIntRAM:
+		cmp		edx, 0xA000
+		jb		NotFixed
+		push	eax
+		push	ebx
+		xor		eax, eax
+		mov		ebx, edx
+		and		ebx, 0x1FFF
+		mov		al, byte ptr [ecx + Offset_ActiveRamBank]
+		add		ebx, dword ptr [ecx + Offset_MemStatus_RAM]
+		shl		eax, 13
+		mov		al, byte ptr [ebx + eax]
+		test	al, MEM_FIXED
+		pop		ebx
+		pop		eax
+		jz		NotFixed
+		pop		ebx
+		ret
+
+NotFixed:
 		mov		byte ptr [ebx], al
 
 		//Echo?
@@ -1794,6 +1907,17 @@ IsRom:
 RomBankSelect:
 		cmp		al, byte ptr [ecx + Offset_MaxRomBank]
 		ja		IllegalBank
+
+		test	al, al
+		jnz		NotBankZero
+		cmp		byte ptr [ecx + Offset_MEM_ROM + 0x0147], 0x19
+		jb		NotMBC5
+		cmp		byte ptr [ecx + Offset_MEM_ROM + 0x0147], 0x1E
+		jbe		IsMBC5
+NotMBC5:
+		mov		al, 1
+IsMBC5:
+NotBankZero:
 
 		mov		byte ptr [ecx + Offset_ActiveRomBank], al
 
@@ -1884,7 +2008,7 @@ void __declspec(naked) __fastcall OpCode_Undefined(CGameBoy *GB, DWORD PC)
 	__asm
 	{
 		call	ReadMem
-		or		byte ptr [ecx + Offset_Flags], GB_INVALIDOPCODE
+		or		byte ptr [ecx + Offset_Flags], GB_INVALIDOPCODE | GB_EXITLOOPDIRECTLY
 		ret
 	}
 }
@@ -2821,7 +2945,7 @@ void __declspec(naked) __fastcall Debug_OpCode_LD_HL_B(CGameBoy *GB, DWORD PC)
 		call	CheckWriteAccess
 		jc		AccessDenied
 		mov		al, byte ptr [ecx + Offset_Reg_B]
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		inc		word ptr [ecx + Offset_Reg_PC]
 		mov		eax, 2
@@ -3549,9 +3673,9 @@ void __declspec(naked) __fastcall OpCode_INC__HL_(CGameBoy *GB, DWORD PC)
 		inc		dx
 		mov		word ptr [ecx + Offset_Reg_PC], dx
 
-		mov		ah, byte ptr [ecx + Offset_Reg_F]
 		mov		dx, word ptr [ecx + Offset_Reg_HL]
 		call	ReadMem
+		mov		ah, byte ptr [ecx + Offset_Reg_F]
 		and		ah, Flag_C
 		mov		bh, al
 		and		bh, 0x0F
@@ -3581,8 +3705,8 @@ void __declspec(naked) __fastcall Debug_OpCode_INC__HL_(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	CheckWriteAccess
 		jc		AccessDenied
-		mov		ah, byte ptr [ecx + Offset_Reg_F]
 		call	ReadMem
+		mov		ah, byte ptr [ecx + Offset_Reg_F]
 		and		ah, Flag_C
 		mov		bh, al
 		and		bh, 0x0F
@@ -3806,9 +3930,9 @@ void __declspec(naked) __fastcall OpCode_DEC__HL_(CGameBoy *GB, DWORD PC)
 		inc		edx
 		mov		word ptr [ecx + Offset_Reg_PC], dx
 
-		mov		ah, byte ptr [ecx + Offset_Reg_F]
 		mov		dx, word ptr [ecx + Offset_Reg_HL]
 		call	ReadMem
+		mov		ah, byte ptr [ecx + Offset_Reg_F]
 		and		ah, Flag_C
 		or		ah, Flag_N
 		test	al, 0x0F
@@ -3837,8 +3961,8 @@ void __declspec(naked) __fastcall Debug_OpCode_DEC__HL_(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	CheckWriteAccess
 		jc		AccessDenied
-		mov		ah, byte ptr [ecx + Offset_Reg_F]
 		call	ReadMem
+		mov		ah, byte ptr [ecx + Offset_Reg_F]
 		and		ah, Flag_C
 		or		ah, Flag_N
 		test	al, 0x0F
@@ -4500,7 +4624,7 @@ AccessDenied:
 	{
 		SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hDisAsm, 0);
 	}
-	MessageBox(hWnd, "Deadlock", "Game Lad", MB_ICONWARNING | MB_OK);
+	MessageBox(hMsgParent, "Deadlock", "Game Lad", MB_ICONWARNING | MB_OK);
 	if (pGameBoy->hThread)
 	{
 		PostThreadMessage(pGameBoy->ThreadId, WM_QUIT, 0, 0);
@@ -4510,6 +4634,9 @@ AccessDenied:
 
 void __fastcall HaltError(CGameBoy *pGameBoy)
 {
+	char		szBuffer[0x100];
+
+
 	SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)pGameBoy->hGBWnd, 0);
 	if (!hDisAsm)
 	{
@@ -4519,7 +4646,7 @@ void __fastcall HaltError(CGameBoy *pGameBoy)
 	{
 		SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hDisAsm, 0);
 	}
-	MessageBox(hWnd, "Halt quirk", "Game Lad", MB_ICONWARNING | MB_OK);
+	MessageBox(hMsgParent, String(IDS_EMU_HALTQUIRK), "Game Lad", MB_ICONWARNING | MB_OK);
 	pGameBoy->Stop();
 	pGameBoy->Flags |= GB_ERROR | GB_EXITLOOPDIRECTLY;
 }
@@ -5273,8 +5400,7 @@ void __declspec(naked) __fastcall OpCode_ADD_A_B(CGameBoy *GB, DWORD PC)
 		mov		ah, [ecx + Offset_Reg_A]
 		xor		bl, bl
 		mov		edx, eax
-		shl		al, 4
-		shl		ah, 4
+		shl		eax, 4
 		add		al, ah
 		jnc		NoHalfCarry
 		mov		bl, Flag_H
@@ -5305,7 +5431,7 @@ void __declspec(naked) __fastcall OpCode_ADD_A_C(CGameBoy *GB, DWORD PC)
 		mov		ah, [ecx + Offset_Reg_A]
 		xor		bl, bl
 		mov		edx, eax
-		and		eax, 0x00000F0F
+		shl		eax, 4
 		add		al, ah
 		jnc		NoHalfCarry
 		mov		bl, Flag_H
@@ -5336,7 +5462,7 @@ void __declspec(naked) __fastcall OpCode_ADD_A_D(CGameBoy *GB, DWORD PC)
 		mov		ah, [ecx + Offset_Reg_A]
 		xor		bl, bl
 		mov		edx, eax
-		and		eax, 0x00000F0F
+		shl		eax, 4
 		add		al, ah
 		jnc		NoHalfCarry
 		mov		bl, Flag_H
@@ -5367,7 +5493,7 @@ void __declspec(naked) __fastcall OpCode_ADD_A_E(CGameBoy *GB, DWORD PC)
 		mov		ah, [ecx + Offset_Reg_A]
 		xor		bl, bl
 		mov		edx, eax
-		and		eax, 0x00000F0F
+		shl		eax, 4
 		add		al, ah
 		jnc		NoHalfCarry
 		mov		bl, Flag_H
@@ -5398,7 +5524,7 @@ void __declspec(naked) __fastcall OpCode_ADD_A_H(CGameBoy *GB, DWORD PC)
 		mov		ah, [ecx + Offset_Reg_A]
 		xor		bl, bl
 		mov		edx, eax
-		and		eax, 0x00000F0F
+		shl		eax, 4
 		add		al, ah
 		jnc		NoHalfCarry
 		mov		bl, Flag_H
@@ -5429,7 +5555,7 @@ void __declspec(naked) __fastcall OpCode_ADD_A_L(CGameBoy *GB, DWORD PC)
 		mov		ah, [ecx + Offset_Reg_A]
 		xor		bl, bl
 		mov		edx, eax
-		and		eax, 0x00000F0F
+		shl		eax, 4
 		add		al, ah
 		jnc		NoHalfCarry
 		mov		bl, Flag_H
@@ -5459,7 +5585,7 @@ void __declspec(naked) __fastcall OpCode_ADD_A_A(CGameBoy *GB, DWORD PC)
 		mov		al, [ecx + Offset_Reg_A]
 		xor		bl, bl
 		mov		dl, al
-		and		al, 0x0F
+		shl		al, 4
 		add		al, al
 		jnc		NoHalfCarry
 		mov		bl, Flag_H
@@ -5494,7 +5620,7 @@ void __declspec(naked) __fastcall OpCode_ADD_A_HL(CGameBoy *GB, DWORD PC)
 		mov		ah, byte ptr [ecx + Offset_Reg_A]
 		xor		bl, bl
 		mov		edx, eax
-		and		eax, 0x00000F0F
+		shl		eax, 4
 		add		al, ah
 		jnc		NoHalfCarry
 		mov		bl, Flag_H
@@ -5527,7 +5653,7 @@ void __declspec(naked) __fastcall Debug_OpCode_ADD_A_HL(CGameBoy *GB, DWORD PC)
 		mov		ah, byte ptr [ecx + Offset_Reg_A]
 		xor		bl, bl
 		mov		edx, eax
-		and		eax, 0x00000F0F
+		shl		eax, 4
 		add		al, ah
 		jnc		NoHalfCarry
 		mov		bl, Flag_H
@@ -5561,7 +5687,7 @@ void __declspec(naked) __fastcall OpCode_ADD_A_nn(CGameBoy *GB, DWORD PC)
 		mov		ah, [ecx + Offset_Reg_A]
 		xor		bl, bl
 		mov		edx, eax
-		and		eax, 0x00000F0F
+		shl		eax, 4
 		add		al, ah
 		jnc		NoHalfCarry
 		mov		bl, Flag_H
@@ -5596,7 +5722,7 @@ void __declspec(naked) __fastcall Debug_OpCode_ADD_A_nn(CGameBoy *GB, DWORD PC)
 		mov		ah, byte ptr [ecx + Offset_Reg_A]
 		xor		bl, bl
 		mov		edx, eax
-		and		eax, 0x00000F0F
+		shl		eax, 4
 		add		al, ah
 		jnc		NoHalfCarry
 		mov		bl, Flag_H
@@ -10408,7 +10534,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RLC_HL(CGameBoy *GB, DWORD PC)
 		or		bl, Flag_Z
 NotZero:
 		mov		byte ptr [ecx + Offset_Reg_F], bl
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -10633,7 +10759,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RRC_HL(CGameBoy *GB, DWORD PC)
 		or		bl, Flag_Z
 NotZero:
 		mov		[ecx + Offset_Reg_F], bl
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -10874,7 +11000,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RL_HL(CGameBoy *GB, DWORD PC)
 		or		bl, Flag_Z
 NotZero:
 		mov		[ecx + Offset_Reg_F], bl
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -11118,7 +11244,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RR_HL(CGameBoy *GB, DWORD PC)
 		or		bl, Flag_Z
 NotZero:
 		mov		[ecx + Offset_Reg_F], bl
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -11322,7 +11448,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SLA_HL(CGameBoy *GB, DWORD PC)
 		or		bl, Flag_Z
 NotZero:
 		mov		[ecx + Offset_Reg_F], bl
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -11544,7 +11670,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SRA_HL(CGameBoy *GB, DWORD PC)
 		or		bl, Flag_Z
 NotZero:
 		mov		[ecx + Offset_Reg_F], bl
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -11778,7 +11904,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SWAP_HL(CGameBoy *GB, DWORD PC)
 		xor		bl, bl
 Zero:
 		mov		[ecx + Offset_Reg_F], bl
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -11980,7 +12106,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SRL_HL(CGameBoy *GB, DWORD PC)
 		or		bl, Flag_Z
 NotZero:
 		mov		[ecx + Offset_Reg_F], bl
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -13574,7 +13700,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RES_0_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		and		al, 0xFE
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -13696,7 +13822,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RES_1_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		and		al, 0xFD
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -13818,7 +13944,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RES_2_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		and		al, 0xFB
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -13940,7 +14066,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RES_3_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		and		al, 0xF7
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -14062,7 +14188,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RES_4_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		and		al, 0xEF
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -14184,7 +14310,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RES_5_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		and		al, 0xDF
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -14306,7 +14432,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RES_6_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		and		al, 0xBF
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -14428,7 +14554,7 @@ void __declspec(naked) __fastcall Debug_OpCode_RES_7_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		and		al, 0x7F
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -14550,7 +14676,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SET_0_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		or		al, 0x01
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -14672,7 +14798,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SET_1_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		or		al, 0x02
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -14794,7 +14920,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SET_2_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		or		al, 0x04
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -14916,7 +15042,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SET_3_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		or		al, 0x08
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -15038,7 +15164,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SET_4_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		or		al, 0x10
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -15160,7 +15286,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SET_5_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		or		al, 0x20
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -15282,7 +15408,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SET_6_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		or		al, 0x40
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret
@@ -15404,7 +15530,7 @@ void __declspec(naked) __fastcall Debug_OpCode_SET_7_HL(CGameBoy *GB, DWORD PC)
 		jc		AccessDenied
 		call	ReadMem
 		or		al, 0x80
-		call	LD_mem8
+		call	Debug_LD_mem8
 
 		mov		eax, 4
 		ret

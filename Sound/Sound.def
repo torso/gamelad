@@ -1,0 +1,4 @@
+LIBRARY "SOUND"
+EXPORTS
+	GameLadSoundMain
+

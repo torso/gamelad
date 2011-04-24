@@ -9,54 +9,54 @@
 
 CList::CList()
 {
-	Init(NULL, NULL);
+	Init(NULL, NULL, NULL, NULL);
 }
 
 
 
-CList::CList(CLIST_CREATECALLBACK _CreateCallback, CLIST_DELETECALLBACK _DeleteCallback)
+CList::CList(CLIST_CREATECALLBACK CreateCallback, CLIST_DELETECALLBACK DeleteCallback)
 {
-	Init(_CreateCallback, _DeleteCallback);
+	Init(CreateCallback, NULL, DeleteCallback, NULL);
 }
 
 
 
-void CList::Init(CLIST_CREATECALLBACK _CreateCallback, CLIST_DELETECALLBACK _DeleteCallback)
+CList::CList(CLIST_CREATECALLBACK CreateCallback, DWORD dwCreateData, CLIST_DELETECALLBACK DeleteCallback, DWORD dwDeleteData)
 {
-	CreateCallback = _CreateCallback;
-	DeleteCallback = _DeleteCallback;
+	Init(CreateCallback, dwCreateData, DeleteCallback, dwDeleteData);
+}
 
-	pList = NULL;
-	pFirstList = NULL;
-	pCurrentItem = NULL;
-	MaxItemNo = 0;
-	dwUserData = 0;
+
+
+void CList::Init(CLIST_CREATECALLBACK CreateCallback, DWORD dwCreateData, CLIST_DELETECALLBACK DeleteCallback, DWORD dwDeleteData)
+{
+	m_CreateCallback = CreateCallback;
+	m_DeleteCallback = DeleteCallback;
+	m_dwCreateData = dwCreateData;
+	m_dwDeleteData = dwDeleteData;
+
+	m_pFirstItem = NULL;
+	m_pCurrentItem = NULL;
+	m_dwItems = 0;
+	m_dwUserData = 0;
 }
 
 
 
 CList::~CList()
 {
-	DWORD	CurrentItem;
+	ITEM		*pNextItem;
 
 
-	while (pFirstList)
+	while (m_pFirstItem)
 	{
-		for (CurrentItem = 0; CurrentItem < CLIST_LISTSIZE; CurrentItem++)
+		if (m_DeleteCallback)
 		{
-			if (pFirstList->le[CurrentItem].pv)
-			{
-				if (DeleteCallback)
-				{
-					DeleteCallback(pFirstList->le[CurrentItem].pv);
-				}
-				else
-				{
-					delete pFirstList->le[CurrentItem].pv;
-				}
-			}
+			m_DeleteCallback(&m_pFirstItem->Data, m_dwDeleteData);
 		}
-		pFirstList = pFirstList->pNext;
+		pNextItem = m_pFirstItem->Header.pNext;
+		delete m_pFirstItem;
+		m_pFirstItem = pNextItem;
 	}
 }
 
@@ -64,260 +64,130 @@ CList::~CList()
 
 void *CList::NewItem(DWORD dwSize)
 {
-	LIST	*CurrentList = pFirstList, **NewList = &pFirstList;
-	DWORD	CurrentItem;
-
-
-	while (CurrentList)
-	{
-		for (CurrentItem = 0; CurrentItem < CLIST_LISTSIZE; CurrentItem++)
-		{
-			if (CurrentList->le[CurrentItem].Size == 0)
-			{
-				if (CreateCallback)
-				{
-					if (CreateCallback(&CurrentList->le[CurrentItem].pv))
-					{
-						return NULL;
-					}
-				}
-				else
-				{
-					if (!(CurrentList->le[CurrentItem].pv = new BYTE[dwSize]))
-					{
-						FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
-						return NULL;
-					}
-					ZeroMemory(CurrentList->le[CurrentItem].pv, dwSize);
-				}
-				CurrentList->le[CurrentItem].Size = dwSize;
-				CurrentList->le[CurrentItem].Number = ++MaxItemNo;
-				CurrentList->le[CurrentItem].pvPrevious = pCurrentItem;
-				pCurrentItem = &CurrentList->le[CurrentItem];
-				return pCurrentItem->pv;
-			}
-		}
-		if (!CurrentList->pNext)
-		{
-			NewList = &CurrentList->pNext;
-		}
-		CurrentList = CurrentList->pNext;
-	}
-
-	if (!(*NewList = new LIST))
-	{
-		FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
-		return NULL;
-	}
-	ZeroMemory(*NewList, sizeof(**NewList));
-	if (CreateCallback)
-	{
-		if (CreateCallback(&(*NewList)->le[0].pv))
-		{
-			delete *NewList;
-			*NewList = NULL;
-			FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
-			return NULL;
-		}
-	}
-	else
-	{
-		if (!((*NewList)->le[0].pv = new BYTE[dwSize]))
-		{
-			delete *NewList;
-			*NewList = NULL;
-			FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
-			return NULL;
-		}
-		ZeroMemory((*NewList)->le[0].pv, dwSize);
-	}
-	(*NewList)->le[0].Size = dwSize;
-	(*NewList)->le[0].Number = ++MaxItemNo;
-	(*NewList)->le[0].pvPrevious = pCurrentItem;
-	pCurrentItem = &(*NewList)->le[0];
-
-	return pCurrentItem->pv;
+	return NewItem(dwSize, NULL);
 }
 
 
 
 void *CList::NewItem(DWORD dwSize, void *pv)
 {
-	LIST	*CurrentList = pFirstList, **NewList = &pFirstList;
-	DWORD	CurrentItem;
-
-
-	if (!pv)
+	if (m_pFirstItem)
 	{
-		return NewItem(dwSize);
-	}
-
-	while (CurrentList)
-	{
-		for (CurrentItem = 0; CurrentItem < CLIST_LISTSIZE; CurrentItem++)
+		if (!(m_pFirstItem->Header.pPrevious = (ITEM *)new BYTE[sizeof(ITEM::ITEMHEADER) + dwSize]))
 		{
-			if (CurrentList->le[CurrentItem].Size == 0)
-			{
-				if (CreateCallback)
-				{
-					if (CreateCallback(&CurrentList->le[CurrentItem].pv))
-					{
-						return NULL;
-					}
-				}
-				else
-				{
-					if (!(CurrentList->le[CurrentItem].pv = new BYTE[dwSize]))
-					{
-						FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
-						return NULL;
-					}
-				}
-				CopyMemory(CurrentList->le[CurrentItem].pv, pv, dwSize);
-				CurrentList->le[CurrentItem].Size = dwSize;
-				CurrentList->le[CurrentItem].Number = ++MaxItemNo;
-				CurrentList->le[CurrentItem].pvPrevious = pCurrentItem;
-				pCurrentItem = &CurrentList->le[CurrentItem];
-				return pCurrentItem->pv;
-			}
-		}
-		if (!CurrentList->pNext)
-		{
-			NewList = &CurrentList->pNext;
-		}
-		CurrentList = CurrentList->pNext;
-	}
-
-	if (!(*NewList = new LIST))
-	{
-		FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
-		return NULL;
-	}
-	ZeroMemory(*NewList, sizeof(**NewList));
-	if (CreateCallback)
-	{
-		if (CreateCallback(&(*NewList)->le[0].pv))
-		{
-			delete *NewList;
-			*NewList = NULL;
 			FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
 			return NULL;
 		}
+
+		m_pFirstItem->Header.pPrevious->Header.pNext = m_pFirstItem;
+		m_pFirstItem = m_pFirstItem->Header.pPrevious;
 	}
 	else
 	{
-		if (!((*NewList)->le[0].pv = new BYTE[dwSize]))
+		if (!(m_pFirstItem = (ITEM *)new BYTE[sizeof(ITEM::ITEMHEADER) + dwSize]))
 		{
-			delete *NewList;
-			*NewList = NULL;
 			FatalError(FATAL_ERROR_OUTOFMEMORY, NULL);
 			return NULL;
 		}
-	}
-	CopyMemory((*NewList)->le[0].pv, pv, dwSize);
-	(*NewList)->le[0].Size = dwSize;
-	(*NewList)->le[0].Number = ++MaxItemNo;
-	(*NewList)->le[0].pvPrevious = pCurrentItem;
-	pCurrentItem = &(*NewList)->le[0];
 
-	return pCurrentItem->pv;
-}
-
-
-
-void CList::PreviousItemToCurrent()
-{
-	if (pCurrentItem)
-	{
-		pCurrentItem = GetListNo(pCurrentItem->Number);
-	}
-}
-
-
-
-LISTELEMENT *CList::GetListNo(DWORD dwNumber)
-{
-	LIST	*CurrentList = pFirstList;
-
-
-	if (dwNumber-- == 0)
-	{
-		return NULL;
+		m_pFirstItem->Header.pNext = NULL;
 	}
 
-	while (dwNumber > 99)
+	m_dwItems++;
+
+	m_pFirstItem->Header.pPrevious = NULL;
+	m_pFirstItem->Header.dwSize = dwSize;
+
+	if (pv)
 	{
-		CurrentList = CurrentList->pNext;
-		if (!CurrentList)
+		CopyMemory(&m_pFirstItem->Data, pv, dwSize);
+	}
+	else
+	{
+		ZeroMemory(&m_pFirstItem->Data, dwSize);
+	}
+
+	if (m_CreateCallback)
+	{
+		if (m_CreateCallback(&m_pFirstItem->Data, m_dwCreateData))
 		{
+			DeleteItem(m_pFirstItem->Data);
 			return NULL;
 		}
-		dwNumber -= 100;
 	}
 
-	return &CurrentList->le[dwNumber];
-}
-
-
-
-void *CList::GetCurrentItem()
-{
-	if (!pCurrentItem)
-	{
-		return NULL;
-	}
-
-	return pCurrentItem->pv;
-}
-
-
-
-DWORD CList::GetCurrentItemNo()
-{
-	if (!pCurrentItem)
-	{
-		return 0;
-	}
-
-	return pCurrentItem->Number;
+	return &m_pFirstItem->Data;
 }
 
 
 
 DWORD CList::GetMaxItemNo()
 {
-	return MaxItemNo;
+	return m_dwItems;
 }
 
 
 
-void *CList::GetItem(DWORD dwNumber)
+BOOL CList::DeleteItem(void *pvItem)
 {
-	LISTELEMENT		*pListElement;
+	ITEM		*pItem;
 
 
-	pListElement = GetListNo(dwNumber);
-	if (pListElement)
+	pItem = m_pFirstItem;
+
+	do
 	{
-		return pListElement->pv;
+		if (&pItem->Data == pvItem)
+		{
+			if (m_DeleteCallback)
+			{
+				m_DeleteCallback(pvItem, m_dwDeleteData);
+			}
+			if (pItem->Header.pPrevious)
+			{
+				pItem->Header.pPrevious->Header.pNext = pItem->Header.pNext;
+			}
+			if (pItem->Header.pNext)
+			{
+				pItem->Header.pNext->Header.pPrevious = pItem->Header.pPrevious;
+			}
+			m_dwItems--;
+			if (pItem == m_pCurrentItem)
+			{
+				m_pCurrentItem = pItem->Header.pNext;
+			}
+			delete pItem;
+			return false;
+		}
 	}
+	while (pItem = pItem->Header.pNext);
 
-	return NULL;
+	return true;
 }
 
 
 
-DWORD CList::GetSizeofItem(DWORD dwNumber)
+void CList::ResetSearch()
 {
-	LISTELEMENT		*pListElement;
+	m_pCurrentItem = m_pFirstItem;
+}
 
 
-	pListElement = GetListNo(dwNumber);
-	if (pListElement)
+
+void *CList::GetNextItem()
+{
+	void		*pv;
+
+
+	if (!m_pCurrentItem)
 	{
-		return pListElement->Size;
+		return NULL;
 	}
 
-	return 0;
+	pv = &m_pCurrentItem->Data;
+
+	m_pCurrentItem = m_pCurrentItem->Header.pNext;
+
+	return pv;
 }
 

@@ -98,10 +98,6 @@ SOURCE=.\CInputFile.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\CSolver.cpp
-# End Source File
-# Begin Source File
-
 SOURCE=.\Glasm.cpp
 # End Source File
 # End Group
@@ -123,10 +119,6 @@ SOURCE=.\CInputFile.h
 # Begin Source File
 
 SOURCE=..\CList\CList.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\CSolver.h
 # End Source File
 # Begin Source File
 
@@ -152,6 +144,10 @@ SOURCE=.\OpCodes.h
 # Begin Source File
 
 SOURCE=.\ObjSpec.txt
+# End Source File
+# Begin Source File
+
+SOURCE=.\Sample\Sample.asm
 # End Source File
 # End Target
 # End Project

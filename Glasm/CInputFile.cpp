@@ -5,13 +5,13 @@
 #include	"..\CString\CString.h"
 #include	"..\CList\CList.h"
 #include	"..\Error.h"
-#include	"CSolver.h"
+#include	"..\CSolver\CSolver.h"
 #include	"Glasm.h"
 #include	"CInputFile.h"
 
 
 
-BOOL CALLBACK CreateCInputFile(void **p)
+BOOL CALLBACK CreateCInputFile(void **p, DWORD dw)
 {
 	if (!(*p = new CInputFile()))
 	{
@@ -24,7 +24,7 @@ BOOL CALLBACK CreateCInputFile(void **p)
 
 
 
-void CALLBACK DeleteCInputFile(void *p)
+void CALLBACK DeleteCInputFile(void *p, DWORD dw)
 {
 	delete (CInputFile *)p;
 }

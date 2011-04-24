@@ -22,9 +22,6 @@ class CDebugInfo
 {
 private:
 	CList		*m_pLabelList;
-	DWORD		m_dwCurrentItem;
-
-	char		*GetLabel(BYTE Bank, WORD Offset, DWORD dwStartItemNo);
 
 public:
 	CDebugInfo();
@@ -32,7 +29,7 @@ public:
 
 	BOOL		LoadFile(char *pszRomPath);
 	BOOL		AddLabel(BYTE Bank, WORD Offset, char *pszName);
-	char		*GetLabel(BYTE Bank, WORD Offset);
+	void		ResetSearch();
 	char		*GetNextLabel(BYTE Bank, WORD Offset);
 };
 

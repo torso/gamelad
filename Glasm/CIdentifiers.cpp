@@ -5,7 +5,7 @@
 #include	"..\CString\CString.h"
 #include	"..\CList\CList.h"
 #include	"..\Error.h"
-#include	"CSolver.h"
+#include	"..\CSolver\CSolver.h"
 #include	"Glasm.h"
 #include	"OpCodes.h"
 #include	"CIdentifiers.h"
@@ -13,7 +13,7 @@
 
 
 
-void CALLBACK DeleteLabelList(void *pList)
+void CALLBACK DeleteLabelList(void *pList, DWORD dw)
 {
 	delete ((IDENTIFIER *)pList)->pName;
 
@@ -242,7 +242,7 @@ BOOL CIdentifiers::SaveObj(HANDLE hObjFile)
 		return false;
 	}
 
-	MaxItemNo = pIdentifierList->GetMaxItemNo();
+	MaxItemNo = 0;//pIdentifierList->GetMaxItemNo();
 	WriteToFile(hObjFile, &MaxItemNo, sizeof(MaxItemNo));
 
 	return false;

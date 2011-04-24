@@ -23,203 +23,6 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// Menu
-//
-
-IDR_MENU MENU DISCARDABLE 
-BEGIN
-    POPUP "&File"
-    BEGIN
-        MENUITEM "&Open Rom...\tCtrl+O",        ID_FILE_OPEN
-        MENUITEM "&Close\tCtrl+F4",             ID_FILE_CLOSE
-        MENUITEM SEPARATOR
-        MENUITEM "&Save State\tF2",             ID_FILE_SAVESTATE
-        MENUITEM "&Load State\tF3",             ID_FILE_LOADSTATE
-        MENUITEM "Save State &As...\tShift+F2", ID_FILE_SAVESTATEAS
-        MENUITEM "Loa&d State...\tShift+F3",    ID_FILE_LOADSTATEAS
-        POPUP "S&tate Slot"
-        BEGIN
-            MENUITEM "&0\tF4,0",                    ID_FILE_STATESLOT_0
-            MENUITEM "&1\tF4,1",                    ID_FILE_STATESLOT_1
-            MENUITEM "&2\tF4,2",                    ID_FILE_STATESLOT_2
-            MENUITEM "&3\tF4,3",                    ID_FILE_STATESLOT_3
-            MENUITEM "&4\tF4,4",                    ID_FILE_STATESLOT_4
-            MENUITEM "&5\tF4,5",                    ID_FILE_STATESLOT_5
-            MENUITEM "&6\tF4,6",                    ID_FILE_STATESLOT_6
-            MENUITEM "&7\tF4,7",                    ID_FILE_STATESLOT_7
-            MENUITEM "&8\tF4,8",                    ID_FILE_STATESLOT_8
-            MENUITEM "&9\tF4,9",                    ID_FILE_STATESLOT_9
-        END
-        MENUITEM SEPARATOR
-        MENUITEM "Sa&ve Battery Ram\tCtrl+S",   ID_FILE_SAVEBATTERY
-        MENUITEM "Load &Battery Ram...",        ID_FILE_LOADBATTERY
-        MENUITEM "Save Batter&y Ram As...",     ID_FILE_SAVEBATTERYAS
-        MENUITEM "Clea&r Battery Ram",          ID_FILE_CLEARBATTERY
-        MENUITEM SEPARATOR
-        MENUITEM "&Exit",                       ID_FILE_EXIT
-    END
-    POPUP "&Edit"
-    BEGIN
-        MENUITEM "&Go To...\tCtrl+G",           ID_EDIT_GOTO
-    END
-    POPUP "&View"
-    BEGIN
-        MENUITEM "&Disassembly\tAlt+8",         ID_VIEW_DISASSEMBLY
-        MENUITEM "&Memory\tAlt+6",              ID_VIEW_MEMORY
-        MENUITEM "&Registers\tAlt+5",           ID_VIEW_REGISTERS
-        MENUITEM "&Hardware",                   ID_VIEW_HARDWARE
-        MENUITEM SEPARATOR
-        MENUITEM "&Palettes",                   ID_VIEW_PALETTES
-        MENUITEM "T&ile Map",                   ID_VIEW_TILEMAP
-        MENUITEM "&Tiles",                      ID_VIEW_TILES
-        MENUITEM SEPARATOR
-        MENUITEM "&Status bar",                 ID_VIEW_STATUSBAR
-        POPUP "&Zoom"
-        BEGIN
-            MENUITEM "&100%",                       ID_VIEW_ZOOM_100
-            MENUITEM "&200%",                       ID_VIEW_ZOOM_200
-            MENUITEM "&300%",                       ID_VIEW_ZOOM_300
-            MENUITEM "&400%",                       ID_VIEW_ZOOM_400
-        END
-        POPUP "&Frame Skip"
-        BEGIN
-            MENUITEM "&0",                          ID_VIEW_FRAMESKIP_0
-            MENUITEM "&1",                          ID_VIEW_FRAMESKIP_1
-            MENUITEM "&2",                          ID_VIEW_FRAMESKIP_2
-            MENUITEM "&3",                          ID_VIEW_FRAMESKIP_3
-            MENUITEM "&4",                          ID_VIEW_FRAMESKIP_4
-            MENUITEM "&5",                          ID_VIEW_FRAMESKIP_5
-            MENUITEM "&6",                          ID_VIEW_FRAMESKIP_6
-            MENUITEM "&7",                          ID_VIEW_FRAMESKIP_7
-            MENUITEM "&8",                          ID_VIEW_FRAMESKIP_8
-            MENUITEM "&9",                          ID_VIEW_FRAMESKIP_9
-        END
-        POPUP "&Bank"
-        BEGIN
-            MENUITEM "&ROM...",                     ID_MEMORY_ROM
-            POPUP "&VBK"
-            BEGIN
-                MENUITEM "Bank &0",                     ID_MEMORY_VBK_BANK0
-                MENUITEM "Bank &1",                     ID_MEMORY_VBK_BANK1
-            END
-            POPUP "R&AM"
-            BEGIN
-                MENUITEM "Bank &0",                     ID_MEMORY_RAM_BANK0
-                MENUITEM "Bank &1",                     ID_MEMORY_RAM_BANK1
-            END
-            POPUP "&SVBK"
-            BEGIN
-                MENUITEM "Bank &1",                     ID_MEMORY_SVBK_BANK1
-                MENUITEM "Bank &2",                     ID_MEMORY_SVBK_BANK2
-                MENUITEM "Bank &3",                     ID_MEMORY_SVBK_BANK3
-                MENUITEM "Bank &4",                     ID_MEMORY_SVBK_BANK4
-                MENUITEM "Bank &5",                     ID_MEMORY_SVBK_BANK5
-                MENUITEM "Bank &6",                     ID_MEMORY_SVBK_BANK6
-                MENUITEM "Bank &7",                     ID_MEMORY_SVBK_BANK7
-            END
-        END
-    END
-    POPUP "E&mulation"
-    BEGIN
-        MENUITEM "Start &Debug\tF5",            ID_EMULATION_STARTDEBUG
-        MENUITEM "&Execute\tCtrl+F5",           ID_EMULATION_EXECUTE
-        MENUITEM "&Stop\tEsc",                  ID_EMULATION_STOP
-        MENUITEM SEPARATOR
-        MENUITEM "Step &Into\tF11",             ID_EMULATION_STEPINTO
-        MENUITEM "Step &Over\tF10",             ID_EMULATION_STEPOVER
-        MENUITEM "Step O&ut\tShift+F11",        ID_EMULATION_STEPOUT
-        MENUITEM "Run to &Cursor\tCtrl+F10",    ID_EMULATION_RUNTOCURSOR
-        MENUITEM "Set &Next Statement\tCtrl+Shift+F10", 
-                                                ID_EMULATION_SETNEXTSTATEMENT
-
-        MENUITEM "&Toggle Breakpoint\tF9",      ID_EMULATION_TOGGLEBREAKPOINT
-
-        MENUITEM SEPARATOR
-        MENUITEM "&Reset",                      ID_EMULATION_RESET
-    END
-    POPUP "&Tools"
-    BEGIN
-        MENUITEM "&Options...",                 ID_TOOLS_OPTIONS
-        MENUITEM "&Sound Enabled",              ID_TOOLS_SOUNDENABLED
-    END
-    POPUP "&Window"
-    BEGIN
-        MENUITEM "&Next",                       ID_WINDOW_NEXT
-        MENUITEM "&Previous",                   ID_WINDOW_PREVIOUS
-        MENUITEM SEPARATOR
-        MENUITEM "&Cascade",                    ID_WINDOW_CASCADE
-        MENUITEM "Tile &Horizontally",          ID_WINDOW_TILEHORIZONTALLY
-        MENUITEM "&Tile Vertically",            ID_WINDOW_TILEVERTICALLY
-    END
-    POPUP "&Help"
-    BEGIN
-        MENUITEM "&About",                      ID_HELP_ABOUT
-    END
-END
-
-IDR_POPUPMENU MENU DISCARDABLE 
-BEGIN
-    POPUP "Memory"
-    BEGIN
-        MENUITEM "&Go To...",                   ID_EDIT_GOTO
-        MENUITEM "&ROM...",                     ID_MEMORY_ROM
-        POPUP "&VBK"
-        BEGIN
-            MENUITEM "Bank &0",                     ID_MEMORY_VBK_BANK0
-            MENUITEM "Bank &1",                     ID_MEMORY_VBK_BANK1
-        END
-        POPUP "R&AM"
-        BEGIN
-            MENUITEM "Bank &0",                     ID_MEMORY_RAM_BANK0
-            MENUITEM "Bank &1",                     ID_MEMORY_RAM_BANK1
-        END
-        POPUP "&SVBK"
-        BEGIN
-            MENUITEM "Bank &1",                     ID_MEMORY_SVBK_BANK1
-            MENUITEM "Bank &2",                     ID_MEMORY_SVBK_BANK2
-            MENUITEM "Bank &3",                     ID_MEMORY_SVBK_BANK3
-            MENUITEM "Bank &4",                     ID_MEMORY_SVBK_BANK4
-            MENUITEM "Bank &5",                     ID_MEMORY_SVBK_BANK5
-            MENUITEM "Bank &6",                     ID_MEMORY_SVBK_BANK6
-            MENUITEM "Bank &7",                     ID_MEMORY_SVBK_BANK7
-        END
-    END
-    POPUP "Disassembly"
-    BEGIN
-        MENUITEM "&Run to Cursor",              ID_EMULATION_RUNTOCURSOR
-        MENUITEM "Set &Next Statement",         ID_EMULATION_SETNEXTSTATEMENT
-
-        MENUITEM "&Toggle Breakpoint",          ID_EMULATION_TOGGLEBREAKPOINT
-
-        MENUITEM SEPARATOR
-        MENUITEM "&Go To...",                   ID_EDIT_GOTO
-        MENUITEM "&ROM...",                     ID_MEMORY_ROM
-        POPUP "&VBK"
-        BEGIN
-            MENUITEM "Bank &0",                     ID_MEMORY_VBK_BANK0
-            MENUITEM "Bank &1",                     ID_MEMORY_VBK_BANK1
-        END
-        POPUP "R&AM"
-        BEGIN
-            MENUITEM "Bank &0",                     ID_MEMORY_RAM_BANK0
-            MENUITEM "Bank &1",                     ID_MEMORY_RAM_BANK1
-        END
-        POPUP "&SVBK"
-        BEGIN
-            MENUITEM "Bank &1",                     ID_MEMORY_SVBK_BANK1
-            MENUITEM "Bank &2",                     ID_MEMORY_SVBK_BANK2
-            MENUITEM "Bank &3",                     ID_MEMORY_SVBK_BANK3
-            MENUITEM "Bank &4",                     ID_MEMORY_SVBK_BANK4
-            MENUITEM "Bank &5",                     ID_MEMORY_SVBK_BANK5
-            MENUITEM "Bank &6",                     ID_MEMORY_SVBK_BANK6
-            MENUITEM "Bank &7",                     ID_MEMORY_SVBK_BANK7
-        END
-    END
-END
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
 // Icon
 //
 
@@ -232,17 +35,16 @@ IDI_MAINICON            ICON    DISCARDABLE     "mainicon.ico"
 // Dialog
 //
 
-IDD_ABOUT DIALOG DISCARDABLE  0, 0, 194, 55
+IDD_ABOUT DIALOG DISCARDABLE  0, 0, 194, 50
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "About Game Lad"
 FONT 8, "MS Sans Serif"
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,137,7,50,14
-    ICON            IDI_MAINICON,IDC_STATIC,7,15,20,20
-    LTEXT           "Game Lad 1.2",IDC_STATIC,36,7,100,14
-    LTEXT           "Written by: Torbjörn Söderstedt",IDC_STATIC,36,21,100,
-                    14
-    LTEXT           "http://gamelad.emuunlim.com",IDC_STATIC,36,35,100,14
+    DEFPUSHBUTTON   "OK",IDOK,137,7,50,12
+    ICON            IDI_MAINICON,IDC_STATIC,7,13,20,20
+    LTEXT           "Game Lad 1.3",IDC_STATIC,36,7,100,12
+    LTEXT           "",IDC_WRITTENBY,36,19,151,12,SS_NOTIFY
+    LTEXT           "[http://gamelad.emuunlim.com/]",IDC_GAMELADHOMEPAGE,36,
+                    31,151,12,SS_NOTIFY
 END
 
 IDD_OPTIONS_KEYS DIALOG DISCARDABLE  0, 0, 235, 156
@@ -250,32 +52,32 @@ STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Keys"
 FONT 8, "MS Sans Serif"
 BEGIN
-    LTEXT           "Up",IDC_STATIC,7,7,60,15
-    LTEXT           "Down",IDC_STATIC,7,22,60,15
-    LTEXT           "Left",IDC_STATIC,7,37,60,15
-    LTEXT           "Right",IDC_STATIC,7,52,60,15
-    LTEXT           "A",IDC_STATIC,7,67,60,15
-    LTEXT           "B",IDC_STATIC,7,82,60,15
-    LTEXT           "Start",IDC_STATIC,7,97,60,15
-    LTEXT           "Select",IDC_STATIC,7,112,60,15
-    LTEXT           "Fast Forward",IDC_STATIC,7,127,60,15
-    COMBOBOX        IDC_UP,67,7,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    COMBOBOX        IDC_DOWN,67,22,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    COMBOBOX        IDC_LEFT,67,37,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    COMBOBOX        IDC_RIGHT,67,52,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    COMBOBOX        IDC_A,67,67,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    COMBOBOX        IDC_B,67,82,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    COMBOBOX        IDC_START,67,97,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    COMBOBOX        IDC_SELECT,67,112,91,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    COMBOBOX        IDC_FASTFORWARD,67,127,91,82,CBS_DROPDOWNLIST | 
+    LTEXT           "Up",IDC_STATIC_UP,7,7,60,15
+    LTEXT           "Down",IDC_STATIC_DOWN,7,22,60,15
+    LTEXT           "Left",IDC_STATIC_LEFT,7,37,60,15
+    LTEXT           "Right",IDC_STATIC_RIGHT,7,52,60,15
+    LTEXT           "A",IDC_STATIC_A,7,67,60,15
+    LTEXT           "B",IDC_STATIC_B,7,82,60,15
+    LTEXT           "Start",IDC_STATIC_START,7,97,60,15
+    LTEXT           "Select",IDC_STATIC_SELECT,7,112,60,15
+    LTEXT           "Fast Forward",IDC_STATIC_FASTFORWARD,7,127,60,15
+    COMBOBOX        IDC_UP,67,7,91,82,CBS_DROPDOWNLIST | CBS_SORT | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_DOWN,67,22,91,82,CBS_DROPDOWNLIST | CBS_SORT | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_LEFT,67,37,91,82,CBS_DROPDOWNLIST | CBS_SORT | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_RIGHT,67,52,91,82,CBS_DROPDOWNLIST | CBS_SORT | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_A,67,67,91,82,CBS_DROPDOWNLIST | CBS_SORT | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_B,67,82,91,82,CBS_DROPDOWNLIST | CBS_SORT | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_START,67,97,91,82,CBS_DROPDOWNLIST | CBS_SORT | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_SELECT,67,112,91,82,CBS_DROPDOWNLIST | CBS_SORT | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_FASTFORWARD,67,127,91,82,CBS_DROPDOWNLIST | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
 END
 
@@ -289,39 +91,72 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,61,25,50,14
 END
 
+IDD_OPTIONS_FILE DIALOG DISCARDABLE  0, 0, 235, 156
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
+CAPTION "File"
+FONT 8, "MS Sans Serif"
+BEGIN
+    GROUPBOX        "Associate files with Game Lad",IDC_FILEASSOC_FRAME,7,7,
+                    221,34
+    CONTROL         "Game Boy ROM files (.gb and .gbc)",IDC_REGISTERGBROM,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,17,208,10
+    CONTROL         "Game Lad save states (.gls)",IDC_REGISTERSAVESTATE,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,28,208,10
+    GROUPBOX        "Save",IDC_SAVE_FRAME,7,42,221,66
+    CONTROL         "Load battery if possible",IDC_AUTOLOADBATTERY,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,66,208,10
+    CONTROL         "Load latest saved state",IDC_AUTOLOADSTATE,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,53,208,10
+    LTEXT           "Save battery on close",IDC_SAVEBATTERY_STATIC,14,78,139,
+                    14
+    COMBOBOX        IDC_SAVEBATTERY,155,78,67,82,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Save state on close",IDC_SAVESTATE_STATIC,14,92,139,14
+    COMBOBOX        IDC_SAVESTATE,155,92,67,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    GROUPBOX        "Miscellaneous",IDC_MISC_FRAME,7,109,221,40
+    LTEXT           "Hardware to emulate",IDC_GBTYPE_STATIC,14,120,139,14
+    COMBOBOX        IDC_GBTYPE,155,120,67,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    LTEXT           "Initial state of an opened ROM",IDC_AUTOSTART_STATIC,14,
+                    134,139,9
+    COMBOBOX        IDC_AUTOSTART,155,134,67,82,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+END
+
 IDD_OPTIONS_GENERAL DIALOG DISCARDABLE  0, 0, 235, 156
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
 CAPTION "General"
 FONT 8, "MS Sans Serif"
 BEGIN
-    GROUPBOX        "Associate files with Game Lad",IDC_STATIC,7,7,221,34
-    CONTROL         "Game Boy ROM files (.gb and .gbc)",IDC_REGISTERGBROM,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,17,170,10
-    CONTROL         "Game Lad save states (.gls)",IDC_REGISTERSAVESTATE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,28,170,10
-    GROUPBOX        "Save",IDC_STATIC,7,42,221,52
-    CONTROL         "Load battery if possible",IDC_AUTOLOADBATTERY,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,14,53,103,10
-    CONTROL         "Load latest saved state",IDC_AUTOLOADSTATE,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,117,53,105,10
-    LTEXT           "Save battery on close",IDC_STATIC,14,64,103,14
-    COMBOBOX        IDC_SAVEBATTERY,117,64,67,82,CBS_DROPDOWNLIST | 
-                    WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Save state on close",IDC_STATIC,14,78,103,13
-    COMBOBOX        IDC_SAVESTATE,117,78,67,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    GROUPBOX        "Miscellaneous",IDC_STATIC,7,95,221,54
-    LTEXT           "Default frame skip",IDC_STATIC,14,105,103,14
-    EDITTEXT        IDC_FRAMESKIP,117,105,67,12,ES_AUTOHSCROLL | ES_NUMBER
+    GROUPBOX        "Language",IDC_LANGUAGE,7,7,221,42
+    COMBOBOX        IDC_LANGUAGELIST,14,19,208,80,CBS_DROPDOWNLIST | 
+                    CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Static",IDC_TRANSLATOR,14,35,208,12
+    GROUPBOX        "Miscellaneous",IDC_MISC_FRAME,7,49,221,27
+    LTEXT           "Default frame skip",IDC_FRAMESKIP_STATIC,14,60,141,14
+    EDITTEXT        IDC_FRAMESKIP,155,60,67,12,ES_AUTOHSCROLL | ES_NUMBER
     CONTROL         "Spin2",IDC_FRAMESKIPSPIN,"msctls_updown32",
-                    UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS,184,105,
-                    11,12
-    LTEXT           "Hardware to emulate",IDC_STATIC,14,119,103,14
-    COMBOBOX        IDC_GBTYPE,117,119,67,82,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    LTEXT           "Initial state of an opened ROM",IDC_STATIC,14,133,103,9
-    COMBOBOX        IDC_AUTOSTART,117,133,67,82,CBS_DROPDOWNLIST | 
-                    WS_VSCROLL | WS_TABSTOP
+                    UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS,211,48,11,
+                    12
+END
+
+IDD_CHEAT DIALOGEX 0, 0, 264, 199
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Cheats"
+FONT 8, "MS Sans Serif", 0, 0, 0x1
+BEGIN
+    EDITTEXT        IDC_CHEAT,7,142,197,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "Add Cheat",ID_ADDCHEAT,207,142,50,14
+    EDITTEXT        IDC_CODE,7,159,197,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "Add Code",ID_ADDCODE,207,159,50,14
+    LTEXT           "",IDC_MESSAGE,7,180,144,12,SS_NOPREFIX
+    DEFPUSHBUTTON   "OK",IDOK,154,178,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,207,178,50,14
+    CONTROL         "Tree1",IDC_TREE,"SysTreeView32",TVS_HASBUTTONS | 
+                    TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS | 
+                    TVS_SHOWSELALWAYS | TVS_CHECKBOXES | WS_BORDER | 
+                    WS_TABSTOP,7,7,250,132,WS_EX_CLIENTEDGE
 END
 
 
@@ -340,9 +175,9 @@ BEGIN
         VERTGUIDE, 36
         VERTGUIDE, 136
         TOPMARGIN, 7
-        BOTTOMMARGIN, 48
-        HORZGUIDE, 21
-        HORZGUIDE, 35
+        BOTTOMMARGIN, 43
+        HORZGUIDE, 19
+        HORZGUIDE, 31
     END
 
     IDD_OPTIONS_KEYS, DIALOG
@@ -371,22 +206,51 @@ BEGIN
         BOTTOMMARGIN, 39
     END
 
+    IDD_OPTIONS_FILE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        VERTGUIDE, 14
+        VERTGUIDE, 153
+        VERTGUIDE, 155
+        VERTGUIDE, 222
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 149
+        HORZGUIDE, 53
+        HORZGUIDE, 66
+        HORZGUIDE, 78
+        HORZGUIDE, 92
+        HORZGUIDE, 120
+        HORZGUIDE, 134
+    END
+
     IDD_OPTIONS_GENERAL, DIALOG
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 228
         VERTGUIDE, 14
-        VERTGUIDE, 117
-        VERTGUIDE, 184
+        VERTGUIDE, 155
         VERTGUIDE, 222
         TOPMARGIN, 7
         BOTTOMMARGIN, 149
-        HORZGUIDE, 53
-        HORZGUIDE, 64
-        HORZGUIDE, 78
-        HORZGUIDE, 105
-        HORZGUIDE, 119
-        HORZGUIDE, 133
+        HORZGUIDE, 60
+    END
+
+    IDD_CHEAT, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 257
+        VERTGUIDE, 151
+        VERTGUIDE, 204
+        VERTGUIDE, 207
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 192
+        HORZGUIDE, 89
+        HORZGUIDE, 139
+        HORZGUIDE, 142
+        HORZGUIDE, 159
+        HORZGUIDE, 173
+        HORZGUIDE, 178
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -551,6 +415,310 @@ BEGIN
     IDS_WINDOW_TILEVERTICALLY 
                             "Arranges the windows as vertical, nonoverlapping tiles"
     IDS_HELP_ABOUT          "Displays the program information and copyright"
+    IDS_ABOUT_TITLE         "About Game Lad"
+    IDS_ABOUT_WRITTENBY     "Written by $"
+    IDS_TRANSLATOR_NAME     "-"
+    IDS_FILE_MENU           "&File"
+    IDS_FILE_OPEN_MENU      "&Open Rom...\tCtrl+O"
+    IDS_FILE_CLOSE_MENU     "&Close\tCtrl+F4"
+    IDS_FILE_SAVESTATE_MENU "&Save State\tF2"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_LOADSTATE_MENU "&Load State\tF3"
+    IDS_FILE_SAVESTATEAS_MENU "Save State &As...\tShift+F2"
+    IDS_FILE_LOADSTATEAS_MENU "Loa&d State...\tShift+F3"
+    IDS_FILE_STATESLOT_MENU "S&tate Slot"
+    IDS_FILE_STATESLOT_0_MENU "&0 $\tF4,0"
+    IDS_FILE_STATESLOT_1_MENU "&1 $\tF4,1"
+    IDS_FILE_STATESLOT_2_MENU "&2 $\tF4,2"
+    IDS_FILE_STATESLOT_3_MENU "&3 $\tF4,3"
+    IDS_FILE_STATESLOT_4_MENU "&4 $\tF4,4"
+    IDS_FILE_STATESLOT_5_MENU "&5 $\tF4,5"
+    IDS_FILE_STATESLOT_6_MENU "&6 $\tF4,6"
+    IDS_FILE_STATESLOT_7_MENU "&7 $\tF4,7"
+    IDS_FILE_STATESLOT_8_MENU "&8 $\tF4,8"
+    IDS_FILE_STATESLOT_9_MENU "&9 $\tF4,9"
+    IDS_FILE_SAVEBATTERY_MENU "Sa&ve Battery Ram\tCtrl+S"
+    IDS_FILE_LOADBATTERY_MENU "Load &Battery Ram..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_SAVEBATTERYAS_MENU "Save Batter&y Ram As..."
+    IDS_FILE_CLEARBATTERY_MENU "Clea&r Battery Ram"
+    IDS_FILE_EXIT_MENU      "&Exit"
+    IDS_EDIT_MENU           "&Edit"
+    IDS_EDIT_GOTO_MENU      "&Go To...\tCtrl+G"
+    IDS_VIEW_MENU           "&View"
+    IDS_VIEW_DISASSEMBLY_MENU "&Disassembly\tAlt+8"
+    IDS_VIEW_MEMORY_MENU    "&Memory\tAlt+6"
+    IDS_VIEW_REGISTERS_MENU "&Registers\tAlt+5"
+    IDS_VIEW_HARDWARE_MENU  "&Hardware"
+    IDS_VIEW_PALETTES_MENU  "&Palettes"
+    IDS_VIEW_TILEMAP_MENU   "T&ile Map"
+    IDS_VIEW_TILES_MENU     "&Tiles"
+    IDS_VIEW_STATUSBAR_MENU "&Status bar"
+    IDS_VIEW_ZOOM_MENU      "&Zoom"
+    IDS_VIEW_ZOOM_100_MENU  "&100%"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_ZOOM_200_MENU  "&200%"
+    IDS_VIEW_ZOOM_300_MENU  "&300%"
+    IDS_VIEW_ZOOM_400_MENU  "&400%"
+    IDS_VIEW_FRAMESKIP_MENU "&Frame Skip"
+    IDS_VIEW_FRAMESKIP_0_MENU "&0"
+    IDS_VIEW_FRAMESKIP_1_MENU "&1"
+    IDS_VIEW_FRAMESKIP_2_MENU "&2"
+    IDS_VIEW_FRAMESKIP_3_MENU "&3"
+    IDS_VIEW_FRAMESKIP_4_MENU "&4"
+    IDS_VIEW_FRAMESKIP_5_MENU "&5"
+    IDS_VIEW_FRAMESKIP_6_MENU "&6"
+    IDS_VIEW_FRAMESKIP_7_MENU "&7"
+    IDS_VIEW_FRAMESKIP_8_MENU "&8"
+    IDS_VIEW_FRAMESKIP_9_MENU "&9"
+    IDS_VIEW_BANK_MENU      "&Bank"
+    IDS_VIEW_BANK_ROM_MENU  "&ROM..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_BANK_VBK_MENU  "&VBK"
+    IDS_VIEW_BANK_VBK_0_MENU "Bank &0"
+    IDS_VIEW_BANK_VBK_1_MENU "Bank &1"
+    IDS_VIEW_BANK_RAM_MENU  "R&AM"
+    IDS_VIEW_BANK_RAM_0_MENU "Bank &0"
+    IDS_VIEW_BANK_RAM_1_MENU "Bank &1"
+    IDS_VIEW_BANK_RAM_2_MENU "Bank &2"
+    IDS_VIEW_BANK_RAM_3_MENU "Bank &3"
+    IDS_VIEW_BANK_RAM_4_MENU "Bank &4"
+    IDS_VIEW_BANK_RAM_5_MENU "Bank &5"
+    IDS_VIEW_BANK_RAM_6_MENU "Bank &6"
+    IDS_VIEW_BANK_RAM_7_MENU "Bank &7"
+    IDS_VIEW_BANK_RAM_8_MENU "Bank &8"
+    IDS_VIEW_BANK_RAM_9_MENU "Bank &9"
+    IDS_VIEW_BANK_RAM_10_MENU "Bank &10"
+    IDS_VIEW_BANK_RAM_11_MENU "Bank &11"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_BANK_RAM_12_MENU "Bank &12"
+    IDS_VIEW_BANK_RAM_13_MENU "Bank &13"
+    IDS_VIEW_BANK_RAM_14_MENU "Bank &14"
+    IDS_VIEW_BANK_RAM_15_MENU "Bank &15"
+    IDS_VIEW_BANK_SVBK_MENU "&SVBK"
+    IDS_VIEW_BANK_SVBK_1_MENU "Bank &1"
+    IDS_VIEW_BANK_SVBK_2_MENU "Bank &2"
+    IDS_VIEW_BANK_SVBK_3_MENU "Bank &3"
+    IDS_VIEW_BANK_SVBK_4_MENU "Bank &4"
+    IDS_VIEW_BANK_SVBK_5_MENU "Bank &5"
+    IDS_VIEW_BANK_SVBK_6_MENU "Bank &6"
+    IDS_VIEW_BANK_SVBK_7_MENU "Bank &7"
+    IDS_EMULATION_MENU      "E&mulation"
+    IDS_EMULATION_STARTDEBUG_MENU "Start &Debug\tF5"
+    IDS_EMULATION_EXECUTE_MENU "&Execute\tCtrl+F5"
+    IDS_EMULATION_STOP_MENU "&Stop\tEsc"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMULATION_STEPINTO_MENU "Step &Into\tF11"
+    IDS_EMULATION_STEPOVER_MENU "Step &Over\tF10"
+    IDS_EMULATION_STEPOUT_MENU "Step O&ut\tShift+F11"
+    IDS_EMULATION_RUNTOCURSOR_MENU "Run to &Cursor\tCtrl+F10"
+    IDS_EMULATION_SETNEXTSTATEMENT_MENU "Set &Next Statement\tCtrl+Shift+F10"
+    IDS_EMULATION_TOGGLEBREAKPOINT_MENU "&Toggle Breakpoint\tF9"
+    IDS_EMULATION_RESET_MENU "&Reset"
+    IDS_TOOLS_MENU          "&Tools"
+    IDS_TOOLS_OPTIONS_MENU  "&Options..."
+    IDS_TOOLS_SOUNDENABLED_MENU "&Sound Enabled"
+    IDS_WINDOW_MENU         "&Window"
+    IDS_WINDOW_NEXT_MENU    "&Next"
+    IDS_WINDOW_PREVIOUS_MENU "&Previous"
+    IDS_WINDOW_CASCADE_MENU "&Cascade"
+    IDS_WINDOW_TILEHORIZONTALLY_MENU "Tile &Horizontally"
+    IDS_WINDOW_TILEVERTICALLY_MENU "&Tile Vertically"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_HELP_MENU           "&Help"
+    IDS_HELP_ABOUT_MENU     "&About"
+    IDS_STATUS_READY        "Ready"
+    IDS_STATUS_ENTERSLOTNUMBER "Enter number of a state slot"
+    IDS_OPEN_TITLE          "Title: $"
+    IDS_OPEN_LOADBATTERY    "Load battery"
+    IDS_STOPPED             "Stopped"
+    IDS_STARTDEBUG          "Start Debug"
+    IDS_EXECUTE             "Execute"
+    IDS_VK_APPS             "Application"
+    IDS_VK_BACK             "Backspace"
+    IDS_VK_CONTROL          "Control"
+    IDS_VK_DELETE           "Delete"
+    IDS_VK_DOWN             "Down Arrow"
+    IDS_VK_END              "End"
+    IDS_VK_RETURN           "Enter"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VK_HOME             "Home"
+    IDS_VK_INSERT           "Insert"
+    IDS_VK_LEFT             "Left Arrow"
+    IDS_VK_NUMLOCK          "Num Lock"
+    IDS_VK_NUMPAD0          "Numpad 0"
+    IDS_VK_NUMPAD1          "Numpad 1"
+    IDS_VK_NUMPAD2          "Numpad 2"
+    IDS_VK_NUMPAD3          "Numpad 3"
+    IDS_VK_NUMPAD4          "Numpad 4"
+    IDS_VK_NUMPAD5          "Numpad 5"
+    IDS_VK_NUMPAD6          "Numpad 6"
+    IDS_VK_NUMPAD7          "Numpad 7"
+    IDS_VK_NUMPAD8          "Numpad 8"
+    IDS_VK_NUMPAD9          "Numpad 9"
+    IDS_VK_ADD              "Numpad Add"
+    IDS_VK_DECIMAL          "Numpad Decimal"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VK_DIVIDE           "Numpad Divide"
+    IDS_VK_MULTIPLY         "Numpad Multiply"
+    IDS_VK_SUBTRACT         "Numpad Subtract"
+    IDS_VK_NEXT             "Page Down"
+    IDS_VK_PRIOR            "Page Up"
+    IDS_VK_PAUSE            "Pause"
+    IDS_VK_RIGHT            "Right Arrow"
+    IDS_VK_SHIFT            "Shift"
+    IDS_VK_SPACE            "Space"
+    IDS_VK_TAB              "Tab"
+    IDS_VK_UP               "Up Arrow"
+    IDS_YES                 "Yes"
+    IDS_NO                  "No"
+    IDS_PROMPT              "Prompt"
+    IDS_OPTIONS_KEYS        "Keys"
+    IDS_OPTIONS_KEYS_UP     "Up"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_OPTIONS_KEYS_DOWN   "Down"
+    IDS_OPTIONS_KEYS_LEFT   "Left"
+    IDS_OPTIONS_KEYS_RIGHT  "Right"
+    IDS_OPTIONS_KEYS_A      "A"
+    IDS_OPTIONS_KEYS_B      "B"
+    IDS_OPTIONS_KEYS_START  "Start"
+    IDS_OPTIONS_KEYS_SELECT "Select"
+    IDS_OPTIONS_KEYS_FASTFORWARD "Fast Forward"
+    IDS_OPTIONS_GENERAL     "General"
+    IDS_FILEASSOC_FRAME     "Associate files with Game Lad"
+    IDS_FILEASSOC_GB        "Game Boy ROM files (.gb and .gbc)"
+    IDS_FILEASSOC_GLS       "Game Lad save states (.gls)"
+    IDS_SAVE_FRAME          "Save"
+    IDS_SAVE_LOADBATTERY    "Load battery if possible"
+    IDS_SAVE_LOADSTATE      "Load latest saved state"
+    IDS_SAVE_SAVEBATTERY    "Save battery on close"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_SAVE_SAVESTATE      "Save state on close"
+    IDS_MISC_FRAME          "Miscellaneous"
+    IDS_MISC_FRAMESKIP      "Default frame skip"
+    IDS_MISC_HARDWARE       "Hardware to emulate"
+    IDS_MISC_AUTOSTART      "Initial state of an opened ROM"
+    IDS_OPTIONS_LANGUAGE    "Language"
+    IDS_OPTIONS             "Options"
+    IDS_OPEN_GBROM          "Game Boy ROMs (*.gb; *.gbc)"
+    IDS_OPEN_ALLFILES       "All Files (*.*)"
+    IDS_OPEN_BATTERY        "Game Boy Battery RAM (*.sav)"
+    IDS_OPEN_SAVESTATE      "Game Lad Save States (*.gls)"
+    IDS_WND_REGISTERS       "Registers"
+    IDS_WND_DISASSEMBLY     "Disassembly"
+    IDS_WND_MEMORY          "Memory"
+    IDS_WND_TILES           "Tiles"
+    IDS_WND_TILEMAP         "Tile Map"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_WND_PALETTES        "Palettes"
+    IDS_WND_HARDWARE        "Hardware"
+    IDS_OPEN                "Open"
+    IDS_SAVEAS              "Save As"
+    IDS_STATUS_LOADED       "$ loaded"
+    IDS_STATUS_SAVED        "$ saved"
+    IDS_STATUS_NOTFOUND     "$ not found"
+    IDS_STATUS_READERROR    "Error reading $"
+    IDS_STATUS_WRITEERROR   "Error writing $"
+    IDS_PROMPT_SAVESTATE    "Save state?"
+    IDS_PROMPT_SAVEBATTERY  "Save battery?"
+    IDS_STATUS_ROMNOTFOUND  "ROM file not found"
+    IDS_STATUS_ROMSIZEDIFFER "File size doesn't match rom header."
+    IDS_STATUS_SELECTSTATESLOT "State slot $ selected"
+    IDS_STATUS_SELECTFRAMESKIP "Frame skip set to $"
+    IDS_EMU_INVALIDOPCODE   "Invalid operation code"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMU_READACCESSDENIED "Read access needed"
+    IDS_EMU_WRITEACCESSDENIED "Write access denied"
+    IDS_EMU_EXECUTEACCESSDENIED "Execute access denied"
+    IDS_EMU_WRITEACCESSDENIED_INT 
+                            "Write access needed for stack pointer, interrupt cannot be serviced"
+    IDS_EMU_HALTQUIRK       "Halt quirk"
+    IDS_NOAUDIO             "No audio device present."
+    IDS_OPENAUDIOERROR      "Could not open audio device."
+    IDS_HIGHERVERSIONREQUIRED "$ or higher is required."
+    IDS_TOOLS_CHEAT_MENU    "&Cheat..."
+    IDS_TOOLS_CHEAT         "Enter cheat codes"
+    IDS_CHEAT_TITLE         "Cheats"
+    IDS_CHEAT_ADDCHEAT      "Add Cheat"
+    IDS_CHEAT_ADDCODE       "Add Code"
+    IDS_CHEAT_INVALID       "Invalid code"
+    IDS_CHEAT_GAMEGENIE     "Game Genie code"
+    IDS_CHEAT_GAMESHARK     "Game Shark code"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_CHEAT_INEFFECTIVE   "Code ineffective"
+    IDS_FILE_SAVESNAPSHOTAS_MENU "Save Snapshot..."
+    IDS_FILE_SAVESNAPSHOTAS "Saves the current picture to a file"
+    IDS_FILE_SAVEVIDEOAS_MENU "Save V&ideo..."
+    IDS_FILE_SAVEVIDEOAS    "Saves output as a video file"
+    IDS_WND_TILEMAP_XFLIP   "X-Flip"
+    IDS_WND_TILEMAP_YFLIP   "Y-Flip"
+    IDS_WND_TILEMAP_PRIORITY "Prio"
+    IDS_WND_TILEMAP_BACKGROUNDENABLED "Bgnd"
+    IDS_WND_TILEMAP_WINDOWENABLED "Window"
+    IDS_WND_PALETTES_BACKGROUND "Background"
+    IDS_WND_PALETTES_SPRITE "Sprite"
+    IDS_WND_HARDWARE_ROMSIZE "ROM Size:"
+    IDS_WND_HARDWARE_RAMSIZE "RAM Size:"
+    IDS_WND_REGISTERS_HBLANK "H-Blank"
+    IDS_WND_REGISTERS_VBLANK "V-Blank"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_WND_REGISTERS_OAMSEARCH "OAM"
+    IDS_WND_REGISTERS_LCDTRANSFER "LCD"
+    IDS_FILE_MERGECHEATS_MENU "&Merge Cheats..."
+    IDS_FILE_MERGECHEATS    "Load cheats from a file and adds them to the cheat list"
+    IDS_OPTIONS_FILE        "File"
+    IDS_OPEN_LOADSTATE      "Load latest state"
+    IDS_OPEN_CHEATXML       "Cheat files (*.xml)"
+    IDS_ENTERADDRESS        "Enter Address"
+    IDS_ENTERROMBANKNO      "Enter ROM bank"
+    IDS_OPTIONS_LANGUAGE_TRANSLATEDBY "Translated by: $"
+    IDS_OPEN_AVI            "Video for Windows (*.avi)"
+    IDS_OPEN_BITMAP         "Bitmap (*.bmp)"
 END
 
 #endif    // English (U.S.) resources

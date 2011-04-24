@@ -1,4 +1,4 @@
-#include	"Game Boy.h"
+#include	"Sound\\Sound.h"
 
 
 
@@ -7,13 +7,9 @@
 #define		GAME_LAD_CPP	extern
 #define		EQUALNULL
 
-extern		char			OutOfMemoryMsg[];
-
 #else //GAME_LAD_CPP
 
 #define		EQUALNULL		= NULL
-
-			char			OutOfMemoryMsg[] = "Out of memory.";
 
 #endif //GAME_LAD_CPP
 
@@ -36,9 +32,22 @@ extern		char			OutOfMemoryMsg[];
 
 
 
+#ifndef ListView_SetCheckState
+	#define ListView_SetCheckState(hwndLV, i, fCheck) \
+		ListView_SetItemState(hwndLV, i, INDEXTOSTATEIMAGEMASK((fCheck)+1), LVIS_STATEIMAGEMASK)
+#endif
+
+
+
 //Messages for main window
-#define		WM_APP_DDEOPENFILE		WM_APP
-#define		WM_APP_REFRESHDEBUG		(WM_APP + 1)
+enum WM_APP_Messages
+{
+	WM_APP_DDEOPENFILE = WM_APP,
+	WM_APP_REFRESHDEBUG,
+	WM_APP_CHANGELANGUAGE,
+
+	WM_APP_FIRSTFREEMESSAGE
+};
 
 
 
@@ -80,8 +89,7 @@ struct KEYS
 
 
 GAME_LAD_CPP	HINSTANCE			hInstance;
-#define			hStringInstance		hInstance
-GAME_LAD_CPP	HWND				hWnd, hClientWnd, hStatusWnd;
+GAME_LAD_CPP	HWND				hWnd, hMsgParent, hClientWnd, hStatusWnd;
 GAME_LAD_CPP	HFONT				hFont, hFixedFont;
 GAME_LAD_CPP	int					FixedFontWidth, FixedFontHeight;
 GAME_LAD_CPP	HMENU				hPopupMenu;
@@ -117,8 +125,20 @@ enum
 
 GAME_LAD_CPP	void				SetStatus(char *szStatusText, DWORD dwStatus);
 
-GAME_LAD_CPP	void				DisplayErrorMessage(HWND hWin);
+GAME_LAD_CPP	void				DisplayErrorMessage();
+GAME_LAD_CPP	void				DisplayErrorMessage(DWORD dwErrCode);
 GAME_LAD_CPP	BOOL				HexToNum(char *pc);
+
+GAME_LAD_CPP	char				*LoadString(UINT uID, char *pszBuffer, int nBufferMax);
+GAME_LAD_CPP	char				*LoadString(UINT uID, char *pszBuffer, int nBufferMax, char *pszInsert);
+#define			String(uID)			LoadString(uID, szBuffer, sizeof(szBuffer))
+
+GAME_LAD_CPP	BOOL				ChangeExtension(char *pszFilename, char *pszExtension);
+GAME_LAD_CPP	char				*CopyString(char *pszDest, char *pszSrc, DWORD dwLength);
+
+
+GAME_LAD_CPP	HINSTANCE			hSoundDll;
+GAME_LAD_CPP	SOUNDMAIN			SoundMain;
 
 
 #undef		GAME_LAD_CPP

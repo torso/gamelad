@@ -141,7 +141,7 @@ static struct Code[]
 
 	while (LineOffset != 0)
 	{
-		DWORD	LineOffset		//Number of lines to step (cumulative).
+		DWORD	Lines				//Number of lines to step (cumulative).
 		while (Size != 0)
 		{
 			WORD	Size			//Size of code generated for these lines.

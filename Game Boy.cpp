@@ -1,8 +1,12 @@
 #include	<windows.h>
+#include	<commctrl.h>
+#include	<vfw.h>
 
 #define		GAME_BOY_CPP
 #include	"CDebugInfo.h"
 #include	"Game Lad.h"
+#include	"Game Boy.h"
+#include	"CCheats.h"
 #include	"CGameBoys.h"
 #include	"Z80.h"
 #include	"Debugger.h"
@@ -15,6 +19,8 @@
 
 
 void CloseSound_asm(CGameBoy *pGameBoy);
+
+AVICOMPRESSOPTIONS	aco, *aaco[1] = {&aco};
 
 
 
@@ -53,12 +59,51 @@ BYTE RomSize(BYTE Byte148)
 
 
 
+/*WORD	Palette[32768], RealPalette[32768];
+
+
+
+int GetValue(int min,int max,int v)
+{
+	return (int)(min + (float)(max - min) * (2.0 * (v / 31.0) - (v / 31.0) * (v / 31.0)));
+}
+
+
+
+void CreatePalettes()
+{
+	int		r, g, b;
+	int		nr, ng, nb;
+
+
+	for (r = 0; r < 32; r++)
+	{
+		for (g = 0; g < 32; g++)
+		{
+			for (b = 0; b < 32; b++)
+			{
+				nr = GetValue(GetValue(4, 14, g), GetValue(24, 29, g), r) - 4;
+				ng = GetValue(GetValue(4 + GetValue(0, 5, r), 14 + GetValue(0, 3, r), b),
+					GetValue(24 + GetValue(0, 3, r), 29 + GetValue(0, 1, r), b), g) - 4;
+				nb = GetValue(GetValue(4 + GetValue(0, 5, r), 14 + GetValue(0, 3, r), g),
+					GetValue(24 + GetValue(0, 3, r), 29 + GetValue(0, 1, r), g), b) - 4;
+				Palette[(b << 10) | (g << 5) | r] = (nr << 10) | (ng << 5) | nb;
+			}
+		}
+	}
+}*/
+
+
+
 CGameBoy::CGameBoy(BYTE Flags)
 {
 	ZeroMemory(this, sizeof(*this));
 
 	this->Flags = Flags & GB_COLOR;
 	FrameSkip = Settings.FrameSkip;
+
+	/*CreatePalettes();
+	pPalette = Palette;*/
 }
 
 
@@ -82,6 +127,11 @@ CGameBoy::~CGameBoy()
 	if (pDebugInfo)
 	{
 		delete pDebugInfo;
+	}
+
+	if (m_pCheatList)
+	{
+		delete m_pCheatList;
 	}
 
 	if (hGBWnd)
@@ -108,7 +158,7 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 	DWORD			FileSize, nBytes;
 	BITMAPINFO		bmi;
 	BOOL			Maximized;
-	char			szStatusText[sizeof(Rom) + 7];
+	char			szBuffer[0x100 * 2];
 
 
 	if (!pszROMFilename || pszROMFilename[0] == '\0')
@@ -127,30 +177,38 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 		{
 			*strrchr(Rom, '.') = '\0';
 		}
+
+		if (Rom[0] == '\0')
+		{
+			return true;
+		}
+
 		if (SearchPath(NULL, Rom, ".gb", MAX_PATH, Rom, NULL) == 0)
 		{
 			if (SearchPath(NULL, Rom, ".gbc", MAX_PATH, Rom, NULL) == 0)
 			{
-				if (strlen(Rom) == 0)
+				if (Rom[0] == '\0')
 				{
-					MessageBox(hWnd, "ROM File not found.", NULL, MB_OK | MB_ICONERROR);
+					MessageBox(hMsgParent, String(IDS_STATUS_ROMNOTFOUND), NULL, MB_OK | MB_ICONERROR);
 					return true;
 				}
 				if (Rom[strlen(Rom) - 1] >= '0' && Rom[strlen(Rom) - 1] <= '9')
 				{
+					StateSlot = Rom[strlen(Rom) - 1] - '0';
+
 					Rom[strlen(Rom) - 1] = '\0';
 					if (SearchPath(NULL, Rom, ".gb", MAX_PATH, Rom, NULL) == 0)
 					{
 						if (SearchPath(NULL, Rom, ".gbc", MAX_PATH, Rom, NULL) == 0)
 						{
-							MessageBox(hWnd, "ROM File not found.", NULL, MB_OK | MB_ICONERROR);
+							MessageBox(hMsgParent, String(IDS_STATUS_ROMNOTFOUND), NULL, MB_OK | MB_ICONERROR);
 							return true;
 						}
 					}
 				}
 				else
 				{
-					MessageBox(hWnd, "ROM File not found.", NULL, MB_OK | MB_ICONERROR);
+					MessageBox(hMsgParent, String(IDS_STATUS_ROMNOTFOUND), NULL, MB_OK | MB_ICONERROR);
 					return true;
 				}
 			}
@@ -161,54 +219,61 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 		strcpy(Rom, pszROMFilename);
 	}
 
-	//Load rom
+	//Load ROM
 	if ((hFile = CreateFile(Rom, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL)) == INVALID_HANDLE_VALUE)
 	{
-		DisplayErrorMessage(hWnd);
+		DisplayErrorMessage();
 		return true;
 	}
 	FileSize = GetFileSize(hFile, NULL);
 	if (SetFilePointer(hFile, 0x148, NULL, FILE_BEGIN) == 0xFFFFFFFF)
 	{
 		CloseHandle(hFile);
-		DisplayErrorMessage(hWnd);
+		DisplayErrorMessage();
 		return true;
 	}
 	if (!ReadFile(hFile, &MaxRomBank, 1, &nBytes, NULL))
 	{
 		CloseHandle(hFile);
-		DisplayErrorMessage(hWnd);
+		DisplayErrorMessage();
 		return true;
 	}
 	MaxRomBank = RomSize(MaxRomBank);
 	if (FileSize != (((DWORD)MaxRomBank + 1) * 16384))
 	{
-		CloseHandle(hFile);
-		MessageBox(hWnd, "File size doesn't match rom header.", NULL, MB_OK | MB_ICONERROR);
-		return true;
+		if (MessageBox(hMsgParent, String(IDS_STATUS_ROMSIZEDIFFER), NULL, MB_OKCANCEL | MB_ICONWARNING) == IDCANCEL)
+		{
+			CloseHandle(hFile);
+			return true;
+		}
+		if (FileSize > (((DWORD)MaxRomBank + 1) * 16384))
+		{
+			FileSize = ((DWORD)MaxRomBank + 1) * 16384;
+		}
 	}
 	if (SetFilePointer(hFile, 0, NULL, FILE_BEGIN) == 0xFFFFFFFF)
 	{
 		CloseHandle(hFile);
-		DisplayErrorMessage(hWnd);
+		DisplayErrorMessage();
 		return true;
 	}
-	if (!(MEM_ROM = new BYTE[FileSize]))
+	if (!(MEM_ROM = new BYTE[((DWORD)MaxRomBank + 1) * 16384]))
 	{
 		CloseHandle(hFile);
-		MessageBox(hWnd, OutOfMemoryMsg, NULL, MB_ICONERROR | MB_OK);
+		DisplayErrorMessage(ERROR_OUTOFMEMORY);
 		return true;
 	}
-	if (!(MemStatus_ROM = new BYTE[FileSize]))
+	ZeroMemory(MEM_ROM, ((DWORD)MaxRomBank + 1) * 16384);
+	if (!(MemStatus_ROM = new BYTE[((DWORD)MaxRomBank + 1) * 16384]))
 	{
 		CloseHandle(hFile);
-		MessageBox(hWnd, OutOfMemoryMsg, NULL, MB_ICONERROR | MB_OK);
+		DisplayErrorMessage(ERROR_OUTOFMEMORY);
 		return true;
 	}
 	if (!ReadFile(hFile, MEM_ROM, FileSize, &nBytes, NULL))
 	{
 		CloseHandle(hFile);
-		DisplayErrorMessage(hWnd);
+		DisplayErrorMessage();
 		return true;
 	}
 	CloseHandle(hFile);
@@ -247,7 +312,7 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 		//External Battery RAM
 		if (!(MemStatus_RAM = new BYTE[(MaxRamBank + 1) * 0x2000]))
 		{
-			MessageBox(hWnd, OutOfMemoryMsg, NULL, MB_OK | MB_ICONERROR);
+			DisplayErrorMessage(ERROR_OUTOFMEMORY);
 			return true;
 		}
 		ZeroMemory(MemStatus_RAM, (MaxRamBank + 1) * 0x2000);
@@ -276,11 +341,17 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 	{
 		if (!(hGBDC = CreateCompatibleDC(NULL)))
 		{
-			DisplayErrorMessage(hWnd);
+			DisplayErrorMessage();
 			return true;
 		}
 
 		ZeroMemory(&bmi, sizeof(bmi));
+		/*bmi.bmiHeader.bv4Size = sizeof(BITMAPV4HEADER);
+		bmi.bmiHeader.bV4Width = 160 + 14;
+		bmi.bmiHeader.biHeight = -144;
+		bmi.bmiHeader.biPlanes = 1;
+		bmi.bmiHeader.biBitCount = 16;
+		bmi.bmiHeader.bCompression = BI_RGB;*/
 		bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 		bmi.bmiHeader.biWidth = 160 + 14;
 		bmi.bmiHeader.biHeight = -144;
@@ -289,13 +360,13 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 		bmi.bmiHeader.biCompression = BI_RGB;
 		if (!(hGBBitmap = CreateDIBSection(hGBDC, &bmi, DIB_RGB_COLORS, (void **)&pGBBitmap, NULL, 0)))
 		{
-			DisplayErrorMessage(hWnd);
+			DisplayErrorMessage();
 			return true;
 		}
 
 		if (!(hOldBitmap = (HBITMAP)SelectObject(hGBDC, hGBBitmap)))
 		{
-			DisplayErrorMessage(hWnd);
+			DisplayErrorMessage();
 			return true;
 		}
 	}
@@ -303,8 +374,11 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 	if (pszStateFilename)
 	{
 		Reset();
-		strcpy(Battery, pszBatteryFilename);
-		if (LoadState(pszStateFilename, false))
+		if (pszBatteryFilename)
+		{
+			strcpy(Battery, pszBatteryFilename);
+		}
+		if (LoadState(pszStateFilename, false, false))
 		{
 			LoadBattery(pszBatteryFilename);
 			Reset();
@@ -330,14 +404,12 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 	//Create window
 	if (!(hGBWnd = CreateWindowEx(WS_EX_MDICHILD, "Game Boy", Rom, Maximized ? WS_VISIBLE | WS_MAXIMIZE : WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, 160 + 2 * GetSystemMetrics(SM_CXSIZEFRAME), 144 + 2 * GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CYCAPTION), hClientWnd, NULL, hInstance, NULL)))
 	{
-		DisplayErrorMessage(hWnd);
+		DisplayErrorMessage();
 		return true;
 	}
 	SetWindowLong(hGBWnd, GWL_USERDATA, (long)this);
 
-	strcpy(szStatusText, Rom);
-	strcat(szStatusText, " loaded");
-	SetStatus(szStatusText, SF_MESSAGE);
+	SetStatus(LoadString(IDS_STATUS_LOADED, szBuffer, sizeof(szBuffer), Rom), SF_MESSAGE);
 
 	return false;
 }
@@ -348,7 +420,7 @@ BOOL CGameBoy::LoadBattery(char *BatteryFilename)
 {
 	HANDLE		hFile;
 	DWORD		nBytes;
-	char		szStatusText[MAX_PATH + 16];
+	char		szBuffer[0x200];
 
 
 	if (!SaveRamSize)
@@ -377,9 +449,7 @@ BOOL CGameBoy::LoadBattery(char *BatteryFilename)
 		{
 			CloseHandle(hFile);
 
-			strcpy(szStatusText, "Error loading battery RAM from ");
-			strcat(szStatusText, Battery);
-			SetStatus(szStatusText, SF_MESSAGE);
+			SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), Battery), SF_MESSAGE);
 
 			ZeroMemory(&MEM_RAM, sizeof(MEM_RAM));
 			BatteryAvailable = false;
@@ -394,22 +464,16 @@ BOOL CGameBoy::LoadBattery(char *BatteryFilename)
 	{
 		if (GetLastError() == ERROR_FILE_NOT_FOUND)
 		{
-			strcpy(szStatusText, Battery);
-			strcat(szStatusText, " does not exist");
-			SetStatus(szStatusText, SF_MESSAGE);
+			SetStatus(LoadString(IDS_STATUS_NOTFOUND, szBuffer, sizeof(szBuffer), Battery), SF_MESSAGE);
 		}
 		else
 		{
-			strcpy(szStatusText, "Couldn't open file ");
-			strcat(szStatusText, Battery);
-			SetStatus(szStatusText, SF_MESSAGE);
+			SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), Battery), SF_MESSAGE);
 		}
 		return true;
 	}
 
-	strcpy(szStatusText, "Battery RAM loaded from ");
-	strcat(szStatusText, Battery);
-	SetStatus(szStatusText, SF_MESSAGE);
+	SetStatus(LoadString(IDS_STATUS_LOADED, szBuffer, sizeof(szBuffer), Battery), SF_MESSAGE);
 
 	Reset();
 	return false;
@@ -420,10 +484,10 @@ BOOL CGameBoy::LoadBattery(char *BatteryFilename)
 BOOL CGameBoy::SaveBattery(BOOL Prompt, BOOL SaveAs)
 {
 	HANDLE			hFile;
-	DWORD			nBytes;
+	DWORD			nBytes, dw;
 	BYTE			*Buffer;
 	OPENFILENAME	of;
-	char			szStatusText[MAX_PATH + 16];
+	char			szBuffer[0x200], szBuffer2[0x100];
 
 
 	if (!SaveRamSize || (Prompt && !BatteryAvailable))
@@ -441,7 +505,7 @@ BOOL CGameBoy::SaveBattery(BOOL Prompt, BOOL SaveAs)
 		strcat(Battery, ".sav");
 		if (Prompt)
 		{
-			switch (MessageBox(hWnd, "Save battery ram?", "Game Lad", MB_YESNOCANCEL | MB_ICONQUESTION))
+			switch (MessageBox(hMsgParent, String(IDS_PROMPT_SAVEBATTERY), "Game Lad", MB_YESNOCANCEL | MB_ICONQUESTION))
 			{
 			case IDNO:
 				return false;
@@ -453,9 +517,19 @@ BOOL CGameBoy::SaveBattery(BOOL Prompt, BOOL SaveAs)
 		ZeroMemory(&of, sizeof(of));
 		of.lStructSize = sizeof(of);
 		of.hwndOwner = hWnd;
-		of.lpstrFilter = "Game Boy Battery Ram (*.sav)\0*.SAV\0All files (*.*)\0*.*\0";
+		String(IDS_OPEN_BATTERY);
+		dw = strlen(szBuffer) + 1;
+		strcpy(szBuffer + dw, "*.SAV");
+		dw += strlen(szBuffer + dw) + 1;
+		LoadString(IDS_OPEN_ALLFILES, szBuffer + dw, sizeof(szBuffer) - dw);
+		dw += strlen(szBuffer + dw) + 1;
+		strcpy(szBuffer + dw, "*.*");
+		dw += strlen(szBuffer + dw) + 1;
+		*(szBuffer + dw) = '\0';
+		of.lpstrFilter = szBuffer;
 		of.lpstrFile = Battery;
 		of.nMaxFile = sizeof(Battery);
+		of.lpstrTitle = LoadString(IDS_SAVEAS, szBuffer2, sizeof(szBuffer2));
 		of.Flags = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
 		of.lpstrDefExt = "sav";
 		if (!GetSaveFileName(&of))
@@ -472,10 +546,20 @@ BOOL CGameBoy::SaveBattery(BOOL Prompt, BOOL SaveAs)
 			ZeroMemory(&of, sizeof(of));
 			of.lStructSize = sizeof(of);
 			of.hwndOwner = hWnd;
-			of.lpstrFilter = "Game Boy Battery Ram (*.sav)\0*.SAV\0All files (*.*)\0*.*\0";
+			String(IDS_OPEN_BATTERY);
+			dw = strlen(szBuffer) + 1;
+			strcpy(szBuffer + dw, "*.SAV");
+			dw += strlen(szBuffer + dw) + 1;
+			LoadString(IDS_OPEN_ALLFILES, szBuffer + dw, sizeof(szBuffer) - dw);
+			dw += strlen(szBuffer + dw) + 1;
+			strcpy(szBuffer + dw, "*.*");
+			dw += strlen(szBuffer + dw) + 1;
+			*(szBuffer + dw) = '\0';
+			of.lpstrFilter = szBuffer;
 			//of.nFilterIndex = 1;
 			of.lpstrFile = Battery;
 			of.nMaxFile = sizeof(Battery);
+			of.lpstrTitle = LoadString(IDS_SAVEAS, szBuffer2, sizeof(szBuffer2));
 			of.Flags = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
 			of.lpstrDefExt = "sav";
 			if (!GetSaveFileName(&of))
@@ -507,7 +591,7 @@ BOOL CGameBoy::SaveBattery(BOOL Prompt, BOOL SaveAs)
 			CloseHandle(hFile);
 		}
 
-		switch (MessageBox(hWnd, "Save battery ram?", "Game Lad", MB_YESNOCANCEL | MB_ICONQUESTION))
+		switch (MessageBox(hMsgParent, String(IDS_PROMPT_SAVEBATTERY), "Game Lad", MB_YESNOCANCEL | MB_ICONQUESTION))
 		{
 		case IDNO:
 			return false;
@@ -519,11 +603,9 @@ BOOL CGameBoy::SaveBattery(BOOL Prompt, BOOL SaveAs)
 
 	while ((hFile = CreateFile(Battery, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL)) == INVALID_HANDLE_VALUE)
 	{
-		if (MessageBox(hWnd, "Couldn't create file.", NULL, MB_RETRYCANCEL | MB_ICONWARNING) == IDCANCEL)
+		if (MessageBox(hMsgParent, LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), Battery), NULL, MB_RETRYCANCEL | MB_ICONWARNING) == IDCANCEL)
 		{
-			strcpy(szStatusText, "Couldn't create file ");
-			strcat(szStatusText, Battery);
-			SetStatus(szStatusText, SF_MESSAGE);
+			SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), Battery), SF_MESSAGE);
 			return true;
 		}
 	}
@@ -532,22 +614,18 @@ BOOL CGameBoy::SaveBattery(BOOL Prompt, BOOL SaveAs)
 	{
 		SetFilePointer(hFile, 0, NULL, FILE_BEGIN);
 		SetEndOfFile(hFile);
-		if (MessageBox(hWnd, "Error while saving.", NULL, MB_RETRYCANCEL | MB_ICONWARNING) == IDCANCEL)
+		if (MessageBox(hMsgParent, LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), Battery), NULL, MB_RETRYCANCEL | MB_ICONWARNING) == IDCANCEL)
 		{
 			CloseHandle(hFile);
 			DeleteFile(Battery);
-			strcpy(szStatusText, "Error saving battery RAM to ");
-			strcat(szStatusText, Battery);
-			SetStatus(szStatusText, SF_MESSAGE);
+			SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), Battery), SF_MESSAGE);
 			return true;
 		}
 	}
 
 	CloseHandle(hFile);
 
-	strcpy(szStatusText, "Battery RAM saved to ");
-	strcat(szStatusText, Battery);
-	SetStatus(szStatusText, SF_MESSAGE);
+	SetStatus(LoadString(IDS_STATUS_SAVED, szBuffer, sizeof(szBuffer), Battery), SF_MESSAGE);
 
 	return false;
 }
@@ -755,18 +833,34 @@ UINT CALLBACK StateOFNHookProc(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lPar
 
 
 
-char *CGameBoy::GetStateFilename(char *szFilename)
+char *CGameBoy::GetStateFilename(char *pszFilename)
 {
-	strcpy(szFilename, Rom);
-	if (strchr(szFilename, '.'))
+	strcpy(pszFilename, Rom);
+	if (strchr(pszFilename, '.'))
 	{
-		*strrchr(szFilename, '.') = '\0';
+		*strrchr(pszFilename, '.') = '\0';
 	}
-	szFilename[strlen(szFilename) + 1] = '\0';
-	szFilename[strlen(szFilename)] = StateSlot + '0';
-	strcat(szFilename, ".gls");
+	pszFilename[strlen(pszFilename) + 1] = '\0';
+	pszFilename[strlen(pszFilename)] = StateSlot + '0';
+	strcat(pszFilename, ".gls");
 
-	return szFilename;
+	return pszFilename;
+}
+
+
+
+char *CGameBoy::GetStateFilename(char *pszFilename, DWORD dwStateSlot)
+{
+	strcpy(pszFilename, Rom);
+	if (strchr(pszFilename, '.'))
+	{
+		*strrchr(pszFilename, '.') = '\0';
+	}
+	pszFilename[strlen(pszFilename) + 1] = '\0';
+	pszFilename[strlen(pszFilename)] = (char)dwStateSlot + '0';
+	strcat(pszFilename, ".gls");
+
+	return pszFilename;
 }
 
 
@@ -783,7 +877,8 @@ BOOL CGameBoy::SaveState()
 BOOL CGameBoy::SaveStateAs()
 {
 	OPENFILENAME		of;
-	char				szFilename[MAX_PATH];
+	char				szFilename[MAX_PATH], szBuffer[0x100], szBuffer2[0x100];
+	DWORD				dw;
 
 
 	Stop();
@@ -791,12 +886,23 @@ BOOL CGameBoy::SaveStateAs()
 	ZeroMemory(&of, sizeof(of));
 	of.lStructSize = sizeof(of);
 	of.hwndOwner = hWnd;
-	of.lpstrFilter = "Game Lad Save States (*.gls)\0*.GLS\0All files (*.*)\0*.*\0";
+	String(IDS_OPEN_SAVESTATE);
+	dw = strlen(szBuffer) + 1;
+	strcpy(szBuffer + dw, "*.GLS");
+	dw += strlen(szBuffer + dw) + 1;
+	LoadString(IDS_OPEN_ALLFILES, szBuffer + dw, sizeof(szBuffer) - dw);
+	dw += strlen(szBuffer + dw) + 1;
+	strcpy(szBuffer + dw, "*.*");
+	dw += strlen(szBuffer + dw) + 1;
+	*(szBuffer + dw) = '\0';
+	of.lpstrFilter = szBuffer;
 	of.nFilterIndex = 1;
 	of.lpstrFile = szFilename;
 	of.nMaxFile = sizeof(szFilename);
+	of.lpstrTitle = LoadString(IDS_SAVEAS, szBuffer2, sizeof(szBuffer2));
 	of.Flags = OFN_HIDEREADONLY | OFN_ENABLEHOOK | OFN_EXPLORER | OFN_ENABLESIZING;
 	of.lpfnHook = StateOFNHookProc;
+	of.lpstrDefExt = "gls";
 	szFilename[0] = 0;
 	if (!GetSaveFileName(&of))
 	{
@@ -814,9 +920,7 @@ BOOL CGameBoy::SaveStateAs()
 	{																\
 		CloseHandle(hFile);											\
 		DeleteFile(pszFilename);									\
-		strcpy(szBuffer, "Error saving state to ");					\
-		strcat(szBuffer, pszFilename);								\
-		SetStatus(szBuffer, SF_MESSAGE);							\
+		SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);\
 		Resume();													\
 		return true;												\
 	}																\
@@ -824,9 +928,7 @@ BOOL CGameBoy::SaveStateAs()
 	{																\
 		CloseHandle(hFile);											\
 		DeleteFile(pszFilename);									\
-		strcpy(szBuffer, "Error saving state to ");					\
-		strcat(szBuffer, pszFilename);								\
-		SetStatus(szBuffer, SF_MESSAGE);							\
+		SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);\
 		Resume();													\
 		return true;												\
 	}
@@ -836,9 +938,7 @@ BOOL CGameBoy::SaveStateAs()
 	{																\
 		CloseHandle(hFile);											\
 		DeleteFile(pszFilename);									\
-		strcpy(szBuffer, "Error saving state to ");					\
-		strcat(szBuffer, pszFilename);								\
-		SetStatus(szBuffer, SF_MESSAGE);							\
+		SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);\
 		Resume();													\
 		return true;												\
 	}																\
@@ -846,9 +946,7 @@ BOOL CGameBoy::SaveStateAs()
 	{																\
 		CloseHandle(hFile);											\
 		DeleteFile(pszFilename);									\
-		strcpy(szBuffer, "Error saving state to ");					\
-		strcat(szBuffer, pszFilename);								\
-		SetStatus(szBuffer, SF_MESSAGE);							\
+		SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);\
 		Resume();													\
 		return true;												\
 	}
@@ -857,7 +955,7 @@ BOOL CGameBoy::SaveState(char *pszFilename, BOOL AlreadyStopped)
 {
 	HANDLE		hFile;
 	DWORD		nBytes, Value, y;
-	char		szBuffer[MAX_PATH + 16];
+	char		szBuffer[0x200];
 
 
 	if (!AlreadyStopped)
@@ -867,8 +965,7 @@ BOOL CGameBoy::SaveState(char *pszFilename, BOOL AlreadyStopped)
 
 	if ((hFile = CreateFile(pszFilename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL)) == INVALID_HANDLE_VALUE)
 	{
-		strcpy(szBuffer, "Couldn't create file ");
-		strcat(szBuffer, pszFilename);
+		SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 		Resume();
 		return true;
 	}
@@ -888,9 +985,7 @@ BOOL CGameBoy::SaveState(char *pszFilename, BOOL AlreadyStopped)
 		{
 			CloseHandle(hFile);
 			DeleteFile(pszFilename);
-			strcpy(szBuffer, "Error saving state to ");
-			strcat(szBuffer, pszFilename);
-			SetStatus(szBuffer, SF_MESSAGE);
+			SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 			Resume();
 			return true;
 		}
@@ -898,9 +993,7 @@ BOOL CGameBoy::SaveState(char *pszFilename, BOOL AlreadyStopped)
 		{
 			CloseHandle(hFile);
 			DeleteFile(pszFilename);
-			strcpy(szBuffer, "Error saving state to ");
-			strcat(szBuffer, pszFilename);
-			SetStatus(szBuffer, SF_MESSAGE);
+			SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 			Resume();
 			return true;
 		}
@@ -969,9 +1062,7 @@ BOOL CGameBoy::SaveState(char *pszFilename, BOOL AlreadyStopped)
 
 	CloseHandle(hFile);
 
-	strcpy(szBuffer, "State saved to ");
-	strcat(szBuffer, pszFilename);
-	SetStatus(szBuffer, SF_MESSAGE);
+	SetStatus(LoadString(IDS_STATUS_SAVED, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 
 	Resume();
 
@@ -983,7 +1074,8 @@ BOOL CGameBoy::SaveState(char *pszFilename, BOOL AlreadyStopped)
 BOOL CGameBoy::LoadStateAs()
 {
 	OPENFILENAME		of;
-	char				szFilename[MAX_PATH];
+	char				szFilename[MAX_PATH], szBuffer[0x100], szBuffer2[0x100];
+	DWORD				dw;
 
 
 	Stop();
@@ -991,10 +1083,20 @@ BOOL CGameBoy::LoadStateAs()
 	ZeroMemory(&of, sizeof(of));
 	of.lStructSize = sizeof(of);
 	of.hwndOwner = hWnd;
-	of.lpstrFilter = "Game Lad Save States (*.gls)\0*.GLS\0All files (*.*)\0*.*\0";
+	String(IDS_OPEN_SAVESTATE);
+	dw = strlen(szBuffer) + 1;
+	strcpy(szBuffer + dw, "*.GLS");
+	dw += strlen(szBuffer + dw) + 1;
+	LoadString(IDS_OPEN_ALLFILES, szBuffer + dw, sizeof(szBuffer) - dw);
+	dw += strlen(szBuffer + dw) + 1;
+	strcpy(szBuffer + dw, "*.*");
+	dw += strlen(szBuffer + dw) + 1;
+	*(szBuffer + dw) = '\0';
+	of.lpstrFilter = szBuffer;
 	of.nFilterIndex = 1;
 	of.lpstrFile = szFilename;
 	of.nMaxFile = sizeof(szFilename);
+	of.lpstrTitle = LoadString(IDS_OPEN, szBuffer2, sizeof(szBuffer2));
 	of.Flags = OFN_HIDEREADONLY | OFN_ENABLEHOOK | OFN_EXPLORER | OFN_ENABLESIZING;
 	of.lpfnHook = StateOFNHookProc;
 	szFilename[0] = 0;
@@ -1004,7 +1106,7 @@ BOOL CGameBoy::LoadStateAs()
 		return false;
 	}
 
-	return LoadState(szFilename, true);
+	return LoadState(szFilename, true, false);
 }
 
 
@@ -1013,7 +1115,7 @@ BOOL CGameBoy::LoadState()
 {
 	char		szFilename[MAX_PATH + 5];
 
-	return LoadState(GetStateFilename(szFilename), false);
+	return LoadState(GetStateFilename(szFilename), false, true);
 }
 
 
@@ -1022,18 +1124,16 @@ BOOL CGameBoy::LoadState()
 	if (!ReadFile(hFile, &dest, sizeof(dest), &nBytes, NULL))	\
 	{															\
 		CloseHandle(hFile);										\
-		strcpy(szBuffer, "Error loading state from ");			\
-		strcat(szBuffer, pszFilename);							\
-		SetStatus(szBuffer, SF_MESSAGE);						\
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);\
+		ReApplyCheats();										\
 		Resume();												\
 		return true;											\
 	}															\
 	if (nBytes != sizeof(dest))									\
 	{															\
 		CloseHandle(hFile);										\
-		strcpy(szBuffer, "Error loading state from ");			\
-		strcat(szBuffer, pszFilename);							\
-		SetStatus(szBuffer, SF_MESSAGE);						\
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);\
+		ReApplyCheats();										\
 		Resume();												\
 		return true;											\
 	}
@@ -1043,26 +1143,24 @@ BOOL CGameBoy::LoadState()
 	{															\
 		CloseHandle(hFile);										\
 		Reset();												\
-		strcpy(szBuffer, "Error loading state from ");			\
-		strcat(szBuffer, pszFilename);							\
-		SetStatus(szBuffer, SF_MESSAGE);						\
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);\
+		ReApplyCheats();										\
 		return true;											\
 	}															\
 	if (nBytes != (size))										\
 	{															\
 		CloseHandle(hFile);										\
 		Reset();												\
-		strcpy(szBuffer, "Error loading state from ");			\
-		strcat(szBuffer, pszFilename);							\
-		SetStatus(szBuffer, SF_MESSAGE);						\
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);\
+		ReApplyCheats();										\
 		return true;											\
 	}
 
-BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped)
+BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped, BOOL QuickLoad)
 {
 	HANDLE		hFile;
-	DWORD		nBytes, Value, y, Pos;
-	char		szBuffer[0x120], szPath[MAX_PATH + 2];
+	DWORD		nBytes, Value, y, Pos, pByte, RamSize;
+	char		szBuffer[0x200], szPath[MAX_PATH + 2];
 	int			Slot1, Slot2;
 	FILETIME	FileTime1, FileTime2;
 
@@ -1124,15 +1222,11 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped)
 	{
 		if (GetLastError() == ERROR_FILE_NOT_FOUND)
 		{
-			strcpy(szBuffer, pszFilename);
-			strcat(szBuffer, " does not exist.");
-			SetStatus(szBuffer, SF_MESSAGE);
+			SetStatus(LoadString(IDS_STATUS_NOTFOUND, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 			Resume();
 			return true;
 		}
-		strcpy(szBuffer, "Couldn't open file ");
-		strcat(szBuffer, pszFilename);
-		SetStatus(szBuffer, SF_MESSAGE);
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 		Resume();
 		return true;
 	}
@@ -1140,91 +1234,81 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped)
 	if (!ReadFile(hFile, &Value, sizeof(Value), &nBytes, NULL))
 	{
 		CloseHandle(hFile);
-		strcpy(szBuffer, "Error loading state from ");
-		strcat(szBuffer, pszFilename);
-		SetStatus(szBuffer, SF_MESSAGE);
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 		Resume();
 		return true;
 	}
 	if (nBytes != sizeof(Value))
 	{
 		CloseHandle(hFile);
-		strcpy(szBuffer, "Error loading state from ");
-		strcat(szBuffer, pszFilename);
-		SetStatus(szBuffer, SF_MESSAGE);
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 		Resume();
 		return true;
 	}
 	if (Value != ('g' | ('l' << 8) | ('s' << 16)))
 	{
 		CloseHandle(hFile);
-		strcpy(szBuffer, "Error loading state from ");
-		strcat(szBuffer, pszFilename);
-		SetStatus(szBuffer, SF_MESSAGE);
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 		Resume();
 		return true;
 	}
 	if (!ReadFile(hFile, &Value, sizeof(Value), &nBytes, NULL))
 	{
 		CloseHandle(hFile);
-		strcpy(szBuffer, "Error loading state from ");
-		strcat(szBuffer, pszFilename);
-		SetStatus(szBuffer, SF_MESSAGE);
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 		Resume();
 		return true;
 	}
 	if (nBytes != sizeof(Value))
 	{
 		CloseHandle(hFile);
-		strcpy(szBuffer, "Error loading state from ");
-		strcat(szBuffer, pszFilename);
-		SetStatus(szBuffer, SF_MESSAGE);
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 		Resume();
 		return true;
 	}
-	strcpy(szBuffer, pszFilename);
-	strcat(szBuffer, " requires Game Lad ");
-	Pos = strlen(szBuffer);
+	strcpy(szPath, "Game Lad ");
+	Pos = strlen(szPath);
 	do
 	{
-		if (Pos < sizeof(szBuffer) - 12)
+		if (Pos < sizeof(szPath) - 12)
 		{
-			if (!ReadFile(hFile, &szBuffer[Pos++], sizeof(szBuffer[Pos]), &nBytes, NULL))
+			if (!ReadFile(hFile, &szPath[Pos++], sizeof(szPath[Pos]), &nBytes, NULL))
 			{
 				CloseHandle(hFile);
-				strcpy(szBuffer, "Error loading state from ");
-				strcat(szBuffer, pszFilename);
-				SetStatus(szBuffer, SF_MESSAGE);
+				SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 				Resume();
 				return true;
 			}
-			if (nBytes != sizeof(szBuffer[Pos]))
+			if (nBytes != sizeof(szPath[Pos]))
 			{
 				CloseHandle(hFile);
-				strcpy(szBuffer, "Error loading state from ");
-				strcat(szBuffer, pszFilename);
-				SetStatus(szBuffer, SF_MESSAGE);
+				SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 				Resume();
 				return true;
 			}
-			szBuffer[Pos] = '\0';
+			szPath[Pos] = '\0';
 		}
 		else
 		{
 			CloseHandle(hFile);
-			strcpy(szBuffer, "Error loading state from ");
-			strcat(szBuffer, pszFilename);
-			SetStatus(szBuffer, SF_MESSAGE);
+			SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 			Resume();
 			return true;
 		}
 	}
-	while (szBuffer[Pos - 1] != '\0');
+	while (szPath[Pos - 1] != '\0');
 	if (Value > GAME_LAD_SAVE_STATE_VERSION)
 	{
 		CloseHandle(hFile);
-		strcat(szBuffer, " or higher.");
-		SetStatus(szBuffer, SF_MESSAGE);
+		LoadString(IDS_HIGHERVERSIONREQUIRED, szBuffer, sizeof(szBuffer), szPath);
+		if (QuickLoad)
+		{
+			SetStatus(szBuffer, SF_MESSAGE);
+		}
+		else
+		{
+			MessageBox(hMsgParent, szBuffer, "Game Lad", MB_OK | MB_ICONWARNING);
+		}
 		Resume();
 		return true;
 	}
@@ -1233,9 +1317,7 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped)
 	if (MaxRomBank != (BYTE)Value)
 	{
 		CloseHandle(hFile);
-		strcpy(szBuffer, "Error loading state from ");
-		strcat(szBuffer, pszFilename);
-		SetStatus(szBuffer, SF_MESSAGE);
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 		Resume();
 		return true;
 	}
@@ -1243,9 +1325,7 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped)
 	if (MaxRamBank != (BYTE)Value)
 	{
 		CloseHandle(hFile);
-		strcpy(szBuffer, "Error loading state from ");
-		strcat(szBuffer, pszFilename);
-		SetStatus(szBuffer, SF_MESSAGE);
+		SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 		Resume();
 		return true;
 	}
@@ -1256,18 +1336,14 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped)
 		{
 			CloseHandle(hFile);
 			Reset();
-			strcpy(szBuffer, "Error loading state from ");
-			strcat(szBuffer, pszFilename);
-			SetStatus(szBuffer, SF_MESSAGE);
+			SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 			return true;
 		}
 		if (nBytes != 2 * 160)
 		{
 			CloseHandle(hFile);
 			Reset();
-			strcpy(szBuffer, "Error loading state from ");
-			strcat(szBuffer, pszFilename);
-			SetStatus(szBuffer, SF_MESSAGE);
+			SetStatus(LoadString(IDS_STATUS_READERROR, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 			return true;
 		}
 	}
@@ -1294,6 +1370,10 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped)
 		ReadFromFile(MemStatus_CPU);
 		ReadFromFile2(*MemStatus_RAM, SaveRamSize);
 		ReadFromFile(MemStatus_VRAM);
+	}
+	else
+	{
+		ClearDebugRunInfo();
 	}
 
 	ReadFromFile(LCD_Ticks);
@@ -1336,11 +1416,40 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped)
 
 	InvalidateRect(hGBWnd, NULL, false);
 
-	strcpy(szBuffer, "State loaded from ");
-	strcat(szBuffer, pszFilename);
-	SetStatus(szBuffer, SF_MESSAGE);
+	SetStatus(LoadString(IDS_STATUS_LOADED, szBuffer, sizeof(szBuffer), pszFilename), SF_MESSAGE);
 
 	BatteryAvailable = true;
+
+
+	switch (MEM_ROM[0x0149])
+	{
+	case 1:
+		RamSize = 0x800;
+		break;
+	case 2:
+		RamSize = 0x2000;
+		break;
+	case 3:
+		RamSize = 0x8000;
+		break;
+	case 4:
+		RamSize = 0x20000;
+		break;
+	default:
+		RamSize = 0;
+		break;
+	}
+	for (pByte = 0; pByte < RamSize; pByte++)
+	{
+		MemStatus_RAM[pByte] &= ~MEM_FIXED;
+	}
+	for (pByte = 0; pByte < 0x9000; pByte++)
+	{
+		MemStatus_CPU[pByte] &= ~MEM_FIXED;
+	}
+
+
+	ReApplyCheats();
 
 	Resume();
 
@@ -1351,7 +1460,7 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped)
 
 void CGameBoy::SetStateSlot(int nSlot)
 {
-	char		szStatusText[0x100];
+	char		szBuffer[0x100], szSlot[2];
 
 
 	if (nSlot >= 0)
@@ -1370,9 +1479,9 @@ void CGameBoy::SetStateSlot(int nSlot)
 		StateSlot = 0;
 	}
 
-	strcpy(szStatusText, "State slot   selected");
-	szStatusText[11] = StateSlot + '0';
-	SetStatus(szStatusText, SF_MESSAGE);
+	szSlot[0] = StateSlot + '0';
+	szSlot[1] = '\0';
+	SetStatus(LoadString(IDS_STATUS_SELECTSTATESLOT, szBuffer, sizeof(szBuffer), szSlot), SF_MESSAGE);
 }
 
 
@@ -1452,8 +1561,22 @@ LPARAM CGameBoy::GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			BeginPaint(hGBWnd, &Paint);
 			GetClientRect(hGBWnd, &rct);
+		/*COLORADJUSTMENT		ca;
+		ZeroMemory(&ca, sizeof(ca));
+		ca.caSize = sizeof(ca);
+		ca.caRedGamma = 12000;
+		ca.caGreenGamma = 10000;
+		ca.caBlueGamma = 10000;
+		ca.caReferenceWhite = 10000;
+		SetLastError(ERROR_SUCCESS);
+		SetStretchBltMode(Paint.hdc, HALFTONE);
+		if (!SetColorAdjustment(Paint.hdc, &ca))
+		{
+			DisplayErrorMessage();
+		}*/
 			if (rct.right == 160 && rct.bottom == 144)
 			{
+				//StretchBlt(Paint.hdc, 0, 0, rct.right, rct.bottom, hGBDC, 7, 0, 160, 144, SRCCOPY);
 				BitBlt(Paint.hdc, Paint.rcPaint.left, Paint.rcPaint.top, rct.right, rct.bottom, hGBDC, Paint.rcPaint.left + 7, Paint.rcPaint.top, SRCCOPY);
 			}
 			else
@@ -1596,6 +1719,15 @@ void CGameBoy::Reset()
 {
 	DWORD		RamSize, pByte;
 
+
+	*(WORD *)&BGP[0] = GreyScales[0];
+	*(WORD *)&BGP[2] = GreyScales[1];
+	*(WORD *)&BGP[4] = GreyScales[2];
+	*(WORD *)&BGP[6] = GreyScales[3];
+	*(WORD *)&OBP[0] = GreyScales[0];
+	*(WORD *)&OBP[2] = GreyScales[1];
+	*(WORD *)&OBP[4] = GreyScales[2];
+	*(WORD *)&OBP[6] = GreyScales[3];
 
 	ZeroMemory(&MEM_CPU, sizeof(MEM_CPU));
 	ZeroMemory(&MEM_VRAM, sizeof(MEM_VRAM));
@@ -1782,14 +1914,399 @@ void CGameBoy::Reset()
 
 	RefreshScreen();
 
+	ReApplyCheats();
+
 	SendMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
+}
+
+
+
+void CGameBoy::RemoveCheats()
+{
+	CHEATDATA		*pCheatData;
+
+
+	if (!m_pCheatList)
+	{
+		return;
+	}
+
+	m_pCheatList->ResetSearch();
+	while (pCheatData = (CHEATDATA *)m_pCheatList->GetNextItem())
+	{
+		if (pCheatData->Offset < 0xA000)
+		{
+			MEM_ROM[(pCheatData->Offset & 0x3FFF) + pCheatData->Bank * 0x4000] = pCheatData->OldValue;
+		}
+		else
+		{
+			if (pCheatData->Offset < 0xC000)
+			{
+				MemStatus_RAM[pCheatData->Offset - 0xA000 + pCheatData->Bank * 0x2000] &= ~MEM_FIXED;
+			}
+			else
+			{
+				MemStatus_CPU[pCheatData->Offset - 0xC000] &= ~MEM_FIXED;
+			}
+		}
+	}
+}
+
+
+
+BYTE CGameBoy::GetRealByte(WORD Offset, BYTE Bank)
+{
+	CHEATDATA		*pCheatData;
+
+
+	if (!m_pCheatList)
+	{
+		return MEM_ROM[(Offset & 0x3FFF) + 0x4000 * Bank];
+	}
+
+	m_pCheatList->ResetSearch();
+	while (pCheatData = (CHEATDATA *)m_pCheatList->GetNextItem())
+	{
+		if (pCheatData->Offset == Offset && pCheatData->Bank == Bank)
+		{
+			return pCheatData->OldValue;
+		}
+	}
+
+	return MEM_ROM[(Offset & 0x3FFF) + 0x4000 * Bank];
+}
+
+
+
+int CGameBoy::VerifyCode(char *pszCode, BOOL CompareValue)
+{
+	int			Pos;
+	DWORD		Offset;
+	BYTE		Value;
+
+
+	if (pszCode[5] <= 7)
+	{
+		return CODE_INVALID;
+	}
+
+	if (CompareValue)
+	{
+		if ((pszCode[6] ^ pszCode[7]) >= 1 && (pszCode[6] ^ pszCode[7]) <= 7)
+		{
+			return CODE_INVALID;
+		}
+		Value = ~((pszCode[6] << 2) | (pszCode[8] >> 2) | (pszCode[8] << 6)) ^ 0x45;
+		if (Value == ((pszCode[0] << 4) | pszCode[1]))
+		{
+			return CODE_INEFFECTIVE;
+		}
+	}
+
+	if (!this)
+	{
+		return CODE_GENIE;
+	}
+
+	Offset = (~pszCode[5] << 12) | (pszCode[2] << 8) | (pszCode[3] << 4) | pszCode[4];
+	if (CompareValue)
+	{
+		if (Offset < 0x4000 || MaxRomBank == 0)
+		{
+			if (GetRealByte((WORD)Offset, 0) == ((pszCode[0] << 4) | pszCode[1]) || GetRealByte((WORD)Offset, 0) != Value)
+			{
+				return CODE_INEFFECTIVE;
+			}
+		}
+		else
+		{
+			for (Pos = MaxRomBank; Pos >= 1; Pos--)
+			{
+				if (GetRealByte((WORD)Offset, (BYTE)Pos) == Value)
+				{
+					return CODE_GENIE;
+				}
+			}
+
+			return CODE_INEFFECTIVE;
+		}
+	}
+	else
+	{
+		if (Offset < 0x4000 || MaxRomBank == 0)
+		{
+			if (GetRealByte((WORD)Offset, 0) == ((pszCode[0] << 4) | pszCode[1]))
+			{
+				return CODE_INEFFECTIVE;
+			}
+		}
+		else
+		{
+			for (Pos = MaxRomBank; Pos >= 1; Pos--)
+			{
+				if (GetRealByte((WORD)Offset, (BYTE)Pos) != ((pszCode[0] << 4) | pszCode[1]))
+				{
+					return CODE_GENIE;
+				}
+			}
+
+			return CODE_INEFFECTIVE;
+		}
+	}
+
+	return CODE_GENIE;
+}
+
+
+
+BOOL CGameBoy::AddCheat(WORD Offset, BYTE Value, char *pszCode)
+{
+	CHEATDATA		CheatData;
+
+
+	if (!m_pCheatList)
+	{
+		if (!(m_pCheatList = new CList()))
+		{
+			DisplayErrorMessage(ERROR_OUTOFMEMORY);
+			return true;
+		}
+	}
+
+	CheatData.Offset = Offset;
+	CheatData.Bank = 1;
+	CheatData.pszCode = pszCode;
+	if (Offset >= 0x4000)
+	{
+		do
+		{
+			CheatData.OldValue = MEM_ROM[(Offset & 0x3FFF) + CheatData.Bank * 0x4000];
+			if (!m_pCheatList->NewItem(sizeof(CheatData), &CheatData))
+			{
+				return true;
+			}
+			MEM_ROM[(Offset & 0x3FFF) + CheatData.Bank * 0x4000] = Value;
+		}
+		while (++CheatData.Bank < MaxRomBank);
+	}
+	else
+	{
+		CheatData.OldValue = MEM_ROM[Offset];
+		if (!m_pCheatList->NewItem(sizeof(CheatData), &CheatData))
+		{
+			return true;
+		}
+		MEM_ROM[Offset] = Value;
+	}
+
+	return false;
+}
+
+
+
+BOOL CGameBoy::AddCheat(WORD Offset, BYTE Value, BYTE CompareValue, char *pszCode)
+{
+	CHEATDATA		CheatData;
+
+
+	if (!m_pCheatList)
+	{
+		if (!(m_pCheatList = new CList()))
+		{
+			DisplayErrorMessage(ERROR_OUTOFMEMORY);
+			return true;
+		}
+	}
+
+	CheatData.Offset = Offset;
+	CheatData.Bank = 1;
+	CheatData.pszCode = pszCode;
+	if (Offset >= 0x4000)
+	{
+		do
+		{
+			if (CompareValue == MEM_ROM[(Offset & 0x3FFF) + CheatData.Bank * 0x4000])
+			{
+				CheatData.OldValue = MEM_ROM[Offset + CheatData.Bank * 0x4000];
+				if (!m_pCheatList->NewItem(sizeof(CheatData), &CheatData))
+				{
+					return true;
+				}
+				MEM_ROM[(Offset & 0x3FFF) + CheatData.Bank * 0x4000] = Value;
+			}
+		}
+		while (++CheatData.Bank < MaxRomBank);
+	}
+	else
+	{
+		CheatData.OldValue = MEM_ROM[Offset];
+		if (!m_pCheatList->NewItem(sizeof(CheatData), &CheatData))
+		{
+			return true;
+		}
+		MEM_ROM[Offset] = Value;
+	}
+
+	return false;
+}
+
+
+
+BOOL CGameBoy::AddCheat(BYTE Bank, WORD Offset, BYTE Value, char *pszCode)
+{
+	CHEATDATA		CheatData;
+
+
+	if (!m_pCheatList)
+	{
+		if (!(m_pCheatList = new CList()))
+		{
+			DisplayErrorMessage(ERROR_OUTOFMEMORY);
+			return true;
+		}
+	}
+
+	CheatData.Offset = Offset;
+	CheatData.Bank = Bank;
+	CheatData.Value = Value;
+	CheatData.pszCode = pszCode;
+	if (!m_pCheatList->NewItem(sizeof(CheatData), &CheatData))
+	{
+		return true;
+	}
+
+	if (Offset < 0xC000)
+	{
+		if (Bank > MaxRamBank)
+		{
+			return false;
+		}
+		if (MEM_ROM[0x149] == 1 && Offset >= 0xA800)
+		{
+			return false;
+		}
+
+		MEM_RAM[Offset - 0xA000 + Bank * 0x2000] = Value;
+		MemStatus_RAM[Offset - 0xA000 + Bank * 0x2000] |= MEM_FIXED;
+	}
+	else
+	{
+		MEM_CPU[Offset - 0xC000] = Value;
+		MemStatus_CPU[Offset - 0xC000] |= MEM_FIXED;
+	}
+
+	return false;
+}
+
+
+
+BOOL CGameBoy::AddCheat(char *pszCode)
+{
+	char		szCode[10];
+	int			Pos, Pos2;
+	WORD		Offset;
+	BYTE		Value, Bank;
+
+
+	for (Pos = Pos2 = 0; pszCode[Pos]; Pos++)
+	{
+		if (pszCode[Pos] != '-')
+		{
+			szCode[Pos2] = pszCode[Pos];
+			if (HexToNum(&szCode[Pos2]))
+			{
+				return true;
+			}
+			Pos2++;
+		}
+	}
+
+	switch (Pos2)
+	{
+	case 6:
+	case 9:
+		Offset = (~szCode[5] << 12) | (szCode[2] << 8) | (szCode[3] << 4) | szCode[4];
+		Value = (szCode[0] << 4) | szCode[1];
+		if (Pos2 == 9)
+		{
+			return AddCheat(Offset, Value, ~((szCode[6] << 2) | (szCode[8] >> 2) | (szCode[8] << 6)) ^ 0x45, pszCode);
+		}
+		return AddCheat(Offset, Value, pszCode);
+
+	case 8:
+		Offset = (szCode[6] << 12) | (szCode[7] << 8) | (szCode[4] << 4) | szCode[5];
+		Value = (szCode[2] << 4) | szCode[3];
+		if (Offset < 0xC000)
+		{
+			Bank = ((szCode[0] << 4) | szCode[1]) & 0x7F;
+			return AddCheat(Bank, Offset, Value, pszCode);
+		}
+		return AddCheat(0, Offset, Value, pszCode);
+	}
+
+	return true;
+}
+
+
+
+void CGameBoy::ReApplyCheats()
+{
+	CHEATDATA		*pCheatData;
+
+
+	if (!m_pCheatList)
+	{
+		return;
+	}
+
+	m_pCheatList->ResetSearch();
+	while (pCheatData = (CHEATDATA *)m_pCheatList->GetNextItem())
+	{
+		if (pCheatData->Offset >= 0xA000)
+		{
+			if (pCheatData->Offset < 0xC000)
+			{
+				MEM_RAM[pCheatData->Offset - 0xA000 + pCheatData->Bank * 0x2000] = pCheatData->Value;
+				MemStatus_RAM[pCheatData->Offset - 0xA000 + pCheatData->Bank * 0x2000] |= MEM_FIXED;
+			}
+			else
+			{
+				MEM_CPU[pCheatData->Offset - 0xC000] = pCheatData->Value;
+				MemStatus_CPU[pCheatData->Offset - 0xC000] |= MEM_FIXED;
+			}
+		}
+	}
+}
+
+
+
+BOOL CGameBoy::IsApplied(char *pszCode)
+{
+	CHEATDATA		*pCheatData;
+
+
+	if (!m_pCheatList)
+	{
+		return false;
+	}
+
+	m_pCheatList->ResetSearch();
+	while (pCheatData = (CHEATDATA *)m_pCheatList->GetNextItem())
+	{
+		if (pCheatData->pszCode == pszCode)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 
 
 void CGameBoy::SetFrameSkip(int nFrameSkip)
 {
-	char		szStatus[24];
+	char		szBuffer[0x100], szFrameSkip[2];
 
 
 	if (nFrameSkip >= 0)
@@ -1808,9 +2325,315 @@ void CGameBoy::SetFrameSkip(int nFrameSkip)
 		FrameSkip = 0;
 	}
 
-	strcpy(szStatus, "Frame skip set to  ");
-	szStatus[strlen(szStatus) - 1] = FrameSkip + '0';
-	SetStatus(szStatus, SF_MESSAGE);
+	szFrameSkip[0] = FrameSkip + '0';
+	szFrameSkip[1] = '\0';
+	SetStatus(LoadString(IDS_STATUS_SELECTFRAMESKIP, szBuffer, sizeof(szBuffer), szFrameSkip), SF_MESSAGE);
+}
+
+
+
+BOOL CGameBoy::SaveSnapshot()
+{
+	OPENFILENAME		of;
+	char				szFilename[MAX_PATH], szBuffer[0x100], szBuffer2[0x100];
+	DWORD				dw, dwFilePointer, nBytes;
+	HANDLE				hFile;
+	BITMAPINFOHEADER	bmi;
+	BITMAPFILEHEADER	bfh;
+
+
+	Stop();
+
+	ZeroMemory(&of, sizeof(of));
+	of.lStructSize = sizeof(of);
+	of.hwndOwner = hWnd;
+	String(IDS_OPEN_BITMAP);
+	dw = strlen(szBuffer) + 1;
+	strcpy(szBuffer + dw, "*.BMP");
+	dw += strlen(szBuffer + dw) + 1;
+	LoadString(IDS_OPEN_ALLFILES, szBuffer + dw, sizeof(szBuffer) - dw);
+	dw += strlen(szBuffer + dw) + 1;
+	strcpy(szBuffer + dw, "*.*");
+	dw += strlen(szBuffer + dw) + 1;
+	*(szBuffer + dw) = '\0';
+	of.lpstrFilter = szBuffer;
+	of.nFilterIndex = 1;
+	of.lpstrFile = szFilename;
+	of.nMaxFile = sizeof(szFilename);
+	of.lpstrTitle = LoadString(IDS_SAVEAS, szBuffer2, sizeof(szBuffer2));
+	of.Flags = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
+	of.lpstrDefExt = "bmp";
+	szFilename[0] = 0;
+	if (!GetSaveFileName(&of))
+	{
+		Resume();
+		return true;
+	}
+
+	while ((hFile = CreateFile(szFilename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL)) == INVALID_HANDLE_VALUE)
+	{
+		if (MessageBox(hMsgParent, LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), szFilename), NULL, MB_RETRYCANCEL | MB_ICONWARNING) == IDCANCEL)
+		{
+			return true;
+		}
+	}
+
+	bfh.bfType = 0x4D42;
+	bfh.bfSize = sizeof(bfh) + sizeof(bmi) + 160 * 144 * 2;
+	bfh.bfReserved1 = 0;
+	bfh.bfReserved2 = 0;
+	bfh.bfOffBits = 0;
+
+	dwFilePointer = SetFilePointer(hFile, 0, 0, FILE_CURRENT);
+	while (!WriteFile(hFile, &bfh, sizeof(bfh), &nBytes, NULL) || nBytes != sizeof(bfh))
+	{
+		SetFilePointer(hFile, dwFilePointer, NULL, FILE_BEGIN);
+		SetEndOfFile(hFile);
+		if (MessageBox(hMsgParent, LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), szFilename), NULL, MB_RETRYCANCEL | MB_ICONWARNING) == IDCANCEL)
+		{
+			CloseHandle(hFile);
+			DeleteFile(szFilename);
+			SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), szFilename), SF_MESSAGE);
+			return true;
+		}
+	}
+
+	ZeroMemory(&bmi, sizeof(bmi));
+	bmi.biSize = sizeof(BITMAPINFOHEADER);
+	bmi.biWidth = 160;
+	bmi.biHeight = 144;
+	bmi.biPlanes = 1;
+	bmi.biBitCount = 16;
+	bmi.biCompression = BI_RGB;
+
+	dwFilePointer = SetFilePointer(hFile, 0, 0, FILE_CURRENT);
+	while (!WriteFile(hFile, &bmi, sizeof(bmi), &nBytes, NULL) || nBytes != sizeof(bmi))
+	{
+		SetFilePointer(hFile, dwFilePointer, NULL, FILE_BEGIN);
+		SetEndOfFile(hFile);
+		if (MessageBox(hMsgParent, LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), szFilename), NULL, MB_RETRYCANCEL | MB_ICONWARNING) == IDCANCEL)
+		{
+			CloseHandle(hFile);
+			DeleteFile(szFilename);
+			SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), szFilename), SF_MESSAGE);
+			return true;
+		}
+	}
+
+	for (dw = 0; dw < 144; dw++)
+	{
+		dwFilePointer = SetFilePointer(hFile, 0, 0, FILE_CURRENT);
+		while (!WriteFile(hFile, pGBBitmap + (143 - dw) * (160 + 14) + 7, 160 * 2, &nBytes, NULL) || nBytes != 160 * 2)
+		{
+			SetFilePointer(hFile, dwFilePointer, NULL, FILE_BEGIN);
+			SetEndOfFile(hFile);
+			if (MessageBox(hMsgParent, LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), szFilename), NULL, MB_RETRYCANCEL | MB_ICONWARNING) == IDCANCEL)
+			{
+				CloseHandle(hFile);
+				DeleteFile(szFilename);
+				SetStatus(LoadString(IDS_STATUS_WRITEERROR, szBuffer, sizeof(szBuffer), szFilename), SF_MESSAGE);
+				return true;
+			}
+		}
+	}
+
+	CloseHandle(hFile);
+
+	SetStatus(LoadString(IDS_STATUS_SAVED, szBuffer, sizeof(szBuffer), szFilename), SF_MESSAGE);
+
+	Resume();
+
+	return false;
+}
+
+
+
+struct AVIINFO
+{
+	BYTE				AVISoundBuffer[22050 * 2];
+	PAVIFILE			pfile;
+	PAVISTREAM			pavi, pavic, psnd;
+	DWORD				frame;
+	DWORD				dwAVIStreamPos;
+};
+
+
+
+BOOL CGameBoy::SaveVideo()
+{
+	OPENFILENAME		of;
+	char				szFilename[MAX_PATH], szBuffer[0x100], szBuffer2[0x100];
+	DWORD				dw;
+	AVISTREAMINFO		asi;
+	BITMAPINFOHEADER	bmih;
+	WAVEFORMATEX		wfx;
+	AVIINFO				*pAVIInfo;
+
+
+	Stop();
+
+	if (pAVISoundBuffer)
+	{
+		CloseAVI();
+	}
+
+	if (!(pAVIInfo = new AVIINFO))
+	{
+		DisplayErrorMessage(ERROR_OUTOFMEMORY);
+		return true;
+	}
+
+	ZeroMemory(&of, sizeof(of));
+	of.lStructSize = sizeof(of);
+	of.hwndOwner = hWnd;
+	String(IDS_OPEN_AVI);
+	dw = strlen(szBuffer) + 1;
+	strcpy(szBuffer + dw, "*.AVI");
+	dw += strlen(szBuffer + dw) + 1;
+	LoadString(IDS_OPEN_ALLFILES, szBuffer + dw, sizeof(szBuffer) - dw);
+	dw += strlen(szBuffer + dw) + 1;
+	strcpy(szBuffer + dw, "*.*");
+	dw += strlen(szBuffer + dw) + 1;
+	*(szBuffer + dw) = '\0';
+	of.lpstrFilter = szBuffer;
+	of.nFilterIndex = 1;
+	of.lpstrFile = szFilename;
+	of.nMaxFile = sizeof(szFilename);
+	of.lpstrTitle = LoadString(IDS_SAVEAS, szBuffer2, sizeof(szBuffer2));
+	of.Flags = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
+	of.lpstrDefExt = "avi";
+	szFilename[0] = 0;
+	if (!GetSaveFileName(&of))
+	{
+		delete pAVIInfo;
+		Resume();
+		return true;
+	}
+
+	AVIFileInit();
+
+	AVIFileOpen(&pAVIInfo->pfile, szFilename, OF_CREATE | OF_WRITE, NULL);
+	ZeroMemory(&asi, sizeof(asi));
+	asi.fccType = streamtypeVIDEO;
+	asi.fccHandler = 0;
+	asi.dwScale = 1;
+	asi.dwRate = 60;
+	asi.dwSuggestedBufferSize = 160 * 144 * 2;
+	asi.rcFrame.left = 0;
+	asi.rcFrame.right = 160;
+	asi.rcFrame.bottom = 144;
+	AVIFileCreateStream(pAVIInfo->pfile, &pAVIInfo->pavi, &asi);
+	ZeroMemory(&bmih, sizeof(bmih));
+	bmih.biSize = sizeof(BITMAPINFOHEADER);
+	bmih.biWidth = 160;
+	bmih.biHeight = 144;
+	bmih.biPlanes = 1;
+	bmih.biBitCount = 16;
+	bmih.biCompression = BI_RGB;
+	bmih.biSizeImage = 160 * 144 * 2;
+	AVIStreamSetFormat(pAVIInfo->pavi, 0, &bmih, sizeof(bmih));
+	if (AVISaveOptions(hWnd, 0, 1, &pAVIInfo->pavi, (AVICOMPRESSOPTIONS **)&aaco) != TRUE)
+	{
+		AVIStreamClose(pAVIInfo->pavi);
+		AVIFileClose(pAVIInfo->pfile);
+		AVIFileExit();
+		delete pAVIInfo;
+		return true;
+	}
+	AVIMakeCompressedStream(&pAVIInfo->pavic, pAVIInfo->pavi, &aco, NULL);
+	pAVIInfo->frame = 0;
+	ZeroMemory(&bmih, sizeof(bmih));
+	bmih.biSize = sizeof(BITMAPINFOHEADER);
+	bmih.biWidth = 160;
+	bmih.biHeight = 144;
+	bmih.biPlanes = 1;
+	bmih.biBitCount = 16;
+	bmih.biCompression = BI_RGB;
+	bmih.biSizeImage = 160 * 144 * 2;
+	AVIStreamSetFormat(pAVIInfo->pavic, 0, &bmih, sizeof(bmih));
+
+	ZeroMemory(&asi, sizeof(asi));
+	asi.fccType = streamtypeAUDIO;
+	asi.dwScale = 2;
+	asi.dwRate = 22050 * 2;
+	asi.dwSampleSize = 2;
+	AVIFileCreateStream(pAVIInfo->pfile, &pAVIInfo->psnd, &asi);
+	ZeroMemory(&wfx, sizeof(wfx));
+	wfx.wFormatTag = WAVE_FORMAT_PCM;
+	wfx.nChannels = 2;
+	wfx.nSamplesPerSec = 22050;
+	wfx.nAvgBytesPerSec = 22050 * 2;
+	wfx.nBlockAlign = 2;
+	wfx.wBitsPerSample = 8;
+	AVIStreamSetFormat(pAVIInfo->psnd, 0, &wfx, sizeof(wfx));
+	dwAVISoundPos = 0;
+	pAVIInfo->dwAVIStreamPos = 0;
+	pAVISoundBuffer = pAVIInfo;
+
+	Resume();
+
+	return false;
+}
+
+
+
+void CGameBoy::CloseAVI()
+{
+	if (!pAVISoundBuffer)
+	{
+		return;
+	}
+
+	Stop();
+
+	AVIStreamClose(((AVIINFO *)pAVISoundBuffer)->psnd);
+	AVIStreamClose(((AVIINFO *)pAVISoundBuffer)->pavic);
+	AVIStreamClose(((AVIINFO *)pAVISoundBuffer)->pavi);
+	AVIFileClose(((AVIINFO *)pAVISoundBuffer)->pfile);
+	AVIFileExit();
+
+	delete pAVISoundBuffer;
+	pAVISoundBuffer = NULL;
+
+	Resume();
+}
+
+
+
+BOOL CGameBoy::WriteAVI()
+{
+	BYTE		Bitmap[144][160 * 2];
+	DWORD		y;
+
+
+	if (!pAVISoundBuffer)
+	{
+		return true;
+	}
+
+	for (y = 0; y < 144; y++)
+	{
+		CopyMemory(Bitmap[y], pGBBitmap + (160 + 14) * (143 - y) + 7, 160 * 2);
+	}
+	if (AVIStreamWrite(((AVIINFO *)pAVISoundBuffer)->pavic, ((AVIINFO *)pAVISoundBuffer)->frame++, 1, &Bitmap, 160 * 144 * 2, AVIIF_KEYFRAME, NULL, NULL))
+	{
+		CloseAVI();
+		MessageBox(hMsgParent, "Error writing to avi file.", NULL, MB_OK | MB_ICONERROR);
+		return true;
+	}
+	if (dwAVISoundPos != 0)
+	{
+		if (AVIStreamWrite(((AVIINFO *)pAVISoundBuffer)->psnd, ((AVIINFO *)pAVISoundBuffer)->dwAVIStreamPos, dwAVISoundPos / 2, pAVISoundBuffer, dwAVISoundPos, 0, NULL, NULL))
+		{
+			CloseAVI();
+			MessageBox(hMsgParent, "Error writing to avi file.", NULL, MB_OK | MB_ICONERROR);
+			return true;
+		}
+		((AVIINFO *)pAVISoundBuffer)->dwAVIStreamPos += dwAVISoundPos / 2;
+		dwAVISoundPos = 0;
+	}
+
+	return false;
 }
 
 
@@ -1821,7 +2644,9 @@ void CGameBoy::SetFrameSkip(int nFrameSkip)
 
 void CGameBoy::ExecuteLoop()
 {
-	MSG				msg;
+	MSG					msg;
+	char				szBuffer[0x100];
+
 
 #ifdef TIMEDEMO
 	LARGE_INTEGER	StartTime, CurrentTime, TimerFrequency;
@@ -1849,12 +2674,13 @@ void CGameBoy::ExecuteLoop()
 		{
 			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 			CloseSound();
+			CloseAVI();
 			RefreshScreen();
 			if (GameBoys.GetActive() == this)
 			{
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			}
-			MessageBox(hWnd, "Invalid operation code", "Game Lad", MB_OK | MB_ICONWARNING);
+			MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
 			return;
 		}
 
@@ -1869,6 +2695,7 @@ void CGameBoy::ExecuteLoop()
 					PostThreadMessage(ThreadId, WM_QUIT, msg.wParam, msg.lParam);
 				}
 				CloseSound();
+				CloseAVI();
 				RefreshScreen();
 				if (GameBoys.GetActive() == this)
 				{
@@ -1885,6 +2712,10 @@ void CGameBoy::ExecuteLoop()
 #endif
 
 		RefreshScreen();
+		if (pAVISoundBuffer)
+		{
+			WriteAVI();
+		}
 
 
 #ifdef TIMEDEMO
@@ -1899,7 +2730,7 @@ void CGameBoy::ExecuteLoop()
 			}
 
 			char	NumBuffer2[10];
-			MessageBox(hWnd, ultoa(Count, NumBuffer, 10), ultoa((DWORD)(CurrentTime.QuadPart - StartTime.QuadPart), NumBuffer2, 10), MB_OK | MB_ICONINFORMATION);
+			MessageBox(hMsgParent, ultoa(Count, NumBuffer, 10), ultoa((DWORD)(CurrentTime.QuadPart - StartTime.QuadPart), NumBuffer2, 10), MB_OK | MB_ICONINFORMATION);
 			return;
 		}
 		Count++;
@@ -1912,6 +2743,7 @@ void CGameBoy::ExecuteLoop()
 void CGameBoy::DebugLoop()
 {
 	MSG				msg;
+	char			szBuffer[0x100];
 
 
 	if (Settings.SoundEnabled)
@@ -1928,18 +2760,20 @@ void CGameBoy::DebugLoop()
 		{
 			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 			CloseSound();
+			CloseAVI();
 			RefreshScreen();
 			if (GameBoys.GetActive() == this)
 			{
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			}
-			MessageBox(hWnd, "Invalid operation code", "Game Lad", MB_OK | MB_ICONWARNING);
+			MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
 			return;
 		}
 
 		if (Flags & GB_ERROR)
 		{
 			CloseSound();
+			CloseAVI();
 			if (GameBoys.GetActive() == this)
 			{
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
@@ -1958,6 +2792,7 @@ void CGameBoy::DebugLoop()
 					PostThreadMessage(ThreadId, WM_QUIT, msg.wParam, msg.lParam);
 				}
 				CloseSound();
+				CloseAVI();
 				RefreshScreen();
 				if (GameBoys.GetActive() == this)
 				{
@@ -1973,6 +2808,10 @@ void CGameBoy::DebugLoop()
 
 
 		RefreshScreen();
+		if (pAVISoundBuffer)
+		{
+			WriteAVI();
+		}
 	}
 }
 
@@ -1982,6 +2821,7 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 {
 	MSG				msg;
 	WORD			pByte;
+	char			szBuffer[0x100];
 
 
 	switch (pEmulationInfo->Flags)
@@ -2005,18 +2845,20 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 	{
 		SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 		CloseSound();
+		CloseAVI();
 		RefreshScreen();
 		if (GameBoys.GetActive() == this)
 		{
 			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 		}
-		MessageBox(hWnd, "Invalid operation code", "Game Lad", MB_OK | MB_ICONWARNING);
+		MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
 		return;
 	}
 
 	if (Flags & GB_ERROR)
 	{
 		CloseSound();
+		CloseAVI();
 		if (GameBoys.GetActive() == this)
 		{
 			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
@@ -2030,6 +2872,7 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 		if (pByte != Reg_PC)
 		{
 			CloseSound();
+			CloseAVI();
 			if (GameBoys.GetActive() == this)
 			{
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
@@ -2073,6 +2916,7 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 				}
 			}
 			CloseSound();
+			CloseAVI();
 			if (GameBoys.GetActive() == this)
 			{
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
@@ -2085,6 +2929,7 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 		if (pByte < Reg_SP)
 		{
 			CloseSound();
+			CloseAVI();
 			if (GameBoys.GetActive() == this)
 			{
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
@@ -2107,18 +2952,20 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 		{
 			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 			CloseSound();
+			CloseAVI();
 			RefreshScreen();
 			if (GameBoys.GetActive() == this)
 			{
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			}
-			MessageBox(hWnd, "Invalid operation code", "Game Lad", MB_OK | MB_ICONWARNING);
+			MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
 			return;
 		}
 
 		if (Flags & GB_ERROR)
 		{
 			CloseSound();
+			CloseAVI();
 			if (GameBoys.GetActive() == this)
 			{
 				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
@@ -2132,6 +2979,7 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 			if (pByte != Reg_PC)
 			{
 				CloseSound();
+				CloseAVI();
 				if (GameBoys.GetActive() == this)
 				{
 					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
@@ -2175,6 +3023,7 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 					}
 				}
 				CloseSound();
+				CloseAVI();
 				if (GameBoys.GetActive() == this)
 				{
 					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
@@ -2187,6 +3036,7 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 			if (pByte < Reg_SP)
 			{
 				CloseSound();
+				CloseAVI();
 				if (GameBoys.GetActive() == this)
 				{
 					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
@@ -2207,6 +3057,7 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 					PostThreadMessage(ThreadId, WM_QUIT, msg.wParam, msg.lParam);
 				}
 				CloseSound();
+				CloseAVI();
 				RefreshScreen();
 				if (GameBoys.GetActive() == this)
 				{
@@ -2223,6 +3074,10 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 			Delay();
 
 			RefreshScreen();
+			if (pAVISoundBuffer)
+			{
+				WriteAVI();
+			}
 		}
 	}
 }
@@ -2403,13 +3258,21 @@ BOOL CGameBoy::Step(EMULATIONINFO *pEmulationInfo)
 
 void CGameBoy::Resume()
 {
+	if (Terminating)
+	{
+		return;
+	}
+
 	if (hThread)
 	{
 		ResetEvent(hStartStopEvent);
 		PostThreadMessage(ThreadId, WM_APP_RESUME, 0, 0);
 
-		//Wait for emulation to start before leaving critical section
-		WaitForSingleObject(hStartStopEvent, INFINITE);
+		if (GetCurrentThreadId() != ThreadId)
+		{
+			//Wait for emulation to start before leaving critical section
+			WaitForSingleObject(hStartStopEvent, INFINITE);
+		}
 	}
 }
 
@@ -2424,6 +3287,11 @@ void CGameBoy::Stop()
 	{
 		if (Emulating)
 		{
+			if (Terminating)
+			{
+				return;
+			}
+			Terminating = true;
 			PostThreadMessage(ThreadId, WM_CLOSE, 0, 0);
 			if (GetCurrentThreadId() != ThreadId)
 			{
@@ -2432,6 +3300,7 @@ void CGameBoy::Stop()
 					Sleep(0);
 				}
 			}
+			Terminating = false;
 		}
 		else
 		{
@@ -2529,6 +3398,56 @@ BOOL CGameBoy::SwitchSVBK(BYTE Bank)
 
 
 
+void CGameBoy::ClearDebugRunInfo()
+{
+	DWORD	pByte, RamSize;
+
+
+	Flags &= ~GB_DEBUGRUNINFO;
+
+	switch (MEM_ROM[0x0149])
+	{
+	case 1:
+		RamSize = 0x800;
+		break;
+
+	case 2:
+		RamSize = 0x2000;
+		break;
+
+	case 3:
+		RamSize = 0x8000;
+		break;
+
+	case 4:
+		RamSize = 0x20000;
+		break;
+
+	default:
+		RamSize = 0;
+		break;
+	}
+
+	//External Battery RAM
+	for (pByte = 0; pByte < RamSize; pByte++)
+	{
+		MemStatus_RAM[pByte] |= MEM_READ;
+	}
+
+	//Internal RAM
+	for (pByte = 0; pByte < 0x8000; pByte++)
+	{
+		MemStatus_CPU[pByte] |= MEM_READ;
+	}
+	//HiRAM
+	for (pByte = 0x8F80; pByte < 0x9000; pByte++)
+	{
+		MemStatus_CPU[pByte] |= MEM_READ;
+	}
+}
+
+
+
 void CGameBoy::PrepareEmulation(BOOL Debug)
 {
 	DWORD	pByte, RamSize;
@@ -2582,53 +3501,7 @@ void CGameBoy::PrepareEmulation(BOOL Debug)
 		Flags &= ~GB_DEBUG;
 		if (Flags & GB_DEBUGRUNINFO)
 		{
-			Flags &= ~GB_DEBUGRUNINFO;
-
-			/*//VRAM
-			for (pByte = 0; pByte < sizeof(MemStatus_VRAM), pByte++)
-			{
-				Memory[pByte] |= MEM_READ;
-			}*/
-
-			switch (MEM_ROM[0x0149])
-			{
-			case 1:
-				RamSize = 0x800;
-				break;
-
-			case 2:
-				RamSize = 0x2000;
-				break;
-
-			case 3:
-				RamSize = 0x8000;
-				break;
-
-			case 4:
-				RamSize = 0x20000;
-				break;
-
-			default:
-				RamSize = 0;
-				break;
-			}
-
-			//External Battery RAM
-			for (pByte = 0; pByte < RamSize; pByte++)
-			{
-				MemStatus_RAM[pByte] |= MEM_READ;
-			}
-
-			//Internal RAM
-			for (pByte = 0; pByte < 0x8000; pByte++)
-			{
-				MemStatus_CPU[pByte] |= MEM_READ;
-			}
-			//HiRAM
-			for (pByte = 0x8F80; pByte < 0x9000; pByte++)
-			{
-				MemStatus_CPU[pByte] |= MEM_READ;
-			}
+			ClearDebugRunInfo();
 		}
 	}
 
@@ -2833,12 +3706,14 @@ LCD_ExitHBlank:
 		and		dh, ~3
 		or		dh, 1
 		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
-		//dh	free
 
 		or		bh, 1
 		or		esi, GB_EXITLOOP
 
 		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
+
+		test	dh, 0x10
+		jnz		LCD_SetLCDC01
 
 		test	dh, 0x40
 		jz		LCD_Done
@@ -2847,6 +3722,7 @@ LCD_ExitHBlank:
 		cmp		bl, 144
 		jne		LCD_Done
 
+LCD_SetLCDC01:
 		or		bh, 2
 		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
 
@@ -2914,6 +3790,13 @@ LCD_ExitVBlank:
 		mov		byte ptr [ecx + Offset_WindowY], bl
 		mov		byte ptr [ecx + Offset_WindowY2], 0
 
+		test	dh, 0x20
+		jz		LCD_Done
+
+		mov		bh, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		bh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
+
 		jmp		LCD_Done
 
 LCD_Mode2or3:
@@ -2931,6 +3814,15 @@ LCD_Mode2or3:
 
 		and		dh, ~3
 		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+
+		test	dh, 0x08
+		jz		LCD_NoSetLCDC00
+
+		mov		bh, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		bh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
+
+LCD_NoSetLCDC00:
 		//dh	free
 		//edx	free
 
@@ -3202,6 +4094,12 @@ Bg_NoHigh:
 
 							add		dword ptr [LineX], 2
 
+							/*mov		eax, dword ptr [ecx + Offset_pPalette]
+							push	ecx
+							mov		cx, word ptr [esi + Offset_BGP]
+							and		ecx, 0x7FFF
+							mov		ax, word ptr [eax + ecx * 2]
+							pop		ecx*/
 							mov		ax, word ptr [esi + Offset_BGP]
 							mov		ecx, eax
 							shr		ch, 2
@@ -3839,10 +4737,10 @@ NC_Bg_NoDraw:
 
 							movzx	ebx, byte ptr [ecx + FF00_ASM + 0x44]
 							sub		bl, byte ptr [ecx + Offset_WindowY]
-							jb		Wnd_NoDraw		//LY too low
+							jb		NC_Wnd_NoDraw		//LY too low
 
 							cmp		bl, 143
-							ja		Wnd_NoDraw		//WY too high
+							ja		NC_Wnd_NoDraw		//WY too high
 							mov		bl, byte ptr [ecx + Offset_WindowY2]
 							inc		byte ptr [ecx + Offset_WindowY2]
 							mov		ah, bl
@@ -4162,6 +5060,8 @@ LCD_Off:
 		mov		byte ptr [ecx + Offset_LCD_Ticks], 0
 		mov		byte ptr [ecx + FF00_ASM + 0x44], 0
 		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+
+		mov		dword ptr [ecx + Offset_dwAVISoundPos], 0
 
 		sub		esp, 32 //sizeof(MSG)
 		mov		edx, esp
@@ -5818,6 +6718,10 @@ DIV_NotEnoughTicks:
 		mov		ebx, dword ptr [ecx + Offset_TIMA_Ticks]
 		//ebx	= TIMA_Ticks
 		add		ebx, eax
+		test	byte ptr [ecx + FF00_ASM + 0x4D], 0x80
+		jz		Timer_FastCPU
+		add		ebx, eax
+Timer_FastCPU:
 		//eax	free
 		mov		edx, dword ptr [ecx + Offset_Hz]
 		//edx	= Hz
@@ -5961,14 +6865,11 @@ ExitLoop:
 
 
 
-char	ReadAccessDeniedMsg[] = "Read access needed.";
-char	ExecuteAccessDeniedMsg[] = "Execute access needed.";
-char	InterruptWriteAccessDeniedMsg[] = "Write access needed for stack pointer, interrupt cannot be serviced.";
-
-
-
-void AccessDenied(CGameBoy *pGameBoy, char *pMsg)
+void AccessDenied(CGameBoy *pGameBoy, UINT uID)
 {
+	char		szBuffer[0x100];
+
+
 	SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)pGameBoy->hGBWnd, 0);
 	if (!hDisAsm)
 	{
@@ -5978,7 +6879,7 @@ void AccessDenied(CGameBoy *pGameBoy, char *pMsg)
 	{
 		SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hDisAsm, 0);
 	}
-	MessageBox(hWnd, pMsg, "Game Lad", MB_ICONWARNING | MB_OK);
+	MessageBox(hMsgParent, String(uID), "Game Lad", MB_ICONWARNING | MB_OK);
 	pGameBoy->Stop();
 	pGameBoy->Flags |= GB_ERROR;
 }
@@ -6127,6 +7028,9 @@ LCD_ExitHBlank:
 		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
 		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
 
+		test	dh, 0x10
+		jnz		LCD_SetLCDC01
+
 		test	dh, 0x40
 		jz		LCD_Done
 
@@ -6134,9 +7038,10 @@ LCD_ExitHBlank:
 		cmp		bl, 144
 		jne		LCD_Done
 
+LCD_SetLCDC01:
 		or		bh, 2
 		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
-		//or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
 
 		jmp		LCD_Done
 
@@ -6207,6 +7112,14 @@ LCD_ExitVBlank:
 		mov		byte ptr [ecx + Offset_WindowY], bl
 		mov		byte ptr [ecx + Offset_WindowY2], 0
 
+		test	dh, 0x20
+		jz		LCD_Done
+
+		mov		bh, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		bh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
+
 		jmp		LCD_Done
 
 LCD_Mode2or3:
@@ -6224,9 +7137,18 @@ LCD_Mode2or3:
 
 		and		dh, ~3
 		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F41], MEM_CHANGED
+		test	dh, 0x08
+		jz		LCD_NoSetLCDC00
+
+		mov		bh, byte ptr [ecx + FF00_ASM + 0x0F]
+		or		bh, 2
+		mov		byte ptr [ecx + FF00_ASM + 0x0F], bh
+		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F0F], MEM_CHANGED
+
+LCD_NoSetLCDC00:
 		//dh	free
 		//edx	free
-		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F44], MEM_CHANGED
 
 		test	esi, GB_HDMA
 		jz		LCD_NoHDMA
@@ -7144,10 +8066,10 @@ NC_Bg_NoDraw:
 
 							movzx	ebx, byte ptr [ecx + FF00_ASM + 0x44]
 							sub		bl, byte ptr [ecx + Offset_WindowY]
-							jb		Wnd_NoDraw		//LY too low
+							jb		NC_Wnd_NoDraw		//LY too low
 
 							cmp		bl, 143
-							ja		Wnd_NoDraw		//WY too high
+							ja		NC_Wnd_NoDraw		//WY too high
 							mov		bl, byte ptr [ecx + Offset_WindowY2]
 							inc		byte ptr [ecx + Offset_WindowY2]
 							mov		ah, bl
@@ -7469,6 +8391,8 @@ LCD_Off:
 		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F44], MEM_CHANGED
 		mov		byte ptr [ecx + FF00_ASM + 0x41], dh
 		or		byte ptr [ecx + Offset_MemStatus_CPU + 0x8F41], MEM_CHANGED
+
+		mov		dword ptr [ecx + Offset_dwAVISoundPos], 0
 
 		sub		esp, 32 //sizeof(MSG)
 		mov		edx, esp
@@ -9046,6 +9970,10 @@ DIV_NotEnoughTicks:
 		mov		ebx, dword ptr [ecx + Offset_TIMA_Ticks]
 		//ebx	= TIMA_Ticks
 		add		ebx, eax
+		test	byte ptr [ecx + FF00_ASM + 0x4D], 0x80
+		jz		Timer_FastCPU
+		add		ebx, eax
+Timer_FastCPU:
 		//eax	free
 		mov		edx, dword ptr [ecx + Offset_Hz]
 		//edx	= Hz
@@ -9183,7 +10111,7 @@ InterruptServiced:
 		jz		ContinueLoop
 
 ExitLoop:
-		and		esi, ~GB_EXITLOOP
+		and		esi, ~(GB_EXITLOOP | GB_EXITLOOPDIRECTLY)
 		mov		dword ptr [ecx + Offset_Flags], esi
 		//esi	free
 
@@ -9195,24 +10123,33 @@ ExitLoop:
 		ret
 
 ExecuteAccessDenied:
-		push	offset ExecuteAccessDeniedMsg
+		push	ecx
+		push	IDS_EMU_EXECUTEACCESSDENIED
 		push	ecx
 		call	AccessDenied
 		add		esp, 8
+		pop		ecx
+		mov		esi, dword ptr [ecx + Offset_Flags]
 		jmp		ExitLoop
 
 ReadAccessDenied:
-		push	offset ReadAccessDeniedMsg
+		push	ecx
+		push	IDS_EMU_READACCESSDENIED
 		push	ecx
 		call	AccessDenied
 		add		esp, 8
+		pop		ecx
+		mov		esi, dword ptr [ecx + Offset_Flags]
 		jmp		ExitLoop
 
 Interrupt_WriteAccessDenied:
-		push	offset InterruptWriteAccessDeniedMsg
+		push	ecx
+		push	IDS_EMU_WRITEACCESSDENIED_INT
 		push	ecx
 		call	AccessDenied
 		add		esp, 8
+		pop		ecx
+		mov		esi, dword ptr [ecx + Offset_Flags]
 		jmp		ExitLoop
 	}
 
@@ -9254,10 +10191,10 @@ void CGameBoy::RefreshScreen()
 	else
 	{
 		InvalidateRect(hGBWnd, NULL, false);
-		PostMessage(hGBWnd, WM_PAINT, 0, 0);
+		//PostMessage(hGBWnd, WM_PAINT, 0, 0);
 		if (FastFwd)
 		{
-			FramesToSkip = 9;
+			FramesToSkip = 10;
 		}
 		else
 		{
@@ -9273,19 +10210,12 @@ void __declspec(naked) __fastcall SoundUpdate(CGameBoy *GB)
 	//
 	__asm
 	{
-		mov		esi, dword ptr [ecx + Offset_hWaveOut]
+		mov		esi, dword ptr [ecx + Offset_SoundBuffer + Offset_lpdsb]
 		mov		al, byte ptr [ecx + Offset_FastFwd]
-		mov		edi, dword ptr [ecx + Offset_SoundBufferPosition]
 		test	esi, esi
 		jz		NoSound
 		test	al, al
-		jz		SoundEnabled
-		test	edi, edi
 		jnz		NoSound
-
-SoundEnabled:
-		mov		esi, dword ptr [ecx + Offset_pSoundBuffer]
-
 
 		mov		ebx, dword ptr [ecx + Offset_SoundR]
 		mov		eax, 0x2AAAAAAB
@@ -9309,8 +10239,8 @@ R_BelowMax:
 R_WithinLimits:
 		mov		dword ptr [ecx + Offset_SoundR], 0
 
-		mov		byte ptr [esi + edi], al
-		inc		edi
+		//mov		edi, eax
+		push	eax
 
 
 		mov		ebx, dword ptr [ecx + Offset_SoundL]
@@ -9334,297 +10264,135 @@ L_BelowMax:
 
 L_WithinLimits:
 		mov		dword ptr [ecx + Offset_SoundL], 0
-
-		mov		byte ptr [esi + edi], al
-		inc		edi
+		push	eax
 
 
+		mov		esi, dword ptr [ecx + Offset_pAVISoundBuffer]
+		test	esi, esi
+		jz		NoAVI
+		mov		ebx, dword ptr [ecx + Offset_dwAVISoundPos]
+		cmp		ebx, 22050 * 2
+		jae		BufferFull
+		pop		eax
+		pop		edx
+		push	edx
+		push	eax
+		mov		byte ptr [esi + ebx], dl
+		mov		byte ptr [esi + ebx + 1], al
+		add		ebx, 2
+		mov		dword ptr [ecx + Offset_dwAVISoundPos], ebx
+BufferFull:
+NoAVI:
+
+
+		lea		edi, [ecx + Offset_SoundBuffer + Offset_csSound]
+		push	edi
+		mov		esi, ecx
+		call	dword ptr [EnterCriticalSection]
+
+		mov		ebx, dword ptr [esi + Offset_SoundBuffer + Offset_dwPosition]
+		pop		eax
+		pop		edx
+		mov		byte ptr [esi + Offset_SoundBuffer + Offset_Buffer + ebx], dl
+		mov		byte ptr [esi + Offset_SoundBuffer + Offset_Buffer + ebx + 1], al
+		add		ebx, 2
+		mov		dword ptr [esi + Offset_SoundBuffer + Offset_dwPosition], ebx
+
+		push	edi
+		call	dword ptr [LeaveCriticalSection]
+
+
+		mov		al, byte ptr [esi + Offset_SoundTicks]
+		add		al, 96
+		mov		byte ptr [esi + Offset_SoundTicks], al
+
+		mov		ebx, dword ptr [esi + Offset_SoundBuffer + Offset_dwPosition]
+		cmp		ebx, BufferSize * 2
+		jb		BufferFilled
+Delay:
+		push	0
+		call	dword ptr [Sleep]
+		mov		ebx, dword ptr [esi + Offset_SoundBuffer + Offset_dwPosition]
+		cmp		ebx, BufferSize * 2
+		jae		Delay
+
+BufferFilled:
+		ret
+
+
+NoSound:
 		mov		al, byte ptr [ecx + Offset_SoundTicks]
 		add		al, 96
 		mov		byte ptr [ecx + Offset_SoundTicks], al
 
-		cmp		edi, 2048
-		jae		BufferFilled
-
-
-		mov		dword ptr [ecx + Offset_SoundBufferPosition], edi
-NoSound:
+		mov		ebx, dword ptr [ecx + Offset_pAVISoundBuffer]
+		test	ebx, ebx
+		jnz		AVI
 		ret
+AVI:
+		mov		ebx, dword ptr [ecx + Offset_SoundR]
+		mov		eax, 0x2AAAAAAB
+		imul	ebx
+		sar		edx, 6
+		mov		eax, edx
+		shr		edx, 0x1F
+		add		eax, edx
 
+		cmp		eax, -128
+		jge		AVI_R_AboveMin
+		xor		al, al
+		jmp		AVI_R_WithinLimits
+AVI_R_AboveMin:
+		cmp		eax, 127
+		jle		AVI_R_BelowMax
+		mov		al, 127
+AVI_R_BelowMax:
+		add		al, 0x80
 
-BufferFilled:
-		mov		dword ptr [esi + 2048 +  0], esi
-		mov		dword ptr [esi + 2048 +  4], 2048
-		mov		dword ptr [esi + 2048 + 16], 0
+AVI_R_WithinLimits:
+		mov		dword ptr [ecx + Offset_SoundR], 0
 
-		mov		dword ptr [ecx + Offset_SoundBufferPosition], 0
-
-		//waveOutWrite
-		push	32 //sizeof(WAVEHDR)
-		add		esi, 2048
-		push	esi
-		mov		eax, dword ptr [ecx + Offset_hWaveOut]
+		//mov		edi, eax
 		push	eax
 
-		//waveOutPrepareHeader
-		push	32
-		push	esi
+
+		mov		ebx, dword ptr [ecx + Offset_SoundL]
+		mov		eax, 0x2AAAAAAB
+		imul	ebx
+		sar		edx, 6
+		mov		eax, edx
+		shr		edx, 0x1F
+		add		eax, edx
+
+		cmp		eax, -128
+		jge		AVI_L_AboveMin
+		xor		al, al
+		jmp		AVI_L_WithinLimits
+AVI_L_AboveMin:
+		cmp		eax, 127
+		jle		AVI_L_BelowMax
+		mov		al, 127
+AVI_L_BelowMax:
+		add		al, 0x80
+
+AVI_L_WithinLimits:
+		mov		dword ptr [ecx + Offset_SoundL], 0
 		push	eax
 
 
-		mov		esi, ecx
-
-Delay:
-		cmp		byte ptr [esi + Offset_nSoundBuffers], 3
-		jbe		NoDelay
-
-		push	0
-		call	dword ptr [Sleep]
-		jmp		Delay
-NoDelay:
-
-		//EnterCriticalSection
-		push	offset csSound
-		call	dword ptr [EnterCriticalSection]
-
-		call	dword ptr [waveOutPrepareHeader]
-		call	dword ptr [waveOutWrite]
-
-		inc		byte ptr [esi + Offset_nSoundBuffers]
-
-		push	offset csSound
-		call	dword ptr [LeaveCriticalSection]
-
-		push	2048 + 32 //sizeof(SOUNDBUFFER)
-		call	new
-		add		esp, 4
-		mov		dword ptr [esi + Offset_pSoundBuffer], eax
-		test	eax, eax
-		jz		OutOfMemory
-
+		mov		esi, dword ptr [ecx + Offset_pAVISoundBuffer]
+		pop		eax
+		pop		edx
+		mov		ebx, dword ptr [ecx + Offset_dwAVISoundPos]
+		cmp		ebx, 22050 * 2
+		jae		AVI_BufferFull
+		mov		byte ptr [esi + ebx], dl
+		mov		byte ptr [esi + ebx + 1], al
+		add		ebx, 2
+		mov		dword ptr [ecx + Offset_dwAVISoundPos], ebx
+AVI_BufferFull:
 		ret
-
-OutOfMemory:
-		//MessageBox(hWnd, OutOfMemoryMsg, NULL, MB_OK | MB_ICONERROR);
-		//GB->CloseSound();
-
-		dec		byte ptr [esi + Offset_nSoundBuffers]
-
-		push	offset csSound
-		call	dword ptr [LeaveCriticalSection]
-
-		push	esi
-		call	CloseSound_asm
-		add		esp, 4
-
-		push	MB_OK | MB_ICONERROR
-		push	NULL
-		push	offset OutOfMemoryMsg
-		push	dword ptr [hWnd]
-		call	dword ptr [MessageBox]
-		ret
-
-
-/*BufferFilled:
-		lea		esi, [ecx + Offset_SoundBuffer + Offset_csSound]
-		push	esi
-		call	dword ptr [EnterCriticalSection]
-
-		mov		dword ptr [ecx + Offset_SoundBuffer + Offset_dwPosition], 0
-
-Delay:
-		cmp		byte ptr [esi + Offset_SoundBuffer + Offset_dwPosition], BufferSize
-		jb		NoDelay
-
-		push	0
-		call	dword ptr [Sleep]
-		jmp		Delay
-NoDelay:
-
-		//EnterCriticalSection
-		add		esi, Offset_SoundBuffer + Offset_csSound
-		push	esi
-		call	dword ptr [EnterCriticalSection]
-
-		call	dword ptr [waveOutPrepareHeader]
-		call	dword ptr [waveOutWrite]
-
-		push	esi
-		call	dword ptr [LeaveCriticalSection]
-
-		ret*/
 	}
-
-	/*/
-	int			l, r;
-	__asm int 3;
-
-
-	if (!GB->hWaveOut || (GB->FastFwd && GB->SoundBufferPosition == 0))
-	{
-		return;
-	}
-
-
-	l = ((signed)GB->SoundL) / ((signed)96);
-	r = ((signed)GB->SoundR) / ((signed)96);
-	GB->SoundL = 0;
-	GB->SoundR = 0;
-
-
-	l >>= 2;
-	if (l < -128)
-	{
-		l = -128;
-	}
-	if (l > 127)
-	{
-		l = 127;
-	}
-	l += 0x80;
-	r >>= 2;
-	if (r < -128)
-	{
-		r = -128;
-	}
-	if (r > 127)
-	{
-		r = 127;
-	}
-	r += 0x80;
-
-
-	GB->SoundBuffer->Data[GB->SoundBufferPosition++] = (BYTE)r;
-	GB->SoundBuffer->Data[GB->SoundBufferPosition++] = (BYTE)l;
-	if (GB->SoundBufferPosition >= sizeof(GB->SoundBuffer->Data))
-	{
-		ZeroMemory(&GB->SoundBuffer->wh, sizeof(GB->SoundBuffer->wh));
-		GB->SoundBuffer->wh.lpData = (char *)&GB->SoundBuffer->Data;
-		GB->SoundBuffer->wh.dwBufferLength = sizeof(GB->SoundBuffer->Data);
-
-		EnterCriticalSection(&csSound);
-		waveOutPrepareHeader(GB->hWaveOut, &GB->SoundBuffer->wh, sizeof(GB->SoundBuffer->wh));
-		waveOutWrite(GB->hWaveOut, &GB->SoundBuffer->wh, sizeof(GB->SoundBuffer->wh));
-		if (!(GB->SoundBuffer = new SOUNDBUFFER))
-		{
-			MessageBox(hWnd, OutOfMemoryMsg, NULL, MB_OK | MB_ICONERROR);
-			GB->CloseSound();
-		}
-		LeaveCriticalSection(&csSound);
-		GB->SoundBufferPosition = 0;
-	}
-
-	GB->SoundTicks += 96;//*/
-	/*
-00410FA4 8B 86 98 A1 03 00    mov         eax,dword ptr [esi+3A198h]
-00410FAA 85 C0                test        eax,eax
-00410FAC 0F 84 A3 01 00 00    je          00411155
-00410FB2 8A 86 A4 A1 03 00    mov         al,byte ptr [esi+3A1A4h]
-00410FB8 84 C0                test        al,al
-00410FBA 74 0E                je          00410FCA
-00410FBC 8B 86 A0 A1 03 00    mov         eax,dword ptr [esi+3A1A0h]
-00410FC2 85 C0                test        eax,eax
-00410FC4 0F 84 8B 01 00 00    je          00411155
-00410FCA 8B 8E 50 A1 03 00    mov         ecx,dword ptr [esi+3A150h]
-00410FD0 B8 AB AA AA 2A       mov         eax,2AAAAAABh
-00410FD5 F7 E9                imul        ecx
-00410FD7 C1 FA 04             sar         edx,4
-00410FDA 8B C2                mov         eax,edx
-00410FDC C7 86 50 A1 03 00 00 mov         dword ptr [esi+3A150h],0
-00410FE6 C1 E8 1F             shr         eax,1Fh
-00410FE9 03 D0                add         edx,eax
-00410FEB B8 AB AA AA 2A       mov         eax,2AAAAAABh
-00410FF0 8B CA                mov         ecx,edx
-00410FF2 8B 96 54 A1 03 00    mov         edx,dword ptr [esi+3A154h]
-00410FF8 F7 EA                imul        edx
-00410FFA C1 FA 04             sar         edx,4
-00410FFD 8B C2                mov         eax,edx
-00410FFF C7 86 54 A1 03 00 00 mov         dword ptr [esi+3A154h],0
-00411009 C1 E8 1F             shr         eax,1Fh
-0041100C C1 F9 02             sar         ecx,2
-0041100F 03 D0                add         edx,eax
-00411011 83 F9 80             cmp         ecx,80h
-00411014 7D 07                jge         0041101D
-00411016 B9 80 FF FF FF       mov         ecx,0FFFFFF80h
-0041101B EB 0A                jmp         00411027
-0041101D 83 F9 7F             cmp         ecx,7Fh
-00411020 7E 05                jle         00411027
-00411022 B9 7F 00 00 00       mov         ecx,7Fh
-00411027 C1 FA 02             sar         edx,2
-0041102A 81 C1 80 00 00 00    add         ecx,80h
-00411030 83 FA 80             cmp         edx,80h
-00411033 7D 07                jge         0041103C
-00411035 BA 80 FF FF FF       mov         edx,0FFFFFF80h
-0041103A EB 0A                jmp         00411046
-0041103C 83 FA 7F             cmp         edx,7Fh
-0041103F 7E 05                jle         00411046
-00411041 BA 7F 00 00 00       mov         edx,7Fh
-00411046 8B 86 A0 A1 03 00    mov         eax,dword ptr [esi+3A1A0h]
-0041104C 57                   push        edi
-0041104D 8B BE 9C A1 03 00    mov         edi,dword ptr [esi+3A19Ch]
-00411053 80 C2 80             add         dl,80h
-00411056 88 14 38             mov         byte ptr [eax+edi],dl
-00411059 8B BE A0 A1 03 00    mov         edi,dword ptr [esi+3A1A0h]
-0041105F 8B 96 9C A1 03 00    mov         edx,dword ptr [esi+3A19Ch]
-00411065 47                   inc         edi
-00411066 8B C7                mov         eax,edi
-00411068 89 BE A0 A1 03 00    mov         dword ptr [esi+3A1A0h],edi
-0041106E 88 0C 10             mov         byte ptr [eax+edx],cl
-00411071 8B 96 A0 A1 03 00    mov         edx,dword ptr [esi+3A1A0h]
-00411077 42                   inc         edx
-00411078 8B C2                mov         eax,edx
-0041107A 89 96 A0 A1 03 00    mov         dword ptr [esi+3A1A0h],edx
-00411080 3D 00 04 00 00       cmp         eax,400h
-00411085 0F 82 BB 00 00 00    jb          00411146
-0041108B 8B BE 9C A1 03 00    mov         edi,dword ptr [esi+3A19Ch]
-00411091 B9 08 00 00 00       mov         ecx,8
-00411096 33 C0                xor         eax,eax
-00411098 81 C7 00 04 00 00    add         edi,400h
-0041109E F3 AB                rep stos    dword ptr [edi]
-004110A0 8B 86 9C A1 03 00    mov         eax,dword ptr [esi+3A19Ch]
-004110A6 68 A0 7E 42 00       push        427EA0h
-004110AB 89 80 00 04 00 00    mov         dword ptr [eax+400h],eax
-004110B1 8B 86 9C A1 03 00    mov         eax,dword ptr [esi+3A19Ch]
-004110B7 C7 80 04 04 00 00 00 mov         dword ptr [eax+404h],400h
-004110C1 FF 15 CC 10 42 00    call        dword ptr ds:[4210CCh]
-004110C7 8B 8E 9C A1 03 00    mov         ecx,dword ptr [esi+3A19Ch]
-004110CD 8B 96 98 A1 03 00    mov         edx,dword ptr [esi+3A198h]
-004110D3 81 C1 00 04 00 00    add         ecx,400h
-004110D9 6A 20                push        20h
-004110DB 51                   push        ecx
-004110DC 52                   push        edx
-004110DD FF 15 94 12 42 00    call        dword ptr ds:[421294h]
-004110E3 8B 86 9C A1 03 00    mov         eax,dword ptr [esi+3A19Ch]
-004110E9 8B 8E 98 A1 03 00    mov         ecx,dword ptr [esi+3A198h]
-004110EF 05 00 04 00 00       add         eax,400h
-004110F4 6A 20                push        20h
-004110F6 50                   push        eax
-004110F7 51                   push        ecx
-004110F8 FF 15 98 12 42 00    call        dword ptr ds:[421298h]
-004110FE 68 20 04 00 00       push        420h
-00411103 E8 D4 B9 00 00       call        0041CADC
-00411108 83 C4 04             add         esp,4
-0041110B 89 86 9C A1 03 00    mov         dword ptr [esi+3A19Ch],eax
-00411111 85 C0                test        eax,eax
-00411113 75 1C                jne         00411131
-00411115 8B 15 78 7F 42 00    mov         edx,dword ptr ds:[427F78h]
-0041111B 6A 10                push        10h
-0041111D 50                   push        eax
-0041111E 68 14 52 42 00       push        425214h
-00411123 52                   push        edx
-00411124 FF 15 3C 12 42 00    call        dword ptr ds:[42123Ch]
-0041112A 8B CE                mov         ecx,esi
-0041112C E8 3F 05 00 00       call        00411670
-00411131 68 A0 7E 42 00       push        427EA0h
-00411136 FF 15 74 10 42 00    call        dword ptr ds:[421074h]
-0041113C C7 86 A0 A1 03 00 00 mov         dword ptr [esi+3A1A0h],0
-00411146 8A 86 43 A1 03 00    mov         al,byte ptr [esi+3A143h]
-0041114C 5F                   pop         edi
-0041114D 04 60                add         al,60h
-0041114F 88 86 43 A1 03 00    mov         byte ptr [esi+3A143h],al
-00411155 5E                   pop         esi
-00411156 C3                   ret
-	*/
 }
 
 
@@ -9796,66 +10564,16 @@ void __fastcall Sound4(CGameBoy *pGameBoy)
 
 
 
-void CALLBACK WaveCallback(HWAVE hWave, UINT uMsg, DWORD dwInstance, DWORD dwParam1, DWORD dwParam2)
-{
-	if(uMsg == WOM_DONE)
-	{
-		EnterCriticalSection(&csSound);
-		((CGameBoy *)dwInstance)->nSoundBuffers--;
-		waveOutUnprepareHeader((HWAVEOUT)hWave, (WAVEHDR *)dwParam1, sizeof(WAVEHDR));
-		delete ((WAVEHDR *)dwParam1)->lpData;
-		LeaveCriticalSection(&csSound);
-	}
-}
-
-
-
 BOOL CGameBoy::RestoreSound()
 {
-	WAVEFORMATEX	wfx;
-
-
-	EnterCriticalSection(&csSound);
-	if (!hWaveOut)
+	if (!hSoundDll)
 	{
-		if (waveOutGetNumDevs() == 0)
-		{
-			LeaveCriticalSection(&csSound);
-			MessageBox(NULL, "No audio device present.", NULL, MB_OK | MB_ICONERROR);
-			return true;
-		}
-
-		ZeroMemory(&wfx, sizeof(wfx));
-		wfx.wFormatTag = WAVE_FORMAT_PCM;
-		wfx.nChannels = 2;
-		wfx.nSamplesPerSec = 22050;
-		wfx.wBitsPerSample = 8;
-		wfx.nBlockAlign = 2;
-		wfx.nAvgBytesPerSec = wfx.nSamplesPerSec * wfx.nBlockAlign;
-		if (waveOutOpen(&hWaveOut, WAVE_MAPPER, &wfx, (DWORD)WaveCallback /*hWnd*/, (DWORD)this, CALLBACK_FUNCTION /*CALLBACK_WINDOW*/))
-		{
-			LeaveCriticalSection(&csSound);
-			MessageBox(NULL, "Could not open audio device.", NULL, MB_OK | MB_ICONERROR);
-			return true;
-		}
-		waveOutReset(hWaveOut);
+		return true;
 	}
 
-	if (!SoundBuffer)
-	{
-		if (!(SoundBuffer = new SOUNDBUFFER))
-		{
-			LeaveCriticalSection(&csSound);
-			CloseSound();
-			MessageBox(hWnd, OutOfMemoryMsg, NULL, MB_OK | MB_ICONERROR);
-			return true;
-		}
-	}
-	SoundBufferPosition = 0;
-	SoundL = SoundR = 0;
-	SoundL = SoundR = 0;
-	nSoundBuffers = 0;
-	LeaveCriticalSection(&csSound);
+	ZeroMemory(&SoundBuffer, sizeof(SoundBuffer));
+	SoundMain(SND_CREATEBUFFER, NULL, &SoundBuffer);
+	SoundBuffer.IsPlaying = true;
 
 	return false;
 }
@@ -9864,25 +10582,22 @@ BOOL CGameBoy::RestoreSound()
 
 void CGameBoy::CloseSound()
 {
-	HWAVEOUT		hWave;
-
-
-	if (hWaveOut)
+	if (!SoundBuffer.lpdsb)
 	{
-		hWave = hWaveOut;
-		hWaveOut = NULL;
-		while (nSoundBuffers)
-		{
-			Sleep(0);
-		}
-		EnterCriticalSection(&csSound);
-		waveOutClose(hWave);
-		LeaveCriticalSection(&csSound);
+		return;
 	}
-	if (SoundBuffer)
+
+	if (GetCurrentThreadId() != ThreadId)
 	{
-		delete SoundBuffer;
-		SoundBuffer = NULL;
+		Stop();
+		Resume();
+		return;
+	}
+
+	SoundBuffer.Close = true;
+	while (SoundBuffer.Close)
+	{
+		Sleep(0);
 	}
 }
 

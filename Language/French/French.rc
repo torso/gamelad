@@ -1,0 +1,502 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// French (France) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_FRA)
+#ifdef _WIN32
+LANGUAGE LANG_FRENCH, SUBLANG_FRENCH
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_OPEN           "Ouvre un fichier ROM Game Boy"
+    IDS_FILE_CLOSE          "Ferme la fenêtre Game Boy active"
+    IDS_FILE_SAVESTATE      "Enregistre l'état de la Game Boy active dans l'emplacement sélectionné"
+    IDS_FILE_LOADSTATE      "Charge un état depuis l'emplacement sélectionné"
+    IDS_FILE_SAVESTATEAS    "Enregistre l'état de la Game Boy active dans un fichier"
+    IDS_FILE_LOADSTATEAS    "Charge un état depuis un fichier"
+    IDS_FILE_STATESLOT_0    "Sélectionne l'emplacement d'enregistrement d'état zéro"
+    IDS_FILE_STATESLOT_1    "Sélectionne l'emplacement d'enregistrement d'état un"
+    IDS_FILE_STATESLOT_2    "Sélectionne l'emplacement d'enregistrement d'état deux"
+    IDS_FILE_STATESLOT_3    "Sélectionne l'emplacement d'enregistrement d'état trois"
+    IDS_FILE_STATESLOT_4    "Sélectionne l'emplacement d'enregistrement d'état quatre"
+    IDS_FILE_STATESLOT_5    "Sélectionne l'emplacement d'enregistrement d'état cinq"
+    IDS_FILE_STATESLOT_6    "Sélectionne l'emplacement d'enregistrement d'état six"
+    IDS_FILE_STATESLOT_7    "Sélectionne l'emplacement d'enregistrement d'état sept"
+    IDS_FILE_STATESLOT_8    "Sélectionne l'emplacement d'enregistrement d'état huit"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_STATESLOT_9    "Sélectionne l'emplacement d'enregistrement d'état neuf"
+    IDS_FILE_SAVEBATTERY    "Enregistre la RAM non volatile"
+    IDS_FILE_LOADBATTERY    "Charge la RAM non volatile"
+    IDS_FILE_SAVEBATTERYAS  "Enregistre la RAM non volatile sous un nouveau nom"
+    IDS_FILE_CLEARBATTERY   "Efface la RAM non volatile"
+    IDS_FILE_EXIT           "Ferme Game Lad"
+    IDS_EDIT_GOTO           "Saute à une adresse spécifique"
+    IDS_VIEW_DISASSEMBLY    "Active la fenêtre du désassembleur"
+    IDS_VIEW_MEMORY         "Active la fenêtre mémoire"
+    IDS_VIEW_REGISTERS      "Active la fenêtre des registres"
+    IDS_VIEW_HARDWARE       "Active la fenêtre hardware"
+    IDS_VIEW_PALETTES       "Active la fenêtre des palettes"
+    IDS_VIEW_TILEMAP        "Active la fenêtre de la map"
+    IDS_VIEW_TILES          "Active la fenêtre des tiles"
+    IDS_VIEW_STATUSBAR      "Montre ou cache la barre de statut"
+    IDS_VIEW_ZOOM_100       "Agrandit la fenêtre à 100%"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_ZOOM_200       "Agrandit la fenêtre à 200%"
+    IDS_VIEW_ZOOM_300       "Agrandit la fenêtre à 300%"
+    IDS_VIEW_ZOOM_400       "Agrandit la fenêtre à 400%"
+    IDS_VIEW_FRAMESKIP_0    "Saute zéro frame"
+    IDS_VIEW_FRAMESKIP_1    "Saute une frame"
+    IDS_VIEW_FRAMESKIP_2    "Saute deux frames"
+    IDS_VIEW_FRAMESKIP_3    "Saute trois frames"
+    IDS_VIEW_FRAMESKIP_4    "Saute quatre frames"
+    IDS_VIEW_FRAMESKIP_5    "Saute cinq frames"
+    IDS_VIEW_FRAMESKIP_6    "Saute six frames"
+    IDS_VIEW_FRAMESKIP_7    "Saute sept frames"
+    IDS_VIEW_FRAMESKIP_8    "Saute huit frames"
+    IDS_VIEW_FRAMESKIP_9    "Saute neuf frames"
+    IDS_MEMORY_ROM          "Afficher la banque ROM spécifiée"
+    IDS_MEMORY_VBK_BANK0    "Afficher la banque VRAM zéro"
+    IDS_MEMORY_VBK_BANK1    "Afficher la banque VRAM un"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MEMORY_RAM_BANK0    "Affiche la banque RAM zéro"
+    IDS_MEMORY_RAM_BANK1    "Affiche la banque RAM un"
+    IDS_MEMORY_RAM_BANK2    "Affiche la banque RAM deux"
+    IDS_MEMORY_RAM_BANK3    "Affiche la banque RAM trois"
+    IDS_MEMORY_RAM_BANK4    "Affiche la banque RAM quatre"
+    IDS_MEMORY_RAM_BANK5    "Affiche la banque RAM cinq"
+    IDS_MEMORY_RAM_BANK6    "Affiche la banque RAM six"
+    IDS_MEMORY_RAM_BANK7    "Affiche la banque RAM sept"
+    IDS_MEMORY_RAM_BANK8    "Affiche la banque RAM huit"
+    IDS_MEMORY_RAM_BANK9    "Affiche la banque RAM neuf"
+    IDS_MEMORY_RAM_BANK10   "Affiche la banque RAM dix"
+    IDS_MEMORY_RAM_BANK11   "Affiche la banque RAM onze"
+    IDS_MEMORY_RAM_BANK12   "Affiche la banque RAM douze"
+    IDS_MEMORY_RAM_BANK13   "Affiche la banque RAM treize"
+    IDS_MEMORY_RAM_BANK14   "Affiche la banque RAM quatorze"
+    IDS_MEMORY_RAM_BANK15   "Affiche la banque RAM quinze"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MEMORY_SVBK_BANK1   "Affiche la banque RAM interne un"
+    IDS_MEMORY_SVBK_BANK2   "Affiche la banque RAM interne deux"
+    IDS_MEMORY_SVBK_BANK3   "Affiche la banque RAM interne trois"
+    IDS_MEMORY_SVBK_BANK4   "Affiche la banque RAM interne quatre"
+    IDS_MEMORY_SVBK_BANK5   "Affiche la banque RAM interne cinq"
+    IDS_MEMORY_SVBK_BANK6   "Affiche la banque RAM interne six"
+    IDS_MEMORY_SVBK_BANK7   "Affiche la banque RAM interne sept"
+    IDS_EMULATION_STARTDEBUG "Commence le débogage"
+    IDS_EMULATION_EXECUTE   "Execute le programme sans les avertissements de débogage"
+    IDS_EMULATION_STOP      "Arrête l'émulation"
+    IDS_EMULATION_STEPINTO  "Avance jusqu'à la prochaine instruction"
+    IDS_EMULATION_STEPOVER  "Execute la prochaine instruction sans entrer dans la fonction"
+    IDS_EMULATION_STEPOUT   "Continue jusqu'à la sortie de la fonction"
+    IDS_EMULATION_RUNTOCURSOR 
+                            "Exécute le programme jusqu'à la ligne contenant le curseur"
+    IDS_EMULATION_SETNEXTSTATEMENT 
+                            "Initialise le compteur programme (PC) avec la ligne contenant le curseur"
+    IDS_EMULATION_TOGGLEBREAKPOINT "Insère ou enlève un point d'arrêt"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMULATION_RESET     "Réinitialise le programme"
+    IDS_TOOLS_OPTIONS       "Change les options"
+    IDS_TOOLS_SOUNDENABLED  "Désactive le son"
+    IDS_WINDOW_NEXT         "Active la prochaine fenêtre"
+    IDS_WINDOW_PREVIOUS     "Active la fenêtre précédente"
+    IDS_WINDOW_CASCADE      "Réorganise les fenêtres, avec chevauchement"
+    IDS_WINDOW_TILEHORIZONTALLY 
+                            "Réorganise les fenêtres en rectangles horizontaux, sans chevauchement"
+    IDS_WINDOW_TILEVERTICALLY 
+                            "Réorganise les fenêtres en rectangles verticaux, sans chevauchement"
+    IDS_HELP_ABOUT          "Affiche les informations sur le logiciel et le copyright"
+    IDS_ABOUT_TITLE         "A propros de Game Lad"
+    IDS_ABOUT_WRITTENBY     "Ecrit par $"
+    IDS_TRANSLATOR_NAME     "[mailto:dlbrun@libertysurf.fr;Damien Lanza Brun]"
+    IDS_FILE_MENU           "&Fichier"
+    IDS_FILE_OPEN_MENU      "&Ouvrir Rom...\tCtrl+O"
+    IDS_FILE_CLOSE_MENU     "&Fermer\tCtrl+F4"
+    IDS_FILE_SAVESTATE_MENU "&Enregistrer l'état\tF2"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_LOADSTATE_MENU "&Charge l'état\tF3"
+    IDS_FILE_SAVESTATEAS_MENU "En&registre l'état sous...\tShift+F2"
+    IDS_FILE_LOADSTATEAS_MENU "Char&ge un état...\tShift+F3"
+    IDS_FILE_STATESLOT_MENU "Em&placement d'état"
+    IDS_FILE_STATESLOT_0_MENU "&0 $\tF4,0"
+    IDS_FILE_STATESLOT_1_MENU "&1 $\tF4,1"
+    IDS_FILE_STATESLOT_2_MENU "&2 $\tF4,2"
+    IDS_FILE_STATESLOT_3_MENU "&3 $\tF4,3"
+    IDS_FILE_STATESLOT_4_MENU "&4 $\tF4,4"
+    IDS_FILE_STATESLOT_5_MENU "&5 $\tF4,5"
+    IDS_FILE_STATESLOT_6_MENU "&6 $\tF4,6"
+    IDS_FILE_STATESLOT_7_MENU "&7 $\tF4,7"
+    IDS_FILE_STATESLOT_8_MENU "&8 $\tF4,8"
+    IDS_FILE_STATESLOT_9_MENU "&9 $\tF4,9"
+    IDS_FILE_SAVEBATTERY_MENU "Enregi&stre Ram non-volatile\tCtrl+S"
+    IDS_FILE_LOADBATTERY_MENU "C&harge Ram non-volatile..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_SAVEBATTERYAS_MENU "Enreg&istre Ram non-volatile sous..."
+    IDS_FILE_CLEARBATTERY_MENU "Eff&ace Ram non-volatile"
+    IDS_FILE_EXIT_MENU      "&Quitter"
+    IDS_EDIT_MENU           "&Edition"
+    IDS_EDIT_GOTO_MENU      "&Aller à...\tCtrl+G"
+    IDS_VIEW_MENU           "&Affichage"
+    IDS_VIEW_DISASSEMBLY_MENU "&Désassembleur\tAlt+8"
+    IDS_VIEW_MEMORY_MENU    "&Mémoire\tAlt+6"
+    IDS_VIEW_REGISTERS_MENU "&Registres\tAlt+5"
+    IDS_VIEW_HARDWARE_MENU  "&Hardware"
+    IDS_VIEW_PALETTES_MENU  "&Palettes"
+    IDS_VIEW_TILEMAP_MENU   "M&ap"
+    IDS_VIEW_TILES_MENU     "&Tiles"
+    IDS_VIEW_STATUSBAR_MENU "Barre de &statut"
+    IDS_VIEW_ZOOM_MENU      "&Zoom"
+    IDS_VIEW_ZOOM_100_MENU  "&100%"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_ZOOM_200_MENU  "&200%"
+    IDS_VIEW_ZOOM_300_MENU  "&300%"
+    IDS_VIEW_ZOOM_400_MENU  "&400%"
+    IDS_VIEW_FRAMESKIP_MENU "Saut de &frames"
+    IDS_VIEW_FRAMESKIP_0_MENU "&0"
+    IDS_VIEW_FRAMESKIP_1_MENU "&1"
+    IDS_VIEW_FRAMESKIP_2_MENU "&2"
+    IDS_VIEW_FRAMESKIP_3_MENU "&3"
+    IDS_VIEW_FRAMESKIP_4_MENU "&4"
+    IDS_VIEW_FRAMESKIP_5_MENU "&5"
+    IDS_VIEW_FRAMESKIP_6_MENU "&6"
+    IDS_VIEW_FRAMESKIP_7_MENU "&7"
+    IDS_VIEW_FRAMESKIP_8_MENU "&8"
+    IDS_VIEW_FRAMESKIP_9_MENU "&9"
+    IDS_VIEW_BANK_MENU      "&Banque"
+    IDS_VIEW_BANK_ROM_MENU  "&ROM..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_BANK_VBK_MENU  "&VBK"
+    IDS_VIEW_BANK_VBK_0_MENU "Banque &0"
+    IDS_VIEW_BANK_VBK_1_MENU "Banque &1"
+    IDS_VIEW_BANK_RAM_MENU  "R&AM"
+    IDS_VIEW_BANK_RAM_0_MENU "Banque &0"
+    IDS_VIEW_BANK_RAM_1_MENU "Banque &1"
+    IDS_VIEW_BANK_RAM_2_MENU "Banque &2"
+    IDS_VIEW_BANK_RAM_3_MENU "Banque &3"
+    IDS_VIEW_BANK_RAM_4_MENU "Banque &4"
+    IDS_VIEW_BANK_RAM_5_MENU "Banque &5"
+    IDS_VIEW_BANK_RAM_6_MENU "Banque &6"
+    IDS_VIEW_BANK_RAM_7_MENU "Banque &7"
+    IDS_VIEW_BANK_RAM_8_MENU "Banque &8"
+    IDS_VIEW_BANK_RAM_9_MENU "Banque &9"
+    IDS_VIEW_BANK_RAM_10_MENU "Banque &10"
+    IDS_VIEW_BANK_RAM_11_MENU "Banque &11"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_BANK_RAM_12_MENU "Banque &12"
+    IDS_VIEW_BANK_RAM_13_MENU "Banque &13"
+    IDS_VIEW_BANK_RAM_14_MENU "Banque &14"
+    IDS_VIEW_BANK_RAM_15_MENU "Banque &15"
+    IDS_VIEW_BANK_SVBK_MENU "&SVBK"
+    IDS_VIEW_BANK_SVBK_1_MENU "Banque &1"
+    IDS_VIEW_BANK_SVBK_2_MENU "Banque &2"
+    IDS_VIEW_BANK_SVBK_3_MENU "Banque &3"
+    IDS_VIEW_BANK_SVBK_4_MENU "Banque &4"
+    IDS_VIEW_BANK_SVBK_5_MENU "Banque &5"
+    IDS_VIEW_BANK_SVBK_6_MENU "Banque &6"
+    IDS_VIEW_BANK_SVBK_7_MENU "Banque &7"
+    IDS_EMULATION_MENU      "E&mulation"
+    IDS_EMULATION_STARTDEBUG_MENU "&Débogage\tF5"
+    IDS_EMULATION_EXECUTE_MENU "&Exécuter\tCtrl+F5"
+    IDS_EMULATION_STOP_MENU "&Arrêter\tEsc"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMULATION_STEPINTO_MENU "Pas à pas appro&fondi\tF11"
+    IDS_EMULATION_STEPOVER_MENU "&Pas à pas\tF10"
+    IDS_EMULATION_STEPOUT_MENU "Exécute jusqu'au &retour\tShift+F11"
+    IDS_EMULATION_RUNTOCURSOR_MENU "Exécute jusqu'au &curseur\tCtrl+F10"
+    IDS_EMULATION_SETNEXTSTATEMENT_MENU 
+                            "Définir comme prochaine &instruction\tCtrl+Shift+F10"
+    IDS_EMULATION_TOGGLEBREAKPOINT_MENU 
+                            "Active/Désactive le p&oint d'arrêt\tF9"
+    IDS_EMULATION_RESET_MENU "&Réinitialiser"
+    IDS_TOOLS_MENU          "&Outils"
+    IDS_TOOLS_OPTIONS_MENU  "&Options..."
+    IDS_TOOLS_SOUNDENABLED_MENU "&Son Activé"
+    IDS_WINDOW_MENU         "Fe&nêtre"
+    IDS_WINDOW_NEXT_MENU    "&Suivante"
+    IDS_WINDOW_PREVIOUS_MENU "&Précédente"
+    IDS_WINDOW_CASCADE_MENU "&Cascade"
+    IDS_WINDOW_TILEHORIZONTALLY_MENU "Mosaïque &Horizontale"
+    IDS_WINDOW_TILEVERTICALLY_MENU "Mosaïque &Verticale"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_HELP_MENU           "&Aide"
+    IDS_HELP_ABOUT_MENU     "A &propos..."
+    IDS_STATUS_READY        "Prêt"
+    IDS_STATUS_ENTERSLOTNUMBER "Entrez le numéro d'un emplacement d'état"
+    IDS_OPEN_TITLE          "Titre: $"
+    IDS_OPEN_LOADBATTERY    "Charger si possible la Ram non-volatile"
+    IDS_STOPPED             "Arrêt"
+    IDS_STARTDEBUG          "Débogage"
+    IDS_EXECUTE             "Exécution"
+    IDS_VK_APPS             "Application"
+    IDS_VK_BACK             "Effacer"
+    IDS_VK_CONTROL          "Contrôle"
+    IDS_VK_DELETE           "Suppr"
+    IDS_VK_DOWN             "Flèche Bas"
+    IDS_VK_END              "Fin"
+    IDS_VK_RETURN           "Entrée"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VK_HOME             "Début"
+    IDS_VK_INSERT           "Insérer"
+    IDS_VK_LEFT             "Flèche Gauche"
+    IDS_VK_NUMLOCK          "Verr Num"
+    IDS_VK_NUMPAD0          "0 Pavé Numérique"
+    IDS_VK_NUMPAD1          "1 Pavé Numérique"
+    IDS_VK_NUMPAD2          "2 Pavé Numérique"
+    IDS_VK_NUMPAD3          "3 Pavé Numérique"
+    IDS_VK_NUMPAD4          "4 Pavé Numérique"
+    IDS_VK_NUMPAD5          "5 Pavé Numérique"
+    IDS_VK_NUMPAD6          "6 Pavé Numérique"
+    IDS_VK_NUMPAD7          "7 Pavé Numérique"
+    IDS_VK_NUMPAD8          "8 Pavé Numérique"
+    IDS_VK_NUMPAD9          "9 Pavé Numérique"
+    IDS_VK_ADD              "Plus Pavé Numérique"
+    IDS_VK_DECIMAL          "Point  Pavé Numérique"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VK_DIVIDE           "Diviser Pavé Numérique"
+    IDS_VK_MULTIPLY         "Multiplier Pavé Numérique"
+    IDS_VK_SUBTRACT         "Moins Pavé Numérique"
+    IDS_VK_NEXT             "Page Suivante"
+    IDS_VK_PRIOR            "Page Précédente"
+    IDS_VK_PAUSE            "Pause"
+    IDS_VK_RIGHT            "Flèche Droite"
+    IDS_VK_SHIFT            "Majuscule"
+    IDS_VK_SPACE            "Espace"
+    IDS_VK_TAB              "Tabulation"
+    IDS_VK_UP               "Flèche Haut"
+    IDS_YES                 "Oui"
+    IDS_NO                  "Non"
+    IDS_PROMPT              "Demander"
+    IDS_OPTIONS_KEYS        "Touches"
+    IDS_OPTIONS_KEYS_UP     "Haut"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_OPTIONS_KEYS_DOWN   "Bas"
+    IDS_OPTIONS_KEYS_LEFT   "Gauche"
+    IDS_OPTIONS_KEYS_RIGHT  "Droite"
+    IDS_OPTIONS_KEYS_A      "A"
+    IDS_OPTIONS_KEYS_B      "B"
+    IDS_OPTIONS_KEYS_START  "Start"
+    IDS_OPTIONS_KEYS_SELECT "Select"
+    IDS_OPTIONS_KEYS_FASTFORWARD "Avance rapide"
+    IDS_OPTIONS_GENERAL     "Général"
+    IDS_FILEASSOC_FRAME     "Associate files with Game Lad"
+    IDS_FILEASSOC_GB        "Fichiers ROM Game Boy (.gb and .gbc)"
+    IDS_FILEASSOC_GLS       "Fichiers état Game Lad (.gls)"
+    IDS_SAVE_FRAME          "Enregistrer"
+    IDS_SAVE_LOADBATTERY    "Charger la RAM non-volatile si possible"
+    IDS_SAVE_LOADSTATE      "Charger le dernier état enregistré"
+    IDS_SAVE_SAVEBATTERY    "Enregistrer la RAM non-volatile en fermant"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_SAVE_SAVESTATE      "Enregistrer l'état en fermant"
+    IDS_MISC_FRAME          "Divers"
+    IDS_MISC_FRAMESKIP      "Saut de frame par défaut"
+    IDS_MISC_HARDWARE       "Hardware à émuler"
+    IDS_MISC_AUTOSTART      "Etat initial d'une ROM à l'ouverture"
+    IDS_OPTIONS_LANGUAGE    "Langage"
+    IDS_OPTIONS             "Options"
+    IDS_OPEN_GBROM          "Fichiers ROMs Game Boy (*.gb; *.gbc)"
+    IDS_OPEN_ALLFILES       "Tous les fichiers (*.*)"
+    IDS_OPEN_BATTERY        "RAM non-volatile Game Boy (*.sav)"
+    IDS_OPEN_SAVESTATE      "Fichiers état Game Lad (*.gls)"
+    IDS_WND_REGISTERS       "Registres"
+    IDS_WND_DISASSEMBLY     "Désassembleur"
+    IDS_WND_MEMORY          "Memoire"
+    IDS_WND_TILES           "Tiles"
+    IDS_WND_TILEMAP         "Map"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_WND_PALETTES        "Palettes"
+    IDS_WND_HARDWARE        "Hardware"
+    IDS_OPEN                "Ouvrir"
+    IDS_SAVEAS              "Enregistrer sous"
+    IDS_STATUS_LOADED       "$ chargé"
+    IDS_STATUS_SAVED        "$ enregistré"
+    IDS_STATUS_NOTFOUND     "$ non trouvé"
+    IDS_STATUS_READERROR    "Erreur en lisant $"
+    IDS_STATUS_WRITEERROR   "Erreur en lisant $"
+    IDS_PROMPT_SAVESTATE    "Enregistrer l'état?"
+    IDS_PROMPT_SAVEBATTERY  "Enregistrer la RAM non-volatile?"
+    IDS_STATUS_ROMNOTFOUND  "Fichier ROM non trouvé"
+    IDS_STATUS_ROMSIZEDIFFER 
+                            "La taille du fichier ROM est différente de celle indiquée dans l'en-tête."
+    IDS_STATUS_SELECTSTATESLOT "Emplacement d'état $ selectionné"
+    IDS_STATUS_SELECTFRAMESKIP "Saut de frame initialisé à $"
+    IDS_EMU_INVALIDOPCODE   "Instruction (OpCode) invalide"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMU_READACCESSDENIED "Accès en lecture requis"
+    IDS_EMU_WRITEACCESSDENIED "Accès en écriture refusé"
+    IDS_EMU_EXECUTEACCESSDENIED "Accès en éxécution refusé"
+    IDS_EMU_WRITEACCESSDENIED_INT 
+                            "Accès en écriture requis pour le pointeur de pile, l'interruption ne peut être traitée"
+    IDS_EMU_HALTQUIRK       "Halt non traité"
+    IDS_NOAUDIO             "Aucun périphérique audio installé."
+    IDS_OPENAUDIOERROR      "Impossible d'ouvrir le périphérique audio."
+    IDS_HIGHERVERSIONREQUIRED "$ ou supérieur requis."
+    IDS_TOOLS_CHEAT_MENU    "&Cheat..."
+    IDS_TOOLS_CHEAT         "Enter cheat codes"
+    IDS_CHEAT_TITLE         "Cheats"
+    IDS_CHEAT_ADDCHEAT      "Add Cheat"
+    IDS_CHEAT_ADDCODE       "Add Code"
+    IDS_CHEAT_INVALID       "Invalid code"
+    IDS_CHEAT_GAMEGENIE     "Game Genie code"
+    IDS_CHEAT_GAMESHARK     "Game Shark code"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_CHEAT_INEFFECTIVE   "Code ineffective"
+    IDS_FILE_SAVESNAPSHOTAS_MENU "Save Snapshot..."
+    IDS_FILE_SAVESNAPSHOTAS "Saves the current picture to a file"
+    IDS_FILE_SAVEVIDEOAS_MENU "Save V&ideo..."
+    IDS_FILE_SAVEVIDEOAS    "Saves output as a video file"
+    IDS_WND_TILEMAP_XFLIP   "X-Flip"
+    IDS_WND_TILEMAP_YFLIP   "Y-Flip"
+    IDS_WND_TILEMAP_PRIORITY "Prio"
+    IDS_WND_TILEMAP_BACKGROUNDENABLED "Bgnd"
+    IDS_WND_TILEMAP_WINDOWENABLED "Window"
+    IDS_WND_PALETTES_BACKGROUND "Background"
+    IDS_WND_PALETTES_SPRITE "Sprite"
+    IDS_WND_HARDWARE_ROMSIZE "ROM Size:"
+    IDS_WND_HARDWARE_RAMSIZE "RAM Size:"
+    IDS_WND_REGISTERS_HBLANK "H-Blank"
+    IDS_WND_REGISTERS_VBLANK "V-Blank"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_WND_REGISTERS_OAMSEARCH "OAM"
+    IDS_WND_REGISTERS_LCDTRANSFER "LCD"
+    IDS_FILE_MERGECHEATS_MENU "&Merge Cheats..."
+    IDS_FILE_MERGECHEATS    "Load cheats from a file and adds them to the cheat list"
+    IDS_OPTIONS_FILE        "File"
+    IDS_OPEN_LOADSTATE      "Load latest state"
+    IDS_OPEN_CHEATXML       "Cheat files (*.xml)"
+    IDS_ENTERADDRESS        "Enter Address"
+    IDS_ENTERROMBANKNO      "Enter ROM bank"
+    IDS_OPTIONS_LANGUAGE_TRANSLATEDBY "Traduit par: $"
+END
+
+#endif    // French (France) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Swedish resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_SVE)
+#ifdef _WIN32
+LANGUAGE LANG_SWEDISH, SUBLANG_DEFAULT
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Swedish resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
