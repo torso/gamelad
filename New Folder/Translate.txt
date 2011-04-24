@@ -1,0 +1,17 @@
+Scroll down to the part with IDS_. Translate the text within quotation marks.
+The IDS_ strings should not be altered, they are only used by the compiler.
+
+Some strings have a $ sign. It will be changed to something else. If it is removed,
+the default (English) string will be loaded instead.
+
+Menu commands may have one & sign. It is placed before a letter to make it an
+access key. You have to make sure that every command in a menu has different access
+keys.
+Everything after \t appears to the right. It shows the shortcut keys. Changing
+this text will NOT change the shortcut key.
+
+IDS_TRANSLATOR_NAME may include a hypertext link. It will be displayed as blue,
+underlined text and will open the default browser or e-mail program when clicked.
+[address;link text] To make it an e-mail address just write mailto:address.
+You can also write ?subject= to provide a default subject.
+Example: [mailto:torbjrn@emuunlim.com?subject=Translation;Torbjörn Söderstedt]

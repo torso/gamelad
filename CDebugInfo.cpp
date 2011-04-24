@@ -22,6 +22,18 @@ CDebugInfo::~CDebugInfo()
 
 
 
+DWORD CDebugInfo::nLabels()
+{
+	if (!m_pLabelList)
+	{
+		return 0;
+	}
+
+	return m_pLabelList->GetMaxItemNo();
+}
+
+
+
 BOOL ReadLine(HANDLE hFile, char *pBuffer)
 {
 	DWORD		nBytes;
@@ -61,6 +73,7 @@ BOOL ReadLine(HANDLE hFile, char *pBuffer)
 		pBuffer[Pos] = 0;
 		pBuffer[MAX_LABELLENGTH - 1] = 0;
 	}
+
 	return false;
 }
 
@@ -129,14 +142,39 @@ BOOL CDebugInfo::LoadFile(char *pszRomPath)
 			DisplayErrorMessage();
 			return false;
 		}
-		if (nBytes == 0 || Buffer[2] != ':' || Buffer[7] != ' ' || HexToNum(&Buffer[0]) || HexToNum(&Buffer[1])
-			|| HexToNum(&Buffer[3]) || HexToNum(&Buffer[4]) || HexToNum(&Buffer[5]) || HexToNum(&Buffer[6]))
+		if (Buffer[2] == ':')
+		{
+			if (nBytes == 0 || Buffer[7] != ' ' || HexToNum(&Buffer[0]) || HexToNum(&Buffer[1])
+				|| HexToNum(&Buffer[3]) || HexToNum(&Buffer[4]) || HexToNum(&Buffer[5]) || HexToNum(&Buffer[6]))
+			{
+				CloseHandle(hFile);
+				return false;
+			}
+			Bank = (Buffer[0] << 4) | Buffer[1];
+			Offset = (Buffer[3] << 12) | (Buffer[4] << 8) | (Buffer[5] << 4) | Buffer[6];
+		}
+		else if (Buffer[4] == ':')
+		{
+			if (!ReadFile(hFile, &Buffer[8], 2, &nBytes, NULL))
+			{
+				CloseHandle(hFile);
+				DisplayErrorMessage();
+				return false;
+			}
+			if (nBytes == 0 || Buffer[9] != ' ' || HexToNum(&Buffer[2]) || HexToNum(&Buffer[3])
+				|| HexToNum(&Buffer[5]) || HexToNum(&Buffer[6]) || HexToNum(&Buffer[7]) || HexToNum(&Buffer[8]))
+			{
+				CloseHandle(hFile);
+				return false;
+			}
+			Bank = (Buffer[2] << 4) | Buffer[3];
+			Offset = (Buffer[5] << 12) | (Buffer[6] << 8) | (Buffer[7] << 4) | Buffer[8];
+		}
+		else
 		{
 			CloseHandle(hFile);
 			return false;
 		}
-		Bank = (Buffer[0] << 4) | Buffer[1];
-		Offset = (Buffer[3] << 12) | (Buffer[4] << 8) | (Buffer[5] << 4) | Buffer[6];
 		if (ReadLine(hFile, Buffer))
 		{
 			return false;
@@ -161,6 +199,7 @@ BOOL CDebugInfo::AddLabel(BYTE Bank, WORD Offset, char *pszName)
 	{
 		if (!(m_pLabelList = new CList()))
 		{
+			DisplayErrorMessage(ERROR_OUTOFMEMORY);
 			return true;
 		}
 	}

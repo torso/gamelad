@@ -18,6 +18,7 @@
 #define		Z80_CPP
 #include	"Game Lad.h"
 #include	"Game Boy.h"
+#include	"CGameBoys.h"
 #include	"Debugger.h"
 #include	"resource.h"
 
@@ -315,6 +316,32 @@ AccessDenied:
 
 
 
+void SetRumble(CGameBoy *pGameBoy, BYTE b)
+{
+	if (b & 8)
+	{
+		pGameBoy->Flags |= GB_RUMBLE;
+	}
+	else
+	{
+		pGameBoy->Flags &= ~GB_RUMBLE;
+	}
+	GameBoys.SetRumble(pGameBoy);
+	/*if (lpdieRumble[pGameBoy->dwPlayerNo - 1])
+	{
+		if (b & 8)
+		{
+			lpdieRumble[pGameBoy->dwPlayerNo - 1]->Start(1, 0);
+		}
+		else
+		{
+			lpdieRumble[pGameBoy->dwPlayerNo - 1]->Stop();
+		}
+	}*/
+}
+
+
+
 void __declspec(naked) __fastcall Port(CGameBoy *pGameBoy, BYTE Addr)
 {
 	__asm
@@ -322,6 +349,8 @@ void __declspec(naked) __fastcall Port(CGameBoy *pGameBoy, BYTE Addr)
 		//P1
 		cmp		dl, 0x00
 		je		P1
+		cmp		dl, 0x02
+		je		SC
 		cmp		dl, 0x04
 		je		Port_DIV
 		cmp		dl, 0x07
@@ -430,43 +459,17 @@ SgbNoReturn:
 		pop		edx
 		ret
 
-		/*//SC - SIO Control
-		cmp		dl, 0x02
-		jne		NotSC
+SC:
+		mov		[ecx + FF00_ASM + 0x02], al
 
 		test	al, 0x80
 		jz		NoTransfer
 
-		/*test	al, 0x01
-		jnz		ExternalClock*/
+		or		dword ptr [ecx + Offset_Flags], GB_EXITLOOP
 
-/*		push	eax
-		mov		eax, [ecx + Offset_SIOClocks]
-		or		al, [ecx + Offset_SIO]
-		test	eax, eax
-		pop		eax
-		jnz		NoChange
-
-		mov		dword ptr [ecx + Offset_SIOClocks], 0x800
-		mov		byte ptr [ecx + Offset_SIO], 0
-NoChange:
-		pop		ebx
+NoTransfer:
 		ret
 
-/*ExternalClock:
-		mov		dword ptr [ecx + Offset_SIOClocks], 0
-		mov		byte ptr [ecx + Offset_SIO], SIO_ACCEPT
-		mov		byte ptr [ecx + Offset_ExitLoop], 1
-		pop		ebx
-		ret*/
-
-/*NoTransfer:
-		mov		dword ptr [ecx + Offset_SIOClocks], 0
-		mov		byte ptr [ecx + Offset_SIO], 0
-		pop		ebx
-		ret
-
-NotSC:*/
 Port_DIV:
 		//DIV - Divider register
 		mov		byte ptr [ecx + FF00_ASM + 0x04], 0
@@ -1066,6 +1069,8 @@ TestIfFixed:*/
 NotIntRAM:
 		cmp		edx, 0xA000
 		jb		NotFixed
+		cmp		dword ptr [ecx + Offset_MemStatus_RAM], 0
+		je		NotFixed
 		push	eax
 		push	ebx
 		xor		eax, eax
@@ -1157,6 +1162,33 @@ IllegalBank:
 		ret
 
 RamBankSelect:
+		test	dword ptr [ecx + Offset_Flags], GB_HASRUMBLEPACK
+		jz		NoRumblePack
+
+		push	eax
+		push	ebx
+		push	ecx
+		push	edx
+		push	esi
+		push	edi
+
+		push	eax
+		push	ecx
+		call	SetRumble
+		pop		ecx
+		pop		eax
+
+		pop		edi
+		pop		esi
+		pop		edx
+		pop		ecx
+		pop		ebx
+		pop		eax
+
+		and		al, 0x07
+NoRumblePack:
+		and		al, 0x0F
+
 		cmp		al, [ecx + Offset_MaxRamBank]
 		ja		IllegalBank		//return
 
@@ -1847,6 +1879,8 @@ TestIfFixed:*/
 NotIntRAM:
 		cmp		edx, 0xA000
 		jb		NotFixed
+		cmp		dword ptr [ecx + Offset_MemStatus_RAM], 0
+		je		NotFixed
 		push	eax
 		push	ebx
 		xor		eax, eax
@@ -1947,6 +1981,33 @@ IllegalBank:
 		ret
 
 RamBankSelect:
+		test	dword ptr [ecx + Offset_Flags], GB_HASRUMBLEPACK
+		jz		NoRumblePack
+
+		push	eax
+		push	ebx
+		push	ecx
+		push	edx
+		push	esi
+		push	edi
+
+		push	eax
+		push	ecx
+		call	SetRumble
+		pop		ecx
+		pop		eax
+
+		pop		edi
+		pop		esi
+		pop		edx
+		pop		ecx
+		pop		ebx
+		pop		eax
+
+		and		al, 0x07
+NoRumblePack:
+		and		al, 0x0F
+
 		cmp		al, [ecx + Offset_MaxRamBank]
 		ja		IllegalBank		//return
 

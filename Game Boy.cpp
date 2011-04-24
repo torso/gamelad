@@ -11,6 +11,7 @@
 #include	"Z80.h"
 #include	"Debugger.h"
 #include	"resource.h"
+#include	"Input.h"
 
 
 
@@ -148,6 +149,53 @@ CGameBoy::~CGameBoy()
 	{
 		DeleteDC(hGBDC);
 	}
+}
+
+
+
+void CGameBoy::AddRef()
+{
+	EnterCriticalSection(&csGameBoy);
+	if (!GameBoys.GameBoyExists(this))
+	{
+		LeaveCriticalSection(&csGameBoy);
+		return;
+	}
+	RefCount++;
+	LeaveCriticalSection(&csGameBoy);
+}
+
+
+
+void CGameBoy::Release()
+{
+	EnterCriticalSection(&csGameBoy);
+	if (!GameBoys.GameBoyExists(this))
+	{
+		LeaveCriticalSection(&csGameBoy);
+		return;
+	}
+	if (RefCount > 0)
+	{
+		RefCount--;
+	}
+	LeaveCriticalSection(&csGameBoy);
+}
+
+
+
+BOOL CGameBoy::CanUnload()
+{
+	EnterCriticalSection(&csGameBoy);
+
+	if (RefCount == 0)
+	{
+		LeaveCriticalSection(&csGameBoy);
+		return true;
+	}
+
+	LeaveCriticalSection(&csGameBoy);
+	return false;
 }
 
 
@@ -335,7 +383,14 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 	default:
 		SaveRamSize = 0;
 	}
-
+	switch (MEM_ROM[0x0147])
+	{
+	case 0x1C:
+	case 0x1D:
+	case 0x1E:
+		Flags |= GB_HASRUMBLEPACK;
+		break;
+	}
 
 	if (!hGBDC)
 	{
@@ -346,12 +401,6 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 		}
 
 		ZeroMemory(&bmi, sizeof(bmi));
-		/*bmi.bmiHeader.bv4Size = sizeof(BITMAPV4HEADER);
-		bmi.bmiHeader.bV4Width = 160 + 14;
-		bmi.bmiHeader.biHeight = -144;
-		bmi.bmiHeader.biPlanes = 1;
-		bmi.bmiHeader.biBitCount = 16;
-		bmi.bmiHeader.bCompression = BI_RGB;*/
 		bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 		bmi.bmiHeader.biWidth = 160 + 14;
 		bmi.bmiHeader.biHeight = -144;
@@ -396,6 +445,14 @@ BOOL CGameBoy::Init(char *pszROMFilename, char *pszStateFilename, char *pszBatte
 		{
 			delete pDebugInfo;
 			pDebugInfo = NULL;
+		}
+		else
+		{
+			if (!pDebugInfo->nLabels())
+			{
+				delete pDebugInfo;
+				pDebugInfo = NULL;
+			}
 		}
 	}
 
@@ -1421,6 +1478,31 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped, BOOL QuickLoad)
 	BatteryAvailable = true;
 
 
+	MEM[0x0] = &MEM_ROM[0x000000];
+	MEM[0x1] = &MEM_ROM[0x001000];
+	MEM[0x2] = &MEM_ROM[0x002000];
+	MEM[0x3] = &MEM_ROM[0x003000];
+	MEM[0x4] = &MEM_ROM[0x000000 + ActiveRomBank * 0x4000];
+	MEM[0x5] = &MEM_ROM[0x001000 + ActiveRomBank * 0x4000];
+	MEM[0x6] = &MEM_ROM[0x002000 + ActiveRomBank * 0x4000];
+	MEM[0x7] = &MEM_ROM[0x003000 + ActiveRomBank * 0x4000];
+	MEM[0x8] = &MEM_VRAM[0x0000 + (FF00_C(0x4F) & 1) * 0x2000];
+	MEM[0x9] = &MEM_VRAM[0x1000 + (FF00_C(0x4F) & 1) * 0x2000];
+	MEM[0xA] = &MEM_RAM[0x0000 + ActiveRamBank * 0x2000];
+	MEM[0xB] = &MEM_RAM[0x1000 + ActiveRamBank * 0x2000];
+	MEM[0xC] = &MEM_CPU[0x0000];
+	if (FF00_C(0x70) & 7)
+	{
+		MEM[0xD] = &MEM_CPU[0x0000 + (FF00_C(0x70) & 7) * 0x1000];
+	}
+	else
+	{
+		MEM[0xD] = &MEM_CPU[0x1000];
+	}
+	MEM[0xE] = &MEM_CPU[0x0000];
+	MEM[0xF] = &MEM_CPU[0x8000];
+
+
 	switch (MEM_ROM[0x0149])
 	{
 	case 1:
@@ -1446,6 +1528,15 @@ BOOL CGameBoy::LoadState(char *pszFilename, BOOL AlreadyStopped, BOOL QuickLoad)
 	for (pByte = 0; pByte < 0x9000; pByte++)
 	{
 		MemStatus_CPU[pByte] &= ~MEM_FIXED;
+	}
+
+	switch (MEM_ROM[0x0147])
+	{
+	case 0x1C:
+	case 0x1D:
+	case 0x1E:
+		Flags |= GB_HASRUMBLEPACK;
+		break;
 	}
 
 
@@ -1502,6 +1593,28 @@ LPARAM CGameBoy::GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	switch (uMsg)
 	{
+	case WM_PAINT:
+		if (GetUpdateRect(hGBWnd, NULL, true))
+		{
+			BeginPaint(hGBWnd, &Paint);
+			GetClientRect(hGBWnd, &rct);
+			if (rct.right == 160 && rct.bottom == 144)
+			{
+				//StretchBlt(Paint.hdc, 0, 0, rct.right, rct.bottom, hGBDC, 7, 0, 160, 144, SRCCOPY);
+				BitBlt(Paint.hdc, Paint.rcPaint.left, Paint.rcPaint.top, rct.right, rct.bottom, hGBDC, Paint.rcPaint.left + 7, Paint.rcPaint.top, SRCCOPY);
+			}
+			else
+			{
+				StretchBlt(Paint.hdc, 0, 0, rct.right, rct.bottom, hGBDC, 7, 0, 160, 144, SRCCOPY);
+			}
+			EndPaint(hGBWnd, &Paint);
+		}
+		return 0;
+
+	case WM_ERASEBKGND:
+		//Picture covers whole window, no need to erase background.
+		return 1;
+
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
@@ -1543,99 +1656,99 @@ LPARAM CGameBoy::GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 
-	case WM_MDIACTIVATE:
+	/*case WM_MDIACTIVATE:
 		if (hGBWnd != (HWND)lParam)
 		{
 			DirectionKeys = 0;
 			Buttons = 0;
-			FastFwd = false;
-		}
-		return 0;
-
-	case WM_ERASEBKGND:
-		//Picture covers whole window, no need to erase background.
-		return 1;
-
-	case WM_PAINT:
-		if (GetUpdateRect(hGBWnd, NULL, true))
-		{
-			BeginPaint(hGBWnd, &Paint);
-			GetClientRect(hGBWnd, &rct);
-		/*COLORADJUSTMENT		ca;
-		ZeroMemory(&ca, sizeof(ca));
-		ca.caSize = sizeof(ca);
-		ca.caRedGamma = 12000;
-		ca.caGreenGamma = 10000;
-		ca.caBlueGamma = 10000;
-		ca.caReferenceWhite = 10000;
-		SetLastError(ERROR_SUCCESS);
-		SetStretchBltMode(Paint.hdc, HALFTONE);
-		if (!SetColorAdjustment(Paint.hdc, &ca))
-		{
-			DisplayErrorMessage();
-		}*/
-			if (rct.right == 160 && rct.bottom == 144)
-			{
-				//StretchBlt(Paint.hdc, 0, 0, rct.right, rct.bottom, hGBDC, 7, 0, 160, 144, SRCCOPY);
-				BitBlt(Paint.hdc, Paint.rcPaint.left, Paint.rcPaint.top, rct.right, rct.bottom, hGBDC, Paint.rcPaint.left + 7, Paint.rcPaint.top, SRCCOPY);
-			}
-			else
-			{
-				StretchBlt(Paint.hdc, 0, 0, rct.right, rct.bottom, hGBDC, 7, 0, 160, 144, SRCCOPY);
-			}
-			EndPaint(hGBWnd, &Paint);
+			FastFwd = 0;
 		}
 		return 0;
 
 	case WM_KEYDOWN:
-		if (wParam == Keys.Down)
+		if (wParam == NULL || !dwPlayerNo)
 		{
-			DirectionKeys |= 0x08;
 			return 0;
 		}
-		if (wParam == Keys.Up)
+		if (wParam == Keys[dwPlayerNo - 1].Down)
 		{
-			DirectionKeys |= 0x04;
-			return 0;
+			KeyboardDirection |= 0x08;
 		}
-		if (wParam == Keys.Left)
+		if (wParam == Keys[dwPlayerNo - 1].Up)
 		{
-			DirectionKeys |= 0x02;
-			return 0;
+			KeyboardDirection |= 0x04;
 		}
-		if (wParam == Keys.Right)
+		if (wParam == Keys[dwPlayerNo - 1].Left)
 		{
-			DirectionKeys |= 0x01;
-			return 0;
+			KeyboardDirection |= 0x02;
 		}
-		if (wParam == Keys.Start)
+		if (wParam == Keys[dwPlayerNo - 1].Right)
 		{
-			Buttons |= 0x08;
-			/*if (!(FF00_C(0) & 0x20))
-			{
-				FF00_C(0) |= 0x08;
-			}*/
-			return 0;
+			KeyboardDirection |= 0x01;
 		}
-		if (wParam == Keys.Select)
+		if (wParam == Keys[dwPlayerNo - 1].Start)
 		{
-			Buttons |= 0x04;
-			return 0;
+			KeyboardButtons |= 0x08;
 		}
-		if (wParam == Keys.A)
+		if (wParam == Keys[dwPlayerNo - 1].Select)
 		{
-			Buttons |= 0x01;
-			return 0;
+			KeyboardButtons |= 0x04;
 		}
-		if (wParam == Keys.B)
+		if (wParam == Keys[dwPlayerNo - 1].A)
 		{
-			Buttons |= 0x02;
-			return 0;
+			KeyboardButtons |= 0x01;
 		}
-		if (wParam == Keys.FastForward)
+		if (wParam == Keys[dwPlayerNo - 1].B)
 		{
-			FastFwd = true;
+			KeyboardButtons |= 0x02;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Down)
+		{
+			AutoKeyboardDirection |= 0x08;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Up)
+		{
+			AutoKeyboardDirection |= 0x04;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Left)
+		{
+			AutoKeyboardDirection |= 0x02;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Right)
+		{
+			AutoKeyboardDirection |= 0x01;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Start)
+		{
+			AutoKeyboardButtons |= 0x08;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Select)
+		{
+			AutoKeyboardButtons |= 0x04;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].A)
+		{
+			AutoKeyboardButtons |= 0x01;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].B)
+		{
+			AutoKeyboardButtons |= 0x02;
+		}
+		DirectionKeys = KeyboardDirection | JoystickDirection;
+		Buttons = KeyboardButtons | JoystickButtons;
+		if (AutoButtonDown & 0x80)
+		{
+			DirectionKeys |= AutoKeyboardDirection | AutoJoystickDirection;
+			Buttons |= AutoKeyboardButtons | AutoJoystickButtons;
+		}
+		if (wParam == Keys[dwPlayerNo - 1].FastForward)
+		{
+			FastFwd |= 1;
 			SoundL = SoundR = 0;
+		}
+		if (pLinkGameBoy && dwPlayerNo == 1)
+		{
+			SendMessage(pLinkGameBoy->hGBWnd, uMsg, wParam, lParam);
 		}
 		if (wParam == VK_ADD)
 		{
@@ -1654,52 +1767,94 @@ LPARAM CGameBoy::GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 		return 0;
 
 	case WM_KEYUP:
-		if (wParam == Keys.Down)
+		if (wParam == NULL || !dwPlayerNo)
 		{
-			DirectionKeys &= ~0x08;
 			return 0;
 		}
-		if (wParam == Keys.Up)
+		if (wParam == Keys[dwPlayerNo - 1].Down)
 		{
-			DirectionKeys &= ~0x04;
-			return 0;
+			KeyboardDirection &= ~0x08;
 		}
-		if (wParam == Keys.Left)
+		if (wParam == Keys[dwPlayerNo - 1].Up)
 		{
-			DirectionKeys &= ~0x02;
-			return 0;
+			KeyboardDirection &= ~0x04;
 		}
-		if (wParam == Keys.Right)
+		if (wParam == Keys[dwPlayerNo - 1].Left)
 		{
-			DirectionKeys &= ~0x01;
-			return 0;
+			KeyboardDirection &= ~0x02;
 		}
-		if (wParam == Keys.Start)
+		if (wParam == Keys[dwPlayerNo - 1].Right)
 		{
-			Buttons &= ~0x08;
-			return 0;
+			KeyboardDirection &= ~0x01;
 		}
-		if (wParam == Keys.Select)
+		if (wParam == Keys[dwPlayerNo - 1].Start)
 		{
-			Buttons &= ~0x04;
-			return 0;
+			KeyboardButtons &= ~0x08;
 		}
-		if (wParam == Keys.A)
+		if (wParam == Keys[dwPlayerNo - 1].Select)
 		{
-			Buttons &= ~0x01;
-			return 0;
+			KeyboardButtons &= ~0x04;
 		}
-		if (wParam == Keys.B)
+		if (wParam == Keys[dwPlayerNo - 1].A)
 		{
-			Buttons &= ~0x02;
-			return 0;
+			KeyboardButtons &= ~0x01;
 		}
-		if (wParam == Keys.FastForward)
+		if (wParam == Keys[dwPlayerNo - 1].B)
 		{
-			FastFwd = false;
-			SoundL = SoundR = 0;
+			KeyboardButtons &= ~0x02;
 		}
-		return 0;
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Down)
+		{
+			AutoKeyboardDirection &= ~0x08;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Up)
+		{
+			AutoKeyboardDirection &= ~0x04;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Left)
+		{
+			AutoKeyboardDirection &= ~0x02;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Right)
+		{
+			AutoKeyboardDirection &= ~0x01;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Start)
+		{
+			AutoKeyboardButtons &= ~0x08;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].Select)
+		{
+			AutoKeyboardButtons &= ~0x04;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].A)
+		{
+			AutoKeyboardButtons &= ~0x01;
+		}
+		if (wParam == AutoFireKeys[dwPlayerNo - 1].B)
+		{
+			AutoKeyboardButtons &= ~0x02;
+		}
+		if (wParam == Keys[dwPlayerNo - 1].FastForward)
+		{
+			FastFwd &= ~1;
+			if (!FastFwd)
+			{
+				SoundL = SoundR = 0;
+			}
+		}
+		DirectionKeys = KeyboardDirection | JoystickDirection;
+		Buttons = KeyboardButtons | JoystickButtons;
+		if (AutoButtonDown & 0x80)
+		{
+			DirectionKeys |= AutoKeyboardDirection | AutoJoystickDirection;
+			Buttons |= AutoKeyboardButtons | AutoJoystickButtons;
+		}
+		if (pLinkGameBoy && dwPlayerNo == 1)
+		{
+			SendMessage(pLinkGameBoy->hGBWnd, uMsg, wParam, lParam);
+		}
+		return 0;*/
 	}
 
 	return DefMDIChildProc(hGBWnd, uMsg, wParam, lParam);
@@ -1709,7 +1864,7 @@ LPARAM CGameBoy::GameBoyWndProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 void CGameBoy::Reset(DWORD Flags)
 {
-	this->Flags = (Flags & GB_COLOR) || (this->Flags & GB_DEBUG);
+	this->Flags = (Flags & GB_COLOR) || (this->Flags & (GB_DEBUG | GB_HASRUMBLEPACK));
 	Reset();
 }
 
@@ -1735,6 +1890,14 @@ void CGameBoy::Reset()
 	ZeroMemory(&OBP, sizeof(OBP));
 
 	Flags &= GB_COLOR | GB_DEBUG;
+	switch (MEM_ROM[0x0147])
+	{
+	case 0x1C:
+	case 0x1D:
+	case 0x1E:
+		Flags |= GB_HASRUMBLEPACK;
+		break;
+	}
 	if (Flags & GB_COLOR && MEM_ROM[0x0143] & 0x80)
 	{
 		Reg_AF = 0x11B0;
@@ -2518,20 +2681,11 @@ BOOL CGameBoy::SaveVideo()
 	asi.fccHandler = 0;
 	asi.dwScale = 1;
 	asi.dwRate = 60;
-	asi.dwSuggestedBufferSize = 160 * 144 * 2;
+	//asi.dwSuggestedBufferSize = 160 * 144 * 2;
 	asi.rcFrame.left = 0;
 	asi.rcFrame.right = 160;
 	asi.rcFrame.bottom = 144;
 	AVIFileCreateStream(pAVIInfo->pfile, &pAVIInfo->pavi, &asi);
-	ZeroMemory(&bmih, sizeof(bmih));
-	bmih.biSize = sizeof(BITMAPINFOHEADER);
-	bmih.biWidth = 160;
-	bmih.biHeight = 144;
-	bmih.biPlanes = 1;
-	bmih.biBitCount = 16;
-	bmih.biCompression = BI_RGB;
-	bmih.biSizeImage = 160 * 144 * 2;
-	AVIStreamSetFormat(pAVIInfo->pavi, 0, &bmih, sizeof(bmih));
 	if (AVISaveOptions(hWnd, 0, 1, &pAVIInfo->pavi, (AVICOMPRESSOPTIONS **)&aaco) != TRUE)
 	{
 		AVIStreamClose(pAVIInfo->pavi);
@@ -2638,20 +2792,226 @@ BOOL CGameBoy::WriteAVI()
 
 
 
+void CGameBoy::LinkExecuteLoop()
+{
+	MSG				msg;
+	char			szBuffer[0x100];
+	BYTE			b;
+
+
+	pLinkGameBoy->LastEmulationType = 2;
+
+	if (Settings.SoundEnabled)
+	{
+		RestoreSound();
+		pLinkGameBoy->RestoreSound();
+	}
+	PrepareEmulation(false);
+	pLinkGameBoy->PrepareEmulation(false);
+	MemoryFlags = DisAsmFlags = 0;
+
+
+	SerialTicks = 0;
+	pLinkGameBoy->SerialTicks = 0;
+
+
+	while (true)
+	{
+		do
+		{
+			if ((signed)SerialTicks > 0 && (signed)pLinkGameBoy->SerialTicks > 0)
+			{
+				if (SerialTicks > pLinkGameBoy->SerialTicks)
+				{
+					SerialTicks -= pLinkGameBoy->SerialTicks;
+					pLinkGameBoy->SerialTicks = 0;
+				}
+				else
+				{
+					pLinkGameBoy->SerialTicks -= SerialTicks;
+					SerialTicks = 0;
+				}
+			}
+			SerialTicks += 128;
+			MainLoop();
+			pLinkGameBoy->SerialTicks += 128 - SerialTicks;
+			if ((signed)pLinkGameBoy->SerialTicks > 0)
+			{
+				pLinkGameBoy->MainLoop();
+			}
+
+			if (Flags & GB_INVALIDOPCODE)
+			{
+				CloseSound();
+				pLinkGameBoy->CloseSound();
+				CloseAVI();
+				pLinkGameBoy->CloseAVI();
+				RefreshScreen();
+				pLinkGameBoy->RefreshScreen();
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+				SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
+				MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
+				return;
+			}
+
+			if (pLinkGameBoy->Flags & GB_INVALIDOPCODE)
+			{
+				CloseSound();
+				pLinkGameBoy->CloseSound();
+				CloseAVI();
+				pLinkGameBoy->CloseAVI();
+				RefreshScreen();
+				pLinkGameBoy->RefreshScreen();
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)pLinkGameBoy->hGBWnd, 0);
+				SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
+				MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
+				return;
+			}
+
+			if ((Flags & GB_SERIALBIT) || (pLinkGameBoy->Flags & GB_SERIALBIT))
+			{
+				Flags &= ~GB_SERIALBIT;
+				pLinkGameBoy->Flags &= ~GB_SERIALBIT;
+
+				if (FF00_C(0x02) & 0x80)
+				{
+					if ((FF00_C(0x02) & 1) || ((pFF00_C(pLinkGameBoy, 0x02) & 0x81) == 0x81))
+					{
+						if (SerialBit < 8)
+						{
+							if (pFF00_C(pLinkGameBoy, 0x02) & 0x80)
+							{
+								b = FF00_C(0x01) >> 7;
+								FF00_C(0x01) = (FF00_C(0x01) << 1) | (pFF00_C(pLinkGameBoy, 0x01) >> 7);
+								pFF00_C(pLinkGameBoy, 0x01) = (pFF00_C(pLinkGameBoy, 0x01) << 1) | b;
+							}
+							else
+							{
+								FF00_C(0x01) <<= 1;
+							}
+							if (++SerialBit == 8)
+							{
+								FF00_C(0x02) &= ~0x80;
+								FF00_C(0x0F) |= 0x08;
+							}
+							if (++pLinkGameBoy->SerialBit == 8)
+							{
+								pFF00_C(pLinkGameBoy, 0x02) &= ~0x80;
+								pFF00_C(pLinkGameBoy, 0x0F) |= 0x08;
+							}
+						}
+						else
+						{
+							SerialBit = 0;
+							pLinkGameBoy->SerialBit = 0;
+						}
+					}
+				}
+				else if ((pFF00_C(pLinkGameBoy, 0x02) & 0x81) == 0x81)
+				{
+					if (pLinkGameBoy->SerialBit < 8)
+					{
+						pFF00_C(pLinkGameBoy, 0x01) <<= 1;
+						if (++pLinkGameBoy->SerialBit == 8)
+						{
+							pFF00_C(pLinkGameBoy, 0x02) &= ~0x80;
+							pFF00_C(pLinkGameBoy, 0x0F) |= 0x08;
+						}
+					}
+					else
+					{
+						SerialBit = 0;
+						pLinkGameBoy->SerialBit = 0;
+					}
+				}
+			}
+		}
+		while (nCycles < 35112);
+
+
+		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		{
+			if (msg.message == WM_CLOSE || msg.message == WM_QUIT)
+			{
+				//Put back WM_QUIT to message que
+				if (msg.message == WM_QUIT)
+				{
+					PostThreadMessage(ThreadId, WM_QUIT, msg.wParam, msg.lParam);
+				}
+				CloseSound();
+				pLinkGameBoy->CloseSound();
+				CloseAVI();
+				pLinkGameBoy->CloseAVI();
+
+				RefreshScreen();
+				pLinkGameBoy->RefreshScreen();
+
+				return;
+			}
+			DispatchMessage(&msg);
+		}
+
+
+		GameBoys.UpdateKeys(this);
+		GameBoys.UpdateKeys(pLinkGameBoy);
+		Delay();
+
+		RefreshScreen();
+		pLinkGameBoy->RefreshScreen();
+
+		if (pAVISoundBuffer)
+		{
+			WriteAVI();
+		}
+		if (pLinkGameBoy->pAVISoundBuffer)
+		{
+			pLinkGameBoy->WriteAVI();
+		}
+	}
+}
+
+
+
 //#define		TIMEDEMO
 
 
 
 void CGameBoy::ExecuteLoop()
 {
-	MSG					msg;
-	char				szBuffer[0x100];
+	MSG				msg;
+	char			szBuffer[0x100];
 
 
 #ifdef TIMEDEMO
 	LARGE_INTEGER	StartTime, CurrentTime, TimerFrequency;
 	DWORD			Count = 0;
-#endif //TEMIDEMO
+#endif //TIMEDEMO
+
+
+	if (Settings.LinkCable)
+	{
+		EnterCriticalSection(&csGameBoy);
+		if (pLinkGameBoy = GameBoys.GetPlayer2(true))
+		{
+			if (!pLinkGameBoy->pLinkGameBoy && !pLinkGameBoy->IsEmulating())
+			{
+				pLinkGameBoy->pLinkGameBoy = this;
+				LeaveCriticalSection(&csGameBoy);
+				LinkExecuteLoop();
+				EnterCriticalSection(&csGameBoy);
+				pLinkGameBoy->pLinkGameBoy = NULL;
+				pLinkGameBoy->Release();
+				pLinkGameBoy = NULL;
+				LeaveCriticalSection(&csGameBoy);
+				return;
+			}
+			pLinkGameBoy->Release();
+			pLinkGameBoy = NULL;
+		}
+		LeaveCriticalSection(&csGameBoy);
+	}
 
 
 	if (Settings.SoundEnabled)
@@ -2672,14 +3032,12 @@ void CGameBoy::ExecuteLoop()
 		MainLoop();
 		if (Flags & GB_INVALIDOPCODE)
 		{
-			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 			CloseSound();
 			CloseAVI();
 			RefreshScreen();
-			if (GameBoys.GetActive() == this)
-			{
-				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-			}
+			SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
 			return;
 		}
@@ -2697,14 +3055,13 @@ void CGameBoy::ExecuteLoop()
 				CloseSound();
 				CloseAVI();
 				RefreshScreen();
-				if (GameBoys.GetActive() == this)
-				{
-					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-				}
 				return;
 			}
 			DispatchMessage(&msg);
 		}
+
+
+		GameBoys.UpdateKeys(this);
 
 
 #ifndef TIMEDEMO
@@ -2724,10 +3081,6 @@ void CGameBoy::ExecuteLoop()
 		{
 			CloseSound();
 			RefreshScreen();
-			if (GameBoys.GetActive() == this)
-			{
-				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-			}
 
 			char	NumBuffer2[10];
 			MessageBox(hMsgParent, ultoa(Count, NumBuffer, 10), ultoa((DWORD)(CurrentTime.QuadPart - StartTime.QuadPart), NumBuffer2, 10), MB_OK | MB_ICONINFORMATION);
@@ -2740,10 +3093,246 @@ void CGameBoy::ExecuteLoop()
 
 
 
+void CGameBoy::LinkDebugLoop()
+{
+	MSG				msg;
+	char			szBuffer[0x100];
+	BYTE			b;
+
+
+	pLinkGameBoy->LastEmulationType = 1;
+
+	if (Settings.SoundEnabled)
+	{
+		RestoreSound();
+		pLinkGameBoy->RestoreSound();
+	}
+	PrepareEmulation(false);
+	pLinkGameBoy->PrepareEmulation(false);
+	MemoryFlags = DisAsmFlags = 0;
+
+
+	SerialTicks = 0;
+	pLinkGameBoy->SerialTicks = 0;
+
+
+	while (true)
+	{
+		do
+		{
+			if ((signed)SerialTicks > 0 && (signed)pLinkGameBoy->SerialTicks > 0)
+			{
+				if (SerialTicks > pLinkGameBoy->SerialTicks)
+				{
+					SerialTicks -= pLinkGameBoy->SerialTicks;
+					pLinkGameBoy->SerialTicks = 0;
+				}
+				else
+				{
+					pLinkGameBoy->SerialTicks -= SerialTicks;
+					SerialTicks = 0;
+				}
+			}
+			SerialTicks += 128;
+			DebugMainLoop();
+			pLinkGameBoy->SerialTicks += 128 - SerialTicks;
+			if ((signed)pLinkGameBoy->SerialTicks > 0)
+			{
+				pLinkGameBoy->DebugMainLoop();
+			}
+
+			if (Flags & GB_INVALIDOPCODE)
+			{
+				CloseSound();
+				pLinkGameBoy->CloseSound();
+				CloseAVI();
+				pLinkGameBoy->CloseAVI();
+				RefreshScreen();
+				pLinkGameBoy->RefreshScreen();
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+				SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
+				MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
+				return;
+			}
+
+			if (Flags & GB_ERROR)
+			{
+				CloseSound();
+				pLinkGameBoy->CloseSound();
+				CloseAVI();
+				pLinkGameBoy->CloseAVI();
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+				SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
+				return;
+			}
+
+			if (pLinkGameBoy->Flags & GB_INVALIDOPCODE)
+			{
+				CloseSound();
+				pLinkGameBoy->CloseSound();
+				CloseAVI();
+				pLinkGameBoy->CloseAVI();
+				RefreshScreen();
+				pLinkGameBoy->RefreshScreen();
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)pLinkGameBoy->hGBWnd, 0);
+				SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
+				MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
+				return;
+			}
+
+			if (pLinkGameBoy->Flags & GB_ERROR)
+			{
+				CloseSound();
+				pLinkGameBoy->CloseSound();
+				CloseAVI();
+				pLinkGameBoy->CloseAVI();
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)pLinkGameBoy->hGBWnd, 0);
+				SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
+				return;
+			}
+
+			if ((Flags & GB_SERIALBIT) || (pLinkGameBoy->Flags & GB_SERIALBIT))
+			{
+				Flags &= ~GB_SERIALBIT;
+				pLinkGameBoy->Flags &= ~GB_SERIALBIT;
+
+				if (FF00_C(0x02) & 0x80)
+				{
+					if ((FF00_C(0x02) & 1) || ((pFF00_C(pLinkGameBoy, 0x02) & 0x81) == 0x81))
+					{
+						if (SerialBit < 8)
+						{
+							if (pFF00_C(pLinkGameBoy, 0x02) & 0x80)
+							{
+								b = FF00_C(0x01) >> 7;
+								FF00_C(0x01) = (FF00_C(0x01) << 1) | (pFF00_C(pLinkGameBoy, 0x01) >> 7);
+								pFF00_C(pLinkGameBoy, 0x01) = (pFF00_C(pLinkGameBoy, 0x01) << 1) | b;
+								MemStatus_CPU[0x8F01] |= MEM_CHANGED;
+								pLinkGameBoy->MemStatus_CPU[0x8F01] |= MEM_CHANGED;
+							}
+							else
+							{
+								FF00_C(0x01) <<= 1;
+							}
+							if (++SerialBit == 8)
+							{
+								FF00_C(0x02) &= ~0x80;
+								FF00_C(0x0F) |= 0x08;
+								MemStatus_CPU[0x8F02] |= MEM_CHANGED;
+								MemStatus_CPU[0x8F0F] |= MEM_CHANGED;
+							}
+							if (++pLinkGameBoy->SerialBit == 8)
+							{
+								pFF00_C(pLinkGameBoy, 0x02) &= ~0x80;
+								pFF00_C(pLinkGameBoy, 0x0F) |= 0x08;
+								pLinkGameBoy->MemStatus_CPU[0x8F02] |= MEM_CHANGED;
+								pLinkGameBoy->MemStatus_CPU[0x8F0F] |= MEM_CHANGED;
+							}
+						}
+						else
+						{
+							SerialBit = 0;
+							pLinkGameBoy->SerialBit = 0;
+						}
+					}
+				}
+				else if ((pFF00_C(pLinkGameBoy, 0x02) & 0x81) == 0x81)
+				{
+					if (pLinkGameBoy->SerialBit < 8)
+					{
+						pFF00_C(pLinkGameBoy, 0x01) <<= 1;
+						pLinkGameBoy->MemStatus_CPU[0x8F01] |= MEM_CHANGED;
+						if (++pLinkGameBoy->SerialBit == 8)
+						{
+							pFF00_C(pLinkGameBoy, 0x02) &= ~0x80;
+							pFF00_C(pLinkGameBoy, 0x0F) |= 0x08;
+							pLinkGameBoy->MemStatus_CPU[0x8F02] |= MEM_CHANGED;
+							pLinkGameBoy->MemStatus_CPU[0x8F0F] |= MEM_CHANGED;
+						}
+					}
+					else
+					{
+						SerialBit = 0;
+						pLinkGameBoy->SerialBit = 0;
+					}
+				}
+			}
+		}
+		while (nCycles < 35112);
+
+
+		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		{
+			if (msg.message == WM_CLOSE || msg.message == WM_QUIT)
+			{
+				//Put back WM_QUIT to message que
+				if (msg.message == WM_QUIT)
+				{
+					PostThreadMessage(ThreadId, WM_QUIT, msg.wParam, msg.lParam);
+				}
+				CloseSound();
+				pLinkGameBoy->CloseSound();
+				CloseAVI();
+				pLinkGameBoy->CloseAVI();
+
+				RefreshScreen();
+				pLinkGameBoy->RefreshScreen();
+
+				return;
+			}
+			DispatchMessage(&msg);
+		}
+
+
+		GameBoys.UpdateKeys(this);
+		GameBoys.UpdateKeys(pLinkGameBoy);
+		Delay();
+
+		RefreshScreen();
+		pLinkGameBoy->RefreshScreen();
+
+		if (pAVISoundBuffer)
+		{
+			WriteAVI();
+		}
+		if (pLinkGameBoy->pAVISoundBuffer)
+		{
+			pLinkGameBoy->WriteAVI();
+		}
+	}
+}
+
+
+
 void CGameBoy::DebugLoop()
 {
 	MSG				msg;
 	char			szBuffer[0x100];
+
+
+	if (Settings.LinkCable)
+	{
+		if (pLinkGameBoy = GameBoys.GetPlayer2(true))
+		{
+			if (!pLinkGameBoy->pLinkGameBoy && !pLinkGameBoy->IsEmulating())
+			{
+				pLinkGameBoy->pLinkGameBoy = this;
+				LinkDebugLoop();
+				EnterCriticalSection(&csGameBoy);
+				pLinkGameBoy->pLinkGameBoy = NULL;
+				pLinkGameBoy->Release();
+				pLinkGameBoy = NULL;
+				LeaveCriticalSection(&csGameBoy);
+				return;
+			}
+			pLinkGameBoy->Release();
+			pLinkGameBoy = NULL;
+		}
+	}
 
 
 	if (Settings.SoundEnabled)
@@ -2753,19 +3342,18 @@ void CGameBoy::DebugLoop()
 	PrepareEmulation(true);
 	MemoryFlags = DisAsmFlags = 0;
 
+
 	while (true)
 	{
 		DebugMainLoop();
 		if (Flags & GB_INVALIDOPCODE)
 		{
-			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 			CloseSound();
 			CloseAVI();
 			RefreshScreen();
-			if (GameBoys.GetActive() == this)
-			{
-				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-			}
+			SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
 			return;
 		}
@@ -2774,10 +3362,9 @@ void CGameBoy::DebugLoop()
 		{
 			CloseSound();
 			CloseAVI();
-			if (GameBoys.GetActive() == this)
-			{
-				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-			}
+			SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			return;
 		}
 
@@ -2794,14 +3381,13 @@ void CGameBoy::DebugLoop()
 				CloseSound();
 				CloseAVI();
 				RefreshScreen();
-				if (GameBoys.GetActive() == this)
-				{
-					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-				}
 				return;
 			}
 			DispatchMessage(&msg);
 		}
+
+
+		GameBoys.UpdateKeys(this);
 
 
 		Delay();
@@ -2843,14 +3429,12 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 	DebugMainLoop();
 	if (Flags & GB_INVALIDOPCODE)
 	{
-		SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 		CloseSound();
 		CloseAVI();
 		RefreshScreen();
-		if (GameBoys.GetActive() == this)
-		{
-			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-		}
+		SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+		SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+		PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 		MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
 		return;
 	}
@@ -2859,10 +3443,10 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 	{
 		CloseSound();
 		CloseAVI();
-		if (GameBoys.GetActive() == this)
-		{
-			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-		}
+		RefreshScreen();
+		SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+		SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+		PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 		return;
 	}
 
@@ -2873,10 +3457,10 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 		{
 			CloseSound();
 			CloseAVI();
-			if (GameBoys.GetActive() == this)
-			{
-				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-			}
+			RefreshScreen();
+			SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			return;
 		}
 		break;
@@ -2917,10 +3501,10 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 			}
 			CloseSound();
 			CloseAVI();
-			if (GameBoys.GetActive() == this)
-			{
-				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-			}
+			RefreshScreen();
+			SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			return;
 		}
 		break;
@@ -2930,10 +3514,10 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 		{
 			CloseSound();
 			CloseAVI();
-			if (GameBoys.GetActive() == this)
-			{
-				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-			}
+			RefreshScreen();
+			SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			return;
 		}
 		break;
@@ -2950,14 +3534,12 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 		DebugMainLoop();
 		if (Flags & GB_INVALIDOPCODE)
 		{
-			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
 			CloseSound();
 			CloseAVI();
 			RefreshScreen();
-			if (GameBoys.GetActive() == this)
-			{
-				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-			}
+			SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			MessageBox(hMsgParent, String(IDS_EMU_INVALIDOPCODE), "Game Lad", MB_OK | MB_ICONWARNING);
 			return;
 		}
@@ -2966,10 +3548,10 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 		{
 			CloseSound();
 			CloseAVI();
-			if (GameBoys.GetActive() == this)
-			{
-				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-			}
+			RefreshScreen();
+			SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+			SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+			PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 			return;
 		}
 
@@ -2980,10 +3562,10 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 			{
 				CloseSound();
 				CloseAVI();
-				if (GameBoys.GetActive() == this)
-				{
-					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-				}
+				RefreshScreen();
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+				SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 				return;
 			}
 			break;
@@ -3024,10 +3606,10 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 				}
 				CloseSound();
 				CloseAVI();
-				if (GameBoys.GetActive() == this)
-				{
-					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-				}
+				RefreshScreen();
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+				SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 				return;
 			}
 			break;
@@ -3037,10 +3619,10 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 			{
 				CloseSound();
 				CloseAVI();
-				if (GameBoys.GetActive() == this)
-				{
-					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-				}
+				RefreshScreen();
+				SendMessage(hClientWnd, WM_MDIACTIVATE, (WPARAM)hGBWnd, 0);
+				SendMessage(hWnd, WM_COMMAND, ID_VIEW_DISASSEMBLY, 0);
+				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 				return;
 			}
 			break;
@@ -3059,10 +3641,7 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 				CloseSound();
 				CloseAVI();
 				RefreshScreen();
-				if (GameBoys.GetActive() == this)
-				{
-					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
-				}
+				PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 				return;
 			}
 			DispatchMessage(&msg);
@@ -3071,6 +3650,8 @@ void CGameBoy::StepLoop(EMULATIONINFO *pEmulationInfo)
 
 		if (FF00_C(0x44) == 0x90 && (FF00_C(0x40) & 0x80))
 		{
+			GameBoys.UpdateKeys(this);
+
 			Delay();
 
 			RefreshScreen();
@@ -3088,7 +3669,6 @@ DWORD CGameBoy::ThreadProc()
 {
 	MSG				msg;
 	EMULATIONINFO	EmulationInfo;
-	BYTE			LastEmulationType = 0;
 
 
 	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
@@ -3102,17 +3682,33 @@ DWORD CGameBoy::ThreadProc()
 			switch (LOWORD(msg.wParam))
 			{
 			case ID_EMULATION_STARTDEBUG:
+				EnterCriticalSection(&csGameBoy);
+				if (Emulating)
+				{
+					SetEvent(hStartStopEvent);
+					LeaveCriticalSection(&csGameBoy);
+					break;
+				}
 				Emulating = true;
 				SetEvent(hStartStopEvent);
 				LastEmulationType = 1;
+				LeaveCriticalSection(&csGameBoy);
 				DebugLoop();
 				Emulating = false;
 				break;
 
 			case ID_EMULATION_EXECUTE:
+				EnterCriticalSection(&csGameBoy);
+				if (Emulating)
+				{
+					SetEvent(hStartStopEvent);
+					LeaveCriticalSection(&csGameBoy);
+					break;
+				}
 				Emulating = true;
 				SetEvent(hStartStopEvent);
 				LastEmulationType = 2;
+				LeaveCriticalSection(&csGameBoy);
 				ExecuteLoop();
 				Emulating = false;
 				break;
@@ -3120,9 +3716,17 @@ DWORD CGameBoy::ThreadProc()
 			break;
 
 		case WM_APP_STEP:
+			EnterCriticalSection(&csGameBoy);
+			if (Emulating)
+			{
+				SetEvent(hStartStopEvent);
+				LeaveCriticalSection(&csGameBoy);
+				break;
+			}
 			Emulating = true;
 			SetEvent(hStartStopEvent);
 			LastEmulationType = 3;
+			LeaveCriticalSection(&csGameBoy);
 			if (msg.lParam)
 			{
 				EmulationInfo.Flags = ((EMULATIONINFO *)msg.lParam)->Flags;
@@ -3146,6 +3750,13 @@ DWORD CGameBoy::ThreadProc()
 
 			case 3:
 				PostThreadMessage(ThreadId, WM_APP_STEP, 0, 0);
+				break;
+
+			default:
+				if (pLinkGameBoy && Settings.LinkCable)
+				{
+					pLinkGameBoy->Resume();
+				}
 				break;
 			}
 			break;
@@ -3192,9 +3803,12 @@ BOOL CGameBoy::StartThread()
 
 BOOL CGameBoy::StartDebug()
 {
+	EnterCriticalSection(&csGameBoy);
+
 	//Make sure a thread is running
 	if (StartThread())
 	{
+		LeaveCriticalSection(&csGameBoy);
 		return true;
 	}
 
@@ -3203,8 +3817,14 @@ BOOL CGameBoy::StartDebug()
 		ResetEvent(hStartStopEvent);
 		PostThreadMessage(ThreadId, WM_COMMAND, ID_EMULATION_STARTDEBUG, 0);
 
+		LeaveCriticalSection(&csGameBoy);
+
 		//Wait for emulation to start before leaving critical section
 		WaitForSingleObject(hStartStopEvent, INFINITE);
+	}
+	else
+	{
+		LeaveCriticalSection(&csGameBoy);
 	}
 
 	return false;
@@ -3214,9 +3834,12 @@ BOOL CGameBoy::StartDebug()
 
 BOOL CGameBoy::Execute()
 {
+	EnterCriticalSection(&csGameBoy);
+
 	//Make sure a thread is running
 	if (StartThread())
 	{
+		LeaveCriticalSection(&csGameBoy);
 		return true;
 	}
 
@@ -3225,8 +3848,14 @@ BOOL CGameBoy::Execute()
 		ResetEvent(hStartStopEvent);
 		PostThreadMessage(ThreadId, WM_COMMAND, ID_EMULATION_EXECUTE, 0);
 
+		LeaveCriticalSection(&csGameBoy);
+
 		//Wait for emulation to start before leaving critical section
 		WaitForSingleObject(hStartStopEvent, INFINITE);
+	}
+	else
+	{
+		LeaveCriticalSection(&csGameBoy);
 	}
 
 	return false;
@@ -3236,9 +3865,12 @@ BOOL CGameBoy::Execute()
 
 BOOL CGameBoy::Step(EMULATIONINFO *pEmulationInfo)
 {
+	EnterCriticalSection(&csGameBoy);
+
 	//Make sure a thread is running
 	if (StartThread())
 	{
+		LeaveCriticalSection(&csGameBoy);
 		return true;
 	}
 
@@ -3247,8 +3879,14 @@ BOOL CGameBoy::Step(EMULATIONINFO *pEmulationInfo)
 		ResetEvent(hStartStopEvent);
 		PostThreadMessage(ThreadId, WM_APP_STEP, 0, (LPARAM)pEmulationInfo);
 
+		LeaveCriticalSection(&csGameBoy);
+
 		//Wait for emulation to start before leaving critical section
 		WaitForSingleObject(hStartStopEvent, INFINITE);
+	}
+	else
+	{
+		LeaveCriticalSection(&csGameBoy);
 	}
 
 	return false;
@@ -3258,8 +3896,11 @@ BOOL CGameBoy::Step(EMULATIONINFO *pEmulationInfo)
 
 void CGameBoy::Resume()
 {
+	EnterCriticalSection(&csGameBoy);
+
 	if (Terminating)
 	{
+		LeaveCriticalSection(&csGameBoy);
 		return;
 	}
 
@@ -3268,11 +3909,17 @@ void CGameBoy::Resume()
 		ResetEvent(hStartStopEvent);
 		PostThreadMessage(ThreadId, WM_APP_RESUME, 0, 0);
 
+		LeaveCriticalSection(&csGameBoy);
+
 		if (GetCurrentThreadId() != ThreadId)
 		{
 			//Wait for emulation to start before leaving critical section
 			WaitForSingleObject(hStartStopEvent, INFINITE);
 		}
+	}
+	else
+	{
+		LeaveCriticalSection(&csGameBoy);
 	}
 }
 
@@ -3281,23 +3928,30 @@ void CGameBoy::Resume()
 void CGameBoy::Stop()
 {
 	HANDLE		hTempThread;
+	CGameBoy	*pGameBoy;
 
 
 	if (hTempThread = hThread)
 	{
 		if (Emulating)
 		{
+			EnterCriticalSection(&csGameBoy);
 			if (Terminating)
 			{
 				return;
 			}
 			Terminating = true;
+			LeaveCriticalSection(&csGameBoy);
 			PostThreadMessage(ThreadId, WM_CLOSE, 0, 0);
 			if (GetCurrentThreadId() != ThreadId)
 			{
 				while (Emulating)
 				{
 					Sleep(0);
+				}
+				if (GameBoys.GetActive(false) == this)
+				{
+					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
 				}
 			}
 			Terminating = false;
@@ -3308,6 +3962,20 @@ void CGameBoy::Stop()
 			if (GetCurrentThreadId() != ThreadId)
 			{
 				WaitForSingleObject(hTempThread, INFINITE);
+				if (GameBoys.GetActive(false) == this)
+				{
+					PostMessage(hWnd, WM_APP_REFRESHDEBUG, 0, 0);
+				}
+			}
+		}
+	}
+	else
+	{
+		if (pGameBoy = pLinkGameBoy)
+		{
+			if (Settings.LinkCable && pGameBoy->IsEmulating())
+			{
+				pGameBoy->Stop();
 			}
 		}
 	}
@@ -3317,8 +3985,36 @@ void CGameBoy::Stop()
 
 BOOL CGameBoy::IsEmulating()
 {
+	CGameBoy		*pGameBoy;
+
+
+	if (pGameBoy = pLinkGameBoy)
+	{
+		if (Settings.LinkCable && pGameBoy->Emulating)
+		{
+			return true;
+		}
+	}
+
 	return Emulating;
 }
+
+
+
+/*void CGameBoy::InsertLinkCable()
+{
+	if (pLinkGameBoy)
+	{
+		Stop();
+		Resume();
+		if (!Settings.LinkCable)
+		{
+			pLinkGameBoy->Resume();
+		}
+	}
+
+	return;
+}*/
 
 
 
@@ -3545,6 +4241,12 @@ void CGameBoy::PrepareEmulation(BOOL Debug)
 		MemStatus_CPU[pByte] &= ~MEM_CHANGED;
 	}
 
+	GameBoys.UpdateKeys(this);
+	if (pLinkGameBoy)
+	{
+		GameBoys.UpdateKeys(pLinkGameBoy);
+	}
+
 	SetStartDelay();
 }
 
@@ -3565,7 +4267,6 @@ void CGameBoy::Delay()
 	LARGE_INTEGER	CurrentTimerCount;
 
 
-	//return;
 	if (FastFwd)
 	{
 		SetStartDelay();
@@ -3585,6 +4286,20 @@ void CGameBoy::Delay()
 	while (CurrentTimerCount.QuadPart - LastTimerCount.QuadPart < StopTimerCount);
 
 	LastTimerCount = CurrentTimerCount;
+}
+
+
+
+void SerialTransfer(CGameBoy *pGameBoy, BYTE Ticks)
+{
+	if (pGameBoy->SerialTicks)
+	{
+		if (pGameBoy->SerialTicks <= Ticks)
+		{
+			pGameBoy->Flags |= GB_EXITLOOP | GB_SERIALBIT;
+		}
+		pGameBoy->SerialTicks -= Ticks;
+	}
 }
 
 
@@ -6580,101 +7295,25 @@ Sound_NoUpdate:
 
 
 
-		/*/******
+		//******
 		//Serial
 
 		//ecx	= this
 		//eax	= Ticks
 		//esi	= Flags
 
-		mov		bh, byte ptr [ecx + FF00_ASM + 0x02]
-		test	bh, 0x80
-		//bh	= [FF02]
-		jz		SIO_NotEnabled
-		test	bh, 1
-		jnz		SIO_InternalClock
+		mov		dword ptr [ecx + Offset_Flags], esi
+		push	ecx
+		push	eax
 
-		mov		bl, byte ptr [ecx + Offset_SerialInput]
-		//bl	= SerialInput
-		test	bl, 2
-		jz		SIO_Wait
-		mov		byte ptr [ecx + Offset_SerialInput], 0
-		mov		edi, dword ptr [ecx + Offset_SerialOutput]
-		//edi	= SerialOutput
-		mov		dl, byte ptr [ecx + FF00_ASM + 0x01]
-		//dl	= [FF01]
-		shl		edx, 1
-		and		bl, 1
-		and		dh, 1
-		or		dl, bl
-		//bl	free
-		mov		byte ptr [edx], dh
-		//dh	free
-		mov		byte ptr [ecx + FF00_ASM + 0x01], dl
-		//dl	free
-		//edx	free
+		push	eax
+		push	ecx
+		call	SerialTransfer
+		add		esp, 8
 
-		mov		bl, byte ptr [ecx + Offset_SerialByte]
-		//bl	= SerialByte
-		cmp		bl, 7
-		jae		SIO_Interrupt
-		inc		bl
-		mov		byte ptr [ecx + Offset_SerialByte], bl
-		//bl	free
-		jmp		SIO_Complete
-
-SIO_Interrupt:
-		mov		bl, byte ptr [ecx + FF00_ASM + 0x0F]
-		//bl	= [FF0F]
-		mov		bh, byte ptr [ecx + FF00_ASM + 0x02]
-		//bh	= [FF02]
-		or		bl, 8
-		and		bh, ~8
-		mov		byte ptr [ecx + FF00_ASM + 0x0F], bl
-		mov		byte ptr [ecx + FF00_ASM + 0x02], bh
-		jmp		SIO_Complete
-
-SIO_InternalClock:
-		mov		bl, byte ptr [ecx + Offset_SerialTicks]
-		//bl	= SerialTicks
-		sub		bl, al
-		ja		SIO_NotEnoughTicks
-
-		mov		byte ptr [ecx + Offset_SerialTicks], 128
-
-		mov		edi, dword ptr [ecx + Offset_SerialOutput]
-		//edi	= SerialOutput
-		test	edi, edi
-		jz		SIO_NotConnected
-		mov		dl, byte ptr [ecx + FF00_ASM + 0x01]
-		//dl	= [FF01]
-		shl		edx, 1
-		and		bl, 1
-		and		dh, 1
-		or		dl, bl
-		//bl	free
-		mov		byte ptr [edx], dh
-		//dh	free
-		mov		byte ptr [ecx + FF00_ASM + 0x01], dl
-		//dl	free
-		//edx	free
-
-		mov		bl, byte ptr [ecx + Offset_SerialByte]
-		//bl	= SerialByte
-		cmp		bl, 7
-		jae		SIO_Interrupt
-		inc		bl
-		mov		byte ptr [ecx + Offset_SerialByte], bl
-		//bl	free
-		jmp		SIO_Complete
-
-SIO_NotEnoughTicks:
-		mov		byte ptr [ecx + Offset_SerialTicks], bl
-
-SIO_Wait:
-SIO_Complete:
-SIO_NotEnabled://*/
-
+		pop		eax
+		pop		ecx
+		mov		esi, dword ptr [ecx + Offset_Flags]
 
 
 		//*******
@@ -9928,6 +10567,27 @@ Sound_NoUpdate:
 
 
 
+		//******
+		//Serial
+
+		//ecx	= this
+		//eax	= Ticks
+		//esi	= Flags
+
+		mov		dword ptr [ecx + Offset_Flags], esi
+		push	ecx
+		push	eax
+
+		push	eax
+		push	ecx
+		call	SerialTransfer
+		add		esp, 8
+
+		pop		eax
+		pop		ecx
+		mov		esi, dword ptr [ecx + Offset_Flags]
+
+
 		//*******
 		//Divider
 
@@ -10566,13 +11226,8 @@ void __fastcall Sound4(CGameBoy *pGameBoy)
 
 BOOL CGameBoy::RestoreSound()
 {
-	if (!hSoundDll)
-	{
-		return true;
-	}
-
 	ZeroMemory(&SoundBuffer, sizeof(SoundBuffer));
-	SoundMain(SND_CREATEBUFFER, NULL, &SoundBuffer);
+	NewSoundBuffer(&SoundBuffer);
 	SoundBuffer.IsPlaying = true;
 
 	return false;
@@ -10587,14 +11242,8 @@ void CGameBoy::CloseSound()
 		return;
 	}
 
-	if (GetCurrentThreadId() != ThreadId)
-	{
-		Stop();
-		Resume();
-		return;
-	}
-
 	SoundBuffer.Close = true;
+
 	while (SoundBuffer.Close)
 	{
 		Sleep(0);

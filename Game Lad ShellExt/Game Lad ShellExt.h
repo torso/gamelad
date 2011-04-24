@@ -12,7 +12,7 @@
 
 
 //#define	CONTEXTMENUHANDLER
-//#define	ICONHANDLER
+#define		ICONHANDLER
 //#define	COPYHOOKHANDLER
 
 

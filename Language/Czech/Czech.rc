@@ -1,0 +1,521 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Czech resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CSY)
+#ifdef _WIN32
+LANGUAGE LANG_CZECH, SUBLANG_DEFAULT
+#pragma code_page(1250)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_OPEN           "Otev¯Ìt soubor s Game Boy ROM"
+    IDS_FILE_CLOSE          "Zav¯Ìt aktivnÌ Game Boy okno"
+    IDS_FILE_SAVESTATE      "Uloûit souËasn˝ stav Game Boye do vybranÈho slotu"
+    IDS_FILE_LOADSTATE      "NaËÌst stav z vybranÈho slotu"
+    IDS_FILE_SAVESTATEAS    "Uloûit souËasn˝ stav aktivnÌho Game Boye do souboru"
+    IDS_FILE_LOADSTATEAS    "NaËÌst stav Game Boye ze souboru"
+    IDS_FILE_STATESLOT_0    "Vybrat nult˝ ukl·dacÌ slot"
+    IDS_FILE_STATESLOT_1    "Vybrat prvnÌ ukl·dacÌ slot"
+    IDS_FILE_STATESLOT_2    "Vybrat druh˝ ukl·dacÌ slot"
+    IDS_FILE_STATESLOT_3    "Vybrat t¯etÌ ukl·dacÌ slot"
+    IDS_FILE_STATESLOT_4    "Vybrat Ëtvrt˝ ukl·dacÌ slot"
+    IDS_FILE_STATESLOT_5    "Vybrat p·t˝ ukl·dacÌ slot"
+    IDS_FILE_STATESLOT_6    "Vybrat öest˝ ukl·dacÌ slot"
+    IDS_FILE_STATESLOT_7    "Vybrat sedm˝ ukl·dacÌ slot"
+    IDS_FILE_STATESLOT_8    "Vybrat osm˝ ukl·dacÌ slot"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_STATESLOT_9    "Vybrat ukl·dacÌ slot devÏt"
+    IDS_FILE_SAVEBATTERY    "Uloûit battery RAM"
+    IDS_FILE_LOADBATTERY    "NaËÌst battery RAM"
+    IDS_FILE_SAVEBATTERYAS  "Uloûit battery RAM pod nov˝m jmÈnem"
+    IDS_FILE_CLEARBATTERY   "Smazat battery RAM"
+    IDS_FILE_EXIT           "Zav¯Ìt Game Lad"
+    IDS_EDIT_GOTO           "P¯esunout se na zadanou pozici"
+    IDS_VIEW_DISASSEMBLY    "Otev¯Ìt okno s disasemblerem"
+    IDS_VIEW_MEMORY         "Otev¯Ìt okno s obsahem pamÏti"
+    IDS_VIEW_REGISTERS      "Otev¯Ìt okno s registry"
+    IDS_VIEW_HARDWARE       "Otev¯Ìt hardware okno"
+    IDS_VIEW_PALETTES       "Otev¯Ìt okno s paletou"
+    IDS_VIEW_TILEMAP        "Otev¯Ìt okno s tile map"
+    IDS_VIEW_TILES          "Otev¯Ìt tile okno"
+    IDS_VIEW_STATUSBAR      "Zobrazit nebo skr˝t stavovou ¯·dku"
+    IDS_VIEW_ZOOM_100       "ZmÏnit velikost na 100%"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_ZOOM_200       "ZmÏnit velikost na 200%"
+    IDS_VIEW_ZOOM_300       "ZmÏnit velikost na 300%"
+    IDS_VIEW_ZOOM_400       "ZmÏnit velikost na 400%"
+    IDS_VIEW_FRAMESKIP_0    "Nastavit p¯eskakov·nÌ snÌmku na û·dnÈ"
+    IDS_VIEW_FRAMESKIP_1    "Nastavit p¯eskakov·nÌ snÌmku na jeden"
+    IDS_VIEW_FRAMESKIP_2    "Nastavit p¯eskakov·nÌ snÌmku na dva"
+    IDS_VIEW_FRAMESKIP_3    "Nastavit p¯eskakov·nÌ snÌmku na t¯i"
+    IDS_VIEW_FRAMESKIP_4    "Nastavit p¯eskakov·nÌ snÌmku na Ëty¯i"
+    IDS_VIEW_FRAMESKIP_5    "Nastavit p¯eskakov·nÌ snÌmku na pÏt"
+    IDS_VIEW_FRAMESKIP_6    "Nastavit p¯eskakov·nÌ snÌmku na öest"
+    IDS_VIEW_FRAMESKIP_7    "Nastavit p¯eskakov·nÌ snÌmku na sedm"
+    IDS_VIEW_FRAMESKIP_8    "Nastavit p¯eskakov·nÌ snÌmku na osm"
+    IDS_VIEW_FRAMESKIP_9    "Nastavit p¯eskakov·nÌ snÌmku na devÏt"
+    IDS_MEMORY_ROM          "Zobrazit specifikovan˝ ROM bank"
+    IDS_MEMORY_VBK_BANK0    "Zobrazit prvnÌ bank VRAM"
+    IDS_MEMORY_VBK_BANK1    "Zobrazit druh˝ bank VRAM"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MEMORY_RAM_BANK0    "Zobrazit nult˝ bank RAM"
+    IDS_MEMORY_RAM_BANK1    "Zobrazit prvnÌ bank RAM"
+    IDS_MEMORY_RAM_BANK2    "Zobrazit druh˝ bank RAM"
+    IDS_MEMORY_RAM_BANK3    "Zobrazit t¯etÌ bank RAM"
+    IDS_MEMORY_RAM_BANK4    "Zobrazit Ëtvrt˝ bank RAM"
+    IDS_MEMORY_RAM_BANK5    "Zobrazit p·t˝ bank RAM"
+    IDS_MEMORY_RAM_BANK6    "Zobrazit öest˝ bank RAM"
+    IDS_MEMORY_RAM_BANK7    "Zobrazit sedm˝ bank RAM"
+    IDS_MEMORY_RAM_BANK8    "Zobrazit osm˝ bank RAM"
+    IDS_MEMORY_RAM_BANK9    "Zobrazit dev·t˝ bank RAM"
+    IDS_MEMORY_RAM_BANK10   "Zobrazit des·t˝ bank RAM"
+    IDS_MEMORY_RAM_BANK11   "Zobrazit jeden·ct˝ bank RAM"
+    IDS_MEMORY_RAM_BANK12   "Zobrazit dvan·ct˝ bank RAM"
+    IDS_MEMORY_RAM_BANK13   "Zobrazit t¯in·ct˝ bank RAM"
+    IDS_MEMORY_RAM_BANK14   "Zobrazit Ëtrn·ct˝ bank RAM"
+    IDS_MEMORY_RAM_BANK15   "Zobrazit patn·ct˝ bank RAM"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MEMORY_SVBK_BANK1   "Zobrazit prvnÌ bank internÌ RAM"
+    IDS_MEMORY_SVBK_BANK2   "Zobrazit druh˝ bank internÌ RAM"
+    IDS_MEMORY_SVBK_BANK3   "Zobrazit t¯etÌ bank internÌ RAM"
+    IDS_MEMORY_SVBK_BANK4   "Zobrazit Ëtvrt˝ bank internÌ RAM"
+    IDS_MEMORY_SVBK_BANK5   "Zobrazit p·t˝ bank internÌ RAM"
+    IDS_MEMORY_SVBK_BANK6   "Zobrazit öest˝ bank internÌ RAM"
+    IDS_MEMORY_SVBK_BANK7   "Zobrazit sedm˝ bank internÌ RAM"
+    IDS_EMULATION_STARTDEBUG "Spustit debugovanÌ"
+    IDS_EMULATION_EXECUTE   "Spustit program bez debugovacÌch hl·öek"
+    IDS_EMULATION_STOP      "Zastavit emulaci"
+    IDS_EMULATION_STEPINTO  "P¯eskoËit do n·sledujÌcÌho n·vÏötÌ"
+    IDS_EMULATION_STEPOVER  "P¯eskoËit p¯es n·sledujÌcÌ n·vÏötÌ"
+    IDS_EMULATION_STEPOUT   "VyskoËit z aktu·lnÌ funkce"
+    IDS_EMULATION_RUNTOCURSOR 
+                            "Spustit program a zastavit se na aktu·lnÌ pozici kurzoru"
+    IDS_EMULATION_SETNEXTSTATEMENT 
+                            "Nastavit poËÌtadlo programu na ¯·dku, kde je kurzor"
+    IDS_EMULATION_TOGGLEBREAKPOINT "P¯idat nebo odebrat breakpoint"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMULATION_RESET     "Resetovat program"
+    IDS_TOOLS_OPTIONS       "ZmÏnit nastavenÌ"
+    IDS_TOOLS_SOUNDENABLED  "Povolit zvuk"
+    IDS_WINDOW_NEXT         "Aktivovat dalöÌ okno"
+    IDS_WINDOW_PREVIOUS     "Aktivovat p¯edchozÌ okno"
+    IDS_WINDOW_CASCADE      "Uspo¯·dat okna - kask·da"
+    IDS_WINDOW_TILEHORIZONTALLY 
+                            "Uspo¯·dat okna - dlaûdice - horizont·lnÏ"
+    IDS_WINDOW_TILEVERTICALLY 
+                            "Uspo¯·dat okna - dlaûdice - verik·lnÏ"
+    IDS_HELP_ABOUT          "Zobrazit informace o programu"
+    IDS_ABOUT_TITLE         "O programu"
+    IDS_ABOUT_WRITTENBY     "Autorem je $"
+    IDS_TRANSLATOR_NAME     "[mailto:krupaj@mobilnews.cz;Jan Krupa]"
+    IDS_FILE_MENU           "&Soubor"
+    IDS_FILE_OPEN_MENU      "&Otev¯Ìt Rom...\tCtrl+O"
+    IDS_FILE_CLOSE_MENU     "&Zav¯Ìt\tCtrl+F4"
+    IDS_FILE_SAVESTATE_MENU "&Uloûit state\tF2"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_LOADSTATE_MENU "&NaËist stav\tF3"
+    IDS_FILE_SAVESTATEAS_MENU "Uloûit stav j&ako...\tShift+F2"
+    IDS_FILE_LOADSTATEAS_MENU "NaËÌst sta&v z...\tShift+F3"
+    IDS_FILE_STATESLOT_MENU "S&tavov˝ slot"
+    IDS_FILE_STATESLOT_0_MENU "&0 $\tF4,0"
+    IDS_FILE_STATESLOT_1_MENU "&1 $\tF4,1"
+    IDS_FILE_STATESLOT_2_MENU "&2 $\tF4,2"
+    IDS_FILE_STATESLOT_3_MENU "&3 $\tF4,3"
+    IDS_FILE_STATESLOT_4_MENU "&4 $\tF4,4"
+    IDS_FILE_STATESLOT_5_MENU "&5 $\tF4,5"
+    IDS_FILE_STATESLOT_6_MENU "&6 $\tF4,6"
+    IDS_FILE_STATESLOT_7_MENU "&7 $\tF4,7"
+    IDS_FILE_STATESLOT_8_MENU "&8 $\tF4,8"
+    IDS_FILE_STATESLOT_9_MENU "&9 $\tF4,9"
+    IDS_FILE_SAVEBATTERY_MENU "U&loûit Battery Ram\tCtrl+S"
+    IDS_FILE_LOADBATTERY_MENU "NaËÌst &Battery Ram..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FILE_SAVEBATTERYAS_MENU "Uloûit Batter&y Ram jako..."
+    IDS_FILE_CLEARBATTERY_MENU "Smazar Batte&ry Ram"
+    IDS_FILE_EXIT_MENU      "&Konec"
+    IDS_EDIT_MENU           "⁄pr&avy"
+    IDS_EDIT_GOTO_MENU      "&P¯ejÌt na...\tCtrl+G"
+    IDS_VIEW_MENU           "&Zobrazit"
+    IDS_VIEW_DISASSEMBLY_MENU "&Disassemblovat\tAlt+8"
+    IDS_VIEW_MEMORY_MENU    "P&amÏù\tAlt+6"
+    IDS_VIEW_REGISTERS_MENU "&Registry\tAlt+5"
+    IDS_VIEW_HARDWARE_MENU  "&Hardware"
+    IDS_VIEW_PALETTES_MENU  "&Palety"
+    IDS_VIEW_TILEMAP_MENU   "T&ile mapa"
+    IDS_VIEW_TILES_MENU     "&Tiles"
+    IDS_VIEW_STATUSBAR_MENU "&Stavov˝ ¯·dek"
+    IDS_VIEW_ZOOM_MENU      "&ZvÏtöenÌ"
+    IDS_VIEW_ZOOM_100_MENU  "&100%"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_ZOOM_200_MENU  "&200%"
+    IDS_VIEW_ZOOM_300_MENU  "&300%"
+    IDS_VIEW_ZOOM_400_MENU  "&400%"
+    IDS_VIEW_FRAMESKIP_MENU "P¯&eskakov·nÌ snÌmku"
+    IDS_VIEW_FRAMESKIP_0_MENU "&0"
+    IDS_VIEW_FRAMESKIP_1_MENU "&1"
+    IDS_VIEW_FRAMESKIP_2_MENU "&2"
+    IDS_VIEW_FRAMESKIP_3_MENU "&3"
+    IDS_VIEW_FRAMESKIP_4_MENU "&4"
+    IDS_VIEW_FRAMESKIP_5_MENU "&5"
+    IDS_VIEW_FRAMESKIP_6_MENU "&6"
+    IDS_VIEW_FRAMESKIP_7_MENU "&7"
+    IDS_VIEW_FRAMESKIP_8_MENU "&8"
+    IDS_VIEW_FRAMESKIP_9_MENU "&9"
+    IDS_VIEW_BANK_MENU      "&Bank"
+    IDS_VIEW_BANK_ROM_MENU  "&ROM..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_BANK_VBK_MENU  "&VBK"
+    IDS_VIEW_BANK_VBK_0_MENU "Bank &0"
+    IDS_VIEW_BANK_VBK_1_MENU "Bank &1"
+    IDS_VIEW_BANK_RAM_MENU  "R&AM"
+    IDS_VIEW_BANK_RAM_0_MENU "Bank &0"
+    IDS_VIEW_BANK_RAM_1_MENU "Bank &1"
+    IDS_VIEW_BANK_RAM_2_MENU "Bank &2"
+    IDS_VIEW_BANK_RAM_3_MENU "Bank &3"
+    IDS_VIEW_BANK_RAM_4_MENU "Bank &4"
+    IDS_VIEW_BANK_RAM_5_MENU "Bank &5"
+    IDS_VIEW_BANK_RAM_6_MENU "Bank &6"
+    IDS_VIEW_BANK_RAM_7_MENU "Bank &7"
+    IDS_VIEW_BANK_RAM_8_MENU "Bank &8"
+    IDS_VIEW_BANK_RAM_9_MENU "Bank &9"
+    IDS_VIEW_BANK_RAM_10_MENU "Bank &10"
+    IDS_VIEW_BANK_RAM_11_MENU "Bank &11"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VIEW_BANK_RAM_12_MENU "Bank &12"
+    IDS_VIEW_BANK_RAM_13_MENU "Bank &13"
+    IDS_VIEW_BANK_RAM_14_MENU "Bank &14"
+    IDS_VIEW_BANK_RAM_15_MENU "Bank &15"
+    IDS_VIEW_BANK_SVBK_MENU "&SVBK"
+    IDS_VIEW_BANK_SVBK_1_MENU "Bank &1"
+    IDS_VIEW_BANK_SVBK_2_MENU "Bank &2"
+    IDS_VIEW_BANK_SVBK_3_MENU "Bank &3"
+    IDS_VIEW_BANK_SVBK_4_MENU "Bank &4"
+    IDS_VIEW_BANK_SVBK_5_MENU "Bank &5"
+    IDS_VIEW_BANK_SVBK_6_MENU "Bank &6"
+    IDS_VIEW_BANK_SVBK_7_MENU "Bank &7"
+    IDS_EMULATION_MENU      "E&mulace"
+    IDS_EMULATION_STARTDEBUG_MENU "ZaËÌt &debugov·nÌ\tF5"
+    IDS_EMULATION_EXECUTE_MENU "&Spustit\tCtrl+F5"
+    IDS_EMULATION_STOP_MENU "Za&stavit\tEsc"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMULATION_STEPINTO_MENU "P¯eskoË&it do\tF11"
+    IDS_EMULATION_STEPOVER_MENU "P¯esk&oËit p¯es\tF10"
+    IDS_EMULATION_STEPOUT_MENU "VyskoËi&t z\tShift+F11"
+    IDS_EMULATION_RUNTOCURSOR_MENU "Spustit aû ke &kurzoru\tCtrl+F10"
+    IDS_EMULATION_SETNEXTSTATEMENT_MENU "&Nastavit poËÌtadlo na pozici kurzoru\tCtrl+Shift+F10"
+    IDS_EMULATION_TOGGLEBREAKPOINT_MENU "Nas&tavit breakpoint\tF9"
+    IDS_EMULATION_RESET_MENU "&Restartovat"
+    IDS_TOOLS_MENU          "&N·stroje"
+    IDS_TOOLS_OPTIONS_MENU  "N&astavenÌ..."
+    IDS_TOOLS_SOUNDENABLED_MENU "&Povolit zvuk"
+    IDS_WINDOW_MENU         "&Okno"
+    IDS_WINDOW_NEXT_MENU    "&DalöÌt"
+    IDS_WINDOW_PREVIOUS_MENU "&P¯echozÌ"
+    IDS_WINDOW_CASCADE_MENU "&Kask·da"
+    IDS_WINDOW_TILEHORIZONTALLY_MENU "D&laûdice - horizont·lnÏ"
+    IDS_WINDOW_TILEVERTICALLY_MENU "Dl&aûdice - vertik·lnÏ"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_HELP_MENU           "&N·povÏda"
+    IDS_HELP_ABOUT_MENU     "&O programu"
+    IDS_STATUS_READY        "P¯ipraven"
+    IDS_STATUS_ENTERSLOTNUMBER "Zadej ËÌslo statickÈho slotu"
+    IDS_OPEN_TITLE          "N·zev: $"
+    IDS_OPEN_LOADBATTERY    "NaËÌst baterii"
+    IDS_STOPPED             "Zastaven"
+    IDS_STARTDEBUG          "ZaËÌt debugovat"
+    IDS_EXECUTE             "Spustit"
+    IDS_VK_APPS             "Aplikace"
+    IDS_VK_BACK             "Backspace"
+    IDS_VK_CONTROL          "Control"
+    IDS_VK_DELETE           "Delete"
+    IDS_VK_DOWN             "äipka dol˘"
+    IDS_VK_END              "End"
+    IDS_VK_RETURN           "Enter"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VK_HOME             "Home"
+    IDS_VK_INSERT           "Insert"
+    IDS_VK_LEFT             "äipka doleva"
+    IDS_VK_NUMLOCK          "Num Lock"
+    IDS_VK_NUMPAD0          "Numpad 0"
+    IDS_VK_NUMPAD1          "Numpad 1"
+    IDS_VK_NUMPAD2          "Numpad 2"
+    IDS_VK_NUMPAD3          "Numpad 3"
+    IDS_VK_NUMPAD4          "Numpad 4"
+    IDS_VK_NUMPAD5          "Numpad 5"
+    IDS_VK_NUMPAD6          "Numpad 6"
+    IDS_VK_NUMPAD7          "Numpad 7"
+    IDS_VK_NUMPAD8          "Numpad 8"
+    IDS_VK_NUMPAD9          "Numpad 9"
+    IDS_VK_ADD              "Numpad Add"
+    IDS_VK_DECIMAL          "Numpad Decimal"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_VK_DIVIDE           "Numpad DÏlenÌ"
+    IDS_VK_MULTIPLY         "Numpad N·sobenÌ"
+    IDS_VK_SUBTRACT         "Numpad OdËÌt·nÌ"
+    IDS_VK_NEXT             "Page Down"
+    IDS_VK_PRIOR            "Page Up"
+    IDS_VK_PAUSE            "Pause"
+    IDS_VK_RIGHT            "äipka doprava"
+    IDS_VK_SHIFT            "Shift"
+    IDS_VK_SPACE            "Space"
+    IDS_VK_TAB              "Tab"
+    IDS_VK_UP               "äipka nahoru"
+    IDS_YES                 "Yes"
+    IDS_NO                  "No"
+    IDS_PROMPT              "Prompt"
+    IDS_OPTIONS_KEYS        "Kl·vest"
+    IDS_OPTIONS_KEYS_UP     "Nahoru"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_OPTIONS_KEYS_DOWN   "Dol˘"
+    IDS_OPTIONS_KEYS_LEFT   "Doleva"
+    IDS_OPTIONS_KEYS_RIGHT  "Doprava"
+    IDS_OPTIONS_KEYS_A      "A"
+    IDS_OPTIONS_KEYS_B      "B"
+    IDS_OPTIONS_KEYS_START  "Start"
+    IDS_OPTIONS_KEYS_SELECT "Select"
+    IDS_OPTIONS_KEYS_FASTFORWARD "Rychle dop¯edu"
+    IDS_OPTIONS_GENERAL     "HlavnÌ"
+    IDS_FILEASSOC_FRAME     "Asociovat soubory s Game Lad"
+    IDS_FILEASSOC_GB        "Game Boy ROM soubory (.gb and .gbc)"
+    IDS_FILEASSOC_GLS       "Game Lad ukl·dacÌ states (.gls)"
+    IDS_SAVE_FRAME          "Uloûit"
+    IDS_SAVE_LOADBATTERY    "NaËÌst baterii, pokud je to moûnÈ"
+    IDS_SAVE_LOADSTATE      "NaËÌst poslednÌ uloûen˝ state"
+    IDS_SAVE_SAVEBATTERY    "Uloûit baterii p¯i ukonËenÌ"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_SAVE_SAVESTATE      "Uloûit state p¯i ukonËenÌ"
+    IDS_MISC_FRAME          "OstatnÌ"
+    IDS_MISC_FRAMESKIP      "StandartnÌ p¯eskakov·nÌ snÌmk˘"
+    IDS_MISC_HARDWARE       "Jak˝ hardware emulovat"
+    IDS_MISC_AUTOSTART      "PoË·teËnÌ nastavenÌ otev¯enÈ ROM"
+    IDS_OPTIONS_LANGUAGE    "Jazyk"
+    IDS_OPTIONS             "NastavenÌ"
+    IDS_OPEN_GBROM          "Game Boy ROMs (*.gb; *.gbc)"
+    IDS_OPEN_ALLFILES       "Vöechny soubory (*.*)"
+    IDS_OPEN_BATTERY        "Game Boy Battery RAM (*.sav)"
+    IDS_OPEN_SAVESTATE      "Game Lad Save States (*.gls)"
+    IDS_WND_REGISTERS       "Registry"
+    IDS_WND_DISASSEMBLY     "Disassemblovat"
+    IDS_WND_MEMORY          "PamÏù"
+    IDS_WND_TILES           "Tiles"
+    IDS_WND_TILEMAP         "Tile mapa"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_WND_PALETTES        "Palety"
+    IDS_WND_HARDWARE        "Hardware"
+    IDS_OPEN                "Otev¯Ìt"
+    IDS_SAVEAS              "Uloûit jako"
+    IDS_STATUS_LOADED       "$ naËteno"
+    IDS_STATUS_SAVED        "$ uloûeno"
+    IDS_STATUS_NOTFOUND     "$ nenalezeno"
+    IDS_STATUS_READERROR    "Chyba p¯i ËtenÌ $"
+    IDS_STATUS_WRITEERROR   "Chyba p¯i ukl·d·nÌ $"
+    IDS_PROMPT_SAVESTATE    "Uloûit state?"
+    IDS_PROMPT_SAVEBATTERY  "Uloûit battery?"
+    IDS_STATUS_ROMNOTFOUND  "Soubor s ROM nebyl nalezen"
+    IDS_STATUS_ROMSIZEDIFFER "Velikost souboru nesouhlasÌ s ˙dajem v jeho hlaviËËe."
+    IDS_STATUS_SELECTSTATESLOT "Byl vybr·n $ State slot"
+    IDS_STATUS_SELECTFRAMESKIP "P¯eskakov·nÌ snÌmku nastaveno na $"
+    IDS_EMU_INVALIDOPCODE   "äpatn˝ operation code"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_EMU_READACCESSDENIED "Byl odep¯en p¯Ìstup ke ËtenÌ"
+    IDS_EMU_WRITEACCESSDENIED "Byl odep¯en p¯Ìstup k z·pisu"
+    IDS_EMU_EXECUTEACCESSDENIED "Byl odep¯en p¯Ìstup ke spuötÏnÌ"
+    IDS_EMU_WRITEACCESSDENIED_INT 
+                            "Je nutn˝ p¯Ìstup k z·pisu pro stack pointer, interupt nem˘ûe b˝t obsluhov·n"
+    IDS_EMU_HALTQUIRK       "Zastavit quirk"
+    IDS_NOAUDIO             "V poËÌtaËÌ nenÌ p¯ÌtomnÈ û·dnÈ zvukovÈ za¯ÌzenÌ."
+    IDS_OPENAUDIOERROR      "NenÌ moûnÈ otev¯Ìt audio za¯ÌzenÌ."
+    IDS_HIGHERVERSIONREQUIRED "Je poûadov·n soubor $ nebo vyööÌ."
+    IDS_TOOLS_CHEAT_MENU    "&Cheat..."
+    IDS_TOOLS_CHEAT         "Zadat cheat kÛdy"
+    IDS_CHEAT_TITLE         "Cheats"
+    IDS_CHEAT_ADDCHEAT      "P¯idat cheat"
+    IDS_CHEAT_ADDCODE       "P¯idat code"
+    IDS_CHEAT_INVALID       "Invalid code"
+    IDS_CHEAT_GAMEGENIE     "KÛd Game Genie"
+    IDS_CHEAT_GAMESHARK     "KÛd Game Shark"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_CHEAT_INEFFECTIVE   "NeefektivnÌ kÛd"
+    IDS_FILE_SAVESNAPSHOTAS_MENU "Uloûit snapshot..."
+    IDS_FILE_SAVESNAPSHOTAS "Uloûit aktu·lnÌ screenshot do souboru"
+    IDS_FILE_SAVEVIDEOAS_MENU "Uloûit V&ideo..."
+    IDS_FILE_SAVEVIDEOAS    "Uloûit v˝stup do video souboru"
+    IDS_WND_TILEMAP_XFLIP   "X-Flip"
+    IDS_WND_TILEMAP_YFLIP   "Y-Flip"
+    IDS_WND_TILEMAP_PRIORITY "Prio"
+    IDS_WND_TILEMAP_BACKGROUNDENABLED "Bgnd"
+    IDS_WND_TILEMAP_WINDOWENABLED "Window"
+    IDS_WND_PALETTES_BACKGROUND "Background"
+    IDS_WND_PALETTES_SPRITE "Sprite"
+    IDS_WND_HARDWARE_ROMSIZE "Velikost ROM:"
+    IDS_WND_HARDWARE_RAMSIZE "Velikost RAM:"
+    IDS_WND_REGISTERS_HBLANK "H-Blank"
+    IDS_WND_REGISTERS_VBLANK "V-Blank"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_WND_REGISTERS_OAMSEARCH "OAM"
+    IDS_WND_REGISTERS_LCDTRANSFER "LCD"
+    IDS_FILE_MERGECHEATS_MENU "&P¯idat cheaty..."
+    IDS_FILE_MERGECHEATS    "NaËte cheaty ze souboru a p¯id· je do seznamu cheat˘"
+    IDS_OPTIONS_FILE        "Soubor"
+    IDS_OPEN_LOADSTATE      "NaËÌst poslednÌ state"
+    IDS_OPEN_CHEATXML       "Cheat files (*.xml)"
+    IDS_ENTERADDRESS        "Zadej adresu"
+    IDS_ENTERROMBANKNO      "Zadej ROM bank"
+    IDS_OPTIONS_LANGUAGE_TRANSLATEDBY "P¯eloûil: $"
+    IDS_OPEN_AVI            "Video for Windows (*.avi)"
+    IDS_OPEN_BITMAP         "Bitmap (*.bmp)"
+    IDS_TOOLS_LINKCABLE_MENU "&Link kabel"
+    IDS_TOOLS_LINKCABLE     "Spojit dva Game Boye"
+    IDS_OPTIONS_KEYS_PLAYER "Hrac $"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS "Uloûit schema jako..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_OPTIONS_KEYS_DELETESCHEME "Smazat schema"
+    IDS_OPTIONS_KEYS_JOYSTICK_NONE "(None)"
+    IDS_OPTIONS_KEYS_JOYSTICK_ANALOG "Analogov˝"
+    IDS_OPTIONS_KEYS_NORMAL "Norm·lnÌ"
+    IDS_OPTIONS_KEYS_AUTOFIRE "Autofire"
+    IDS_OPTIONS_KEYS_KEYBOARD "Kl·vesnice"
+    IDS_OPTIONS_KEYS_JOYSTICK "Joystick"
+    IDS_OPTIONS_KEYS_NOKEY  "(None)"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS_TITLE "Uloûit schÈma jako"
+    IDS_OPTIONS_KEYS_SAVESCHEME_NONAME "Zadej jmÈno souboru, kam schÈma uloûit"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS_CANNOTREPLACE "Nemohu p¯epsat toto schÈma."
+    IDS_FILE_STATESLOT_EMPTY "Pr·zdn˝"
+END
+
+#endif    // Czech resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Swedish resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_SVE)
+#ifdef _WIN32
+LANGUAGE LANG_SWEDISH, SUBLANG_DEFAULT
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Swedish resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

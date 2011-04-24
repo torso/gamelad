@@ -2,6 +2,7 @@
 #include	<dsound.h>
 
 #define		SOUND_CPP
+#include	"Game Lad.h"
 #include	"Sound.h"
 
 
@@ -10,27 +11,6 @@
 
 LPDIRECTSOUND8			lpds = NULL;
 LPDIRECTSOUNDBUFFER		lpdsbPrimary = NULL;
-
-
-
-
-
-#ifdef _DEBUG
-
-char		NumBuffer[10];
-
-#define		Error(Text)												\
-			OutputDebugString(__FILE__ "(");					\
-			OutputDebugString(ultoa(__LINE__, NumBuffer, 10));	\
-			OutputDebugString(") : ");							\
-			OutputDebugString(Text);							\
-			OutputDebugString("\n");
-
-#else //_DEBUG
-
-#define		Error(Text)
-
-#endif //_DEBUG
 
 
 
@@ -75,7 +55,7 @@ void CloseSound()
 
 
 
-BOOL InitSound(HWND hWnd)
+BOOL InitSound()
 {
 	DSBUFFERDESC	dsbdesc;
 
@@ -124,6 +104,8 @@ BOOL InitSound(HWND hWnd)
 			return true;
 		}
 	}
+
+	Settings.SoundEnabled = true;
 
 	return false;
 }
@@ -320,59 +302,5 @@ BOOL NewSoundBuffer(SOUNDBUFFER *pSoundBuffer)
 	}
 
 	return false;
-}
-
-
-
-BOOL		SND_VERSION_CalledOnce = false;
-
-extern "C" DWORD GameLadSoundMain(DWORD dwAction, DWORD dwData, void *pData)
-{
-	if (dwAction == SND_VERSION)
-	{
-		if (SND_VERSION_CalledOnce)
-		{
-			return SND_FAIL;
-		}
-		if (!pData)
-		{
-			return SND_INVALIDPARAMETER;
-		}
-		if (((SND_VERSIONSTRUCT *)pData)->dwId != 0x4C47)
-		{
-			return SND_FAIL;
-		}
-		*((SND_VERSIONSTRUCT *)pData)->dwDllReleaseNo = SND_DLL_RELEASENO;
-		if (((SND_VERSIONSTRUCT *)pData)->dwReleaseNo < SND_COMPATIBLERELEASE)
-		{
-			return SND_FAIL;
-		}
-		SND_VERSION_CalledOnce = true;
-		return SND_OK;
-	}
-
-	if (!SND_VERSION_CalledOnce)
-	{
-		return SND_FAIL;
-	}
-
-	switch (dwAction)
-	{
-	case SND_INITSOUND:
-		if (InitSound((HWND)dwData))
-		{
-			return SND_ERROR;
-		}
-		return SND_OK;
-
-	case SND_CLOSESOUND:
-		CloseSound();
-		return SND_OK;
-
-	case SND_CREATEBUFFER:
-		return NewSoundBuffer((SOUNDBUFFER *)pData) ? SND_ERROR : SND_OK;
-	}
-
-	return SND_NOTIMPLEMENTED;
 }
 

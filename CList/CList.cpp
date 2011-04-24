@@ -69,7 +69,7 @@ void *CList::NewItem(DWORD dwSize)
 
 
 
-void *CList::NewItem(DWORD dwSize, void *pv)
+void *CList::NewItem(DWORD dwSize, const void *pv)
 {
 	if (m_pFirstItem)
 	{
@@ -152,6 +152,10 @@ BOOL CList::DeleteItem(void *pvItem)
 				pItem->Header.pNext->Header.pPrevious = pItem->Header.pPrevious;
 			}
 			m_dwItems--;
+			if (pItem == m_pFirstItem)
+			{
+				m_pFirstItem = pItem->Header.pNext;
+			}
 			if (pItem == m_pCurrentItem)
 			{
 				m_pCurrentItem = pItem->Header.pNext;

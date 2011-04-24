@@ -136,7 +136,7 @@ STDMETHODIMP CShellExt::IsDirty()
 
 STDMETHODIMP CShellExt::Load(LPCOLESTR lpszFileName, DWORD dwMode)
 {
-	//WideCharToMultiByte(CP_ACP, 0, lpszFileName, -1, m_szFileUserClickedOn, sizeof(m_szFileUserClickedOn), NULL, NULL);
+	WideCharToMultiByte(CP_ACP, 0, lpszFileName, -1, m_szFilename, sizeof(m_szFilename), NULL, NULL);
 
 	return NOERROR;
 }
@@ -642,7 +642,8 @@ STDMETHODIMP CShellExt::AddPages(LPFNADDPROPSHEETPAGE lpfnAddPage, LPARAM lParam
 
 				if (!(m_hBitmapDC = CreateCompatibleDC(NULL)))
 				{
-					return 0;
+					CloseHandle(hFile);
+					return NOERROR;
 				}
 				ZeroMemory(&bmi, sizeof(bmi));
 				bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -925,47 +926,158 @@ STDMETHODIMP CShellExt::GetCommandString(UINT idCmd, UINT uFlags, UINT *pwReserv
 #ifdef ICONHANDLER
 STDMETHODIMP CShellExt::GetIconLocation(UINT uFlags, LPSTR szIconFile, UINT cchMax, LPINT piIndex, UINT *pwFlags)
 {
-	*pwFlags = GIL_DONTCACHE | GIL_NOTFILENAME;
-	return S_OK;
+	strcpy(szIconFile, m_szFilename);
+
+	*pwFlags = GIL_DONTCACHE | GIL_PERINSTANCE | GIL_NOTFILENAME;
+	return NOERROR;
 }
 
 
 
 STDMETHODIMP CShellExt::Extract(LPCSTR pszFile, UINT nIconIndex, HICON *phiconLarge, HICON *phiconSmall, UINT nIconSize)
 {
-	//*phiconLarge = (HICON)LoadImage(NULL, (char *)32516, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
-	*phiconLarge = (HICON)LoadImage(NULL, (char *)32516, IMAGE_ICON, LOWORD(nIconSize), LOWORD(nIconSize), 0);
-	*phiconSmall = (HICON)LoadImage(NULL, (char *)32516, IMAGE_ICON, HIWORD(nIconSize), HIWORD(nIconSize), 0);
+	HANDLE			hFile;
+	DWORD			Value, nBytes, Pos, y;
+	BYTE			*ANDbits, *XORbits;
+	HDC				hDisplayDC, hdcSrc, hdcDst;
+	BITMAPINFO		bmi;
+	HBITMAP			hbmpSrc, hbmpDst, hbmpSrcOld, hbmpDstOld;
+	BITMAP			Bitmap;
+
+
+	if ((hFile = CreateFile(pszFile, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL)) == INVALID_HANDLE_VALUE)
+	{
+		return S_FALSE;
+	}
+	ReadFromFile(Value);
+	if (Value != ('g' | ('l' << 8) | ('s' << 16)))
+	{
+		CloseHandle(hFile);
+		return S_FALSE;
+	}
+	ReadFromFile(Value);
+	Pos = 0;
+	do
+	{
+		ReadFromFile(m_Version[Pos]);
+		Pos++;
+	}
+	while (m_Version[Pos - 1] != '\0');
+	if (Value > 0)
+	{
+		CloseHandle(hFile);
+		return S_FALSE;
+	}
+
+	if (!(hDisplayDC = CreateDC("DISPLAY", NULL, NULL, NULL)))
+	{
+		CloseHandle(hFile);
+		return S_FALSE;
+	}
+	if (!(hdcSrc = CreateCompatibleDC(hDisplayDC)))
+	{
+		CloseHandle(hFile);
+		DeleteDC(hDisplayDC);
+		return S_FALSE;
+	}
+	if (!(hdcDst = CreateCompatibleDC(hDisplayDC)))
+	{
+		CloseHandle(hFile);
+		DeleteDC(hDisplayDC);
+		DeleteDC(hdcSrc);
+		return S_FALSE;
+	}
+	ZeroMemory(&bmi, sizeof(bmi));
+	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmi.bmiHeader.biWidth = 160;
+	bmi.bmiHeader.biHeight = -144;
+	bmi.bmiHeader.biPlanes = 1;
+	bmi.bmiHeader.biBitCount = 16;
+	bmi.bmiHeader.biCompression = BI_RGB;
+	if (!(hbmpSrc = CreateDIBSection(m_hBitmapDC, &bmi, DIB_RGB_COLORS, (void **)&m_pBitmap, NULL, 0)))
+	{
+		CloseHandle(hFile);
+		DeleteDC(hDisplayDC);
+		DeleteDC(hdcSrc);
+		DeleteDC(hdcDst);
+		return S_FALSE;
+	}
+	hbmpSrcOld = (HBITMAP)SelectObject(hdcSrc, hbmpSrc);
+
+	for (y = 0; y < 144; y++)
+	{
+		if (!ReadFile(hFile, m_pBitmap + y * 160, 160 * 2, &nBytes, NULL))
+		{
+			CloseHandle(hFile);
+			DeleteDC(hDisplayDC);
+			SelectObject(hdcSrc, hbmpSrcOld);
+			DeleteDC(hdcSrc);
+			DeleteDC(hdcDst);
+			DeleteObject(hbmpSrc);
+			return S_FALSE;
+		}
+		if (nBytes != 160 * 2)
+		{
+			CloseHandle(hFile);
+			DeleteDC(hDisplayDC);
+			SelectObject(hdcSrc, hbmpSrcOld);
+			DeleteDC(hdcSrc);
+			DeleteDC(hdcDst);
+			DeleteObject(hbmpSrc);
+			return S_FALSE;
+		}
+	}
+	CloseHandle(hFile);
+
+	if (!(ANDbits = new BYTE[LOWORD(nIconSize) * LOWORD(nIconSize) / 8]))
+	{
+		DeleteDC(hDisplayDC);
+		SelectObject(hdcSrc, hbmpSrcOld);
+		DeleteDC(hdcSrc);
+		DeleteDC(hdcDst);
+		DeleteObject(hbmpSrc);
+		return S_FALSE;
+	}
+	ZeroMemory(ANDbits, LOWORD(nIconSize) * LOWORD(nIconSize) / 8);
+
+	if (!(hbmpDst = CreateCompatibleBitmap(hDisplayDC, LOWORD(nIconSize), LOWORD(nIconSize))))
+	{
+		DeleteDC(hDisplayDC);
+		SelectObject(hdcSrc, hbmpSrcOld);
+		DeleteDC(hdcSrc);
+		DeleteDC(hdcDst);
+		DeleteObject(hbmpSrc);
+		delete ANDbits;
+		return S_FALSE;
+	}
+	GetObject(hbmpDst, sizeof(BITMAP), &Bitmap);
+	hbmpDstOld = (HBITMAP)SelectObject(hdcDst, hbmpDst);
+	StretchBlt(hdcDst, 0, 0, Bitmap.bmWidth, Bitmap.bmHeight, hdcSrc, 7 /*+ 48*/, 0 /*+ 40*/, 160 /*- 48 * 2*/, 144 /*- 40 * 2*/, SRCCOPY);
+	if (!(XORbits = new BYTE[Bitmap.bmWidthBytes * Bitmap.bmHeight * Bitmap.bmPlanes]))
+	{
+		DeleteDC(hDisplayDC);
+		SelectObject(hdcSrc, hbmpSrcOld);
+		DeleteDC(hdcSrc);
+		SelectObject(hdcDst, hbmpDstOld);
+		DeleteDC(hdcDst);
+		DeleteObject(hbmpSrc);
+		DeleteObject(hbmpDst);
+		delete ANDbits;
+		return S_FALSE;
+	}
+	GetBitmapBits(hbmpDst, Bitmap.bmWidthBytes * Bitmap.bmHeight * Bitmap.bmPlanes, XORbits);
+	SelectObject(hdcDst, hbmpDstOld);
+	DeleteDC(hdcDst);
+	DeleteObject(hbmpDst);
+	*phiconSmall = *phiconLarge = CreateIcon(hInstance, Bitmap.bmWidth, Bitmap.bmHeight, (BYTE)Bitmap.bmPlanes, (BYTE)Bitmap.bmBitsPixel, ANDbits, XORbits);
+	SelectObject(hdcSrc, hbmpSrcOld);
+	DeleteDC(hdcSrc);
+	DeleteObject(hbmpSrc);
+	delete ANDbits;
+	delete XORbits;
+	DeleteDC(hDisplayDC);
+
 	return NOERROR;
-	/*if (!m_pDataObj)
-	{
-		return S_FALSE;
-	}
-
-	fmte.cfFormat = CF_HDROP;
-	fmte.ptd = NULL;
-	fmte.dwAspect = DVASPECT_CONTENT;
-	fmte.lindex = -1;
-	fmte.tymed = TYMED_HGLOBAL;
-
-	if (m_pDataObj->GetData(&fmte, &medium))
-	{
-		return S_FALSE;
-	}
-	if (!medium.hGlobal)
-	{
-		return S_FALSE;
-	}
-
-	//Find out how many files the user has selected...
-	if (DragQueryFile((HDROP)medium.hGlobal, (UINT)-1, 0, 0) < 2)
-	{
-		DragQueryFile((HDROP)medium.hGlobal, 0, m_szFilename, sizeof(m_szFilename));
-		return NOERROR;
-	}*/
-
-	//MessageBox(NULL, pszFile, "Game Lad", MB_OK);
-	return S_FALSE;
 }
 #endif //ICONHANDLER
 

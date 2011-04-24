@@ -43,7 +43,7 @@ public:
 	BOOL					DeleteItem(void *pvItem);
 
 	void					*NewItem(DWORD dwSize);
-	void					*NewItem(DWORD dwSize, void *pv);
+	void					*NewItem(DWORD dwSize, const void *pv);
 
 	void					ResetSearch();
 	void					*GetNextItem();

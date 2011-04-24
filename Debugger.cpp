@@ -457,7 +457,7 @@ LRESULT CALLBACK TileZoomWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 		{
 			BeginPaint(hWin, &Paint);
 
-			if (pGameBoy = GameBoys.GetActive())
+			if (pGameBoy = GameBoys.GetActive(true))
 			{
 				TileNo = GetWindowLong(hWin, GWL_USERDATA);
 				if (TileNo & 0x80000000)
@@ -574,6 +574,8 @@ LRESULT CALLBACK TileZoomWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 				DeleteObject(hBrush[1]);
 				DeleteObject(hBrush[2]);
 				DeleteObject(hBrush[3]);
+
+				pGameBoy->Release();
 			}
 
 
@@ -662,7 +664,7 @@ LRESULT CALLBACK TileMapChildWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM
 
 			BeginPaint(hWin, &Paint);
 
-			if (pGameBoy = GameBoys.GetActive())
+			if (pGameBoy = GameBoys.GetActive(true))
 			{
 				ZeroMemory(&bmi, sizeof(bmi));
 				bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -717,10 +719,7 @@ LRESULT CALLBACK TileMapChildWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM
 
 					SetDIBColorTable(hdc[0], 0, 4, Palette);
 				}
-			}
 
-			if (pGameBoy)
-			{
 				if (pGameBoy->MEM_CPU[0x8F40] & 0x20)
 				{
 					WX = pGameBoy->MEM_CPU[0x8F4B] >= 167 ? 160 : pGameBoy->MEM_CPU[0x8F4B] <= 7 ? 0 : 168 - pGameBoy->MEM_CPU[0x8F4B];
@@ -978,6 +977,11 @@ LRESULT CALLBACK TileMapChildWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM
 				DeleteObject(hPen);
 			}
 
+			if (pGameBoy)
+			{
+				pGameBoy->Release();
+			}
+
 			EndPaint(hWin, &Paint);
 		}
 		return 0;
@@ -1134,7 +1138,7 @@ void TileMapUpdateInfo()
 	char			szTileAddress[8];
 
 
-	if (pGameBoy = GameBoys.GetActive())
+	if (pGameBoy = GameBoys.GetActive(true))
 	{
 		if (HoverTile & 0x80000000)
 		{
@@ -1267,6 +1271,8 @@ void TileMapUpdateInfo()
 		SendMessage(hBGAddress, CB_SETCURSEL, pGameBoy->MEM_CPU[0x8F40] & 0x08 ? 1 : 0, 0);
 		SendMessage(hWNDEnabled, BM_SETCHECK, pGameBoy->MEM_CPU[0x8F40] & 0x20 ? BST_CHECKED : BST_UNCHECKED, 0);
 		SendMessage(hWNDAddress, CB_SETCURSEL, pGameBoy->MEM_CPU[0x8F40] & 0x40 ? 1 : 0, 0);
+
+		pGameBoy->Release();
 	}
 	else
 	{
@@ -1404,12 +1410,13 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			switch (HIWORD(wParam))
 			{
 			case CBN_SELCHANGE:
-				if (!(pGameBoy = GameBoys.GetActive()))
+				if (!(pGameBoy = GameBoys.GetActive(true)))
 				{
 					return 0;
 				}
 				if (!(pGameBoy->Flags & GB_ROM_COLOR) || pGameBoy->IsEmulating())
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 				if (HoverTile & 0x80000000)
@@ -1422,11 +1429,13 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 				}
 				if (TileMapNo & 0x80000000)
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 				pGameBoy->MEM_VRAM[0x2000 + TileMapNo] &= ~7;
 				pGameBoy->MEM_VRAM[0x2000 + TileMapNo] |= SendMessage(hPaletteNo, CB_GETCURSEL, 0, 0);
 				InvalidateRect(hTileMapChild, NULL, true);
+				pGameBoy->Release();
 				return 0;
 			}
 			break;
@@ -1436,12 +1445,13 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			{
 				return 0;
 			}
-			if (!(pGameBoy = GameBoys.GetActive()))
+			if (!(pGameBoy = GameBoys.GetActive(true)))
 			{
 				return 0;
 			}
 			if (!(pGameBoy->Flags & GB_ROM_COLOR) || pGameBoy->IsEmulating())
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			if (HoverTile & 0x80000000)
@@ -1454,11 +1464,13 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			}
 			if (TileMapNo & 0x80000000)
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] &= ~0x20;
 			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] |= SendMessage(hFlipX, BM_GETCHECK, 0, 0) == BST_CHECKED ? 0x20 : 0;
 			InvalidateRect(hTileMapChild, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_TILEMAP_FLIPY:
@@ -1466,12 +1478,13 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			{
 				return 0;
 			}
-			if (!(pGameBoy = GameBoys.GetActive()))
+			if (!(pGameBoy = GameBoys.GetActive(true)))
 			{
 				return 0;
 			}
 			if (!(pGameBoy->Flags & GB_ROM_COLOR) || pGameBoy->IsEmulating())
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			if (HoverTile & 0x80000000)
@@ -1484,11 +1497,13 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			}
 			if (TileMapNo & 0x80000000)
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] &= ~0x40;
 			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] |= SendMessage(hFlipY, BM_GETCHECK, 0, 0) == BST_CHECKED ? 0x40 : 0;
 			InvalidateRect(hTileMapChild, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_TILEMAP_PRIORITY:
@@ -1496,12 +1511,13 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			{
 				return 0;
 			}
-			if (!(pGameBoy = GameBoys.GetActive()))
+			if (!(pGameBoy = GameBoys.GetActive(true)))
 			{
 				return 0;
 			}
 			if (!(pGameBoy->Flags & GB_ROM_COLOR) || pGameBoy->IsEmulating())
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			if (HoverTile & 0x80000000)
@@ -1514,11 +1530,13 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			}
 			if (TileMapNo & 0x80000000)
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] &= ~0x80;
 			pGameBoy->MEM_VRAM[0x2000 + TileMapNo] |= SendMessage(hPriority, BM_GETCHECK, 0, 0) == BST_CHECKED ? 0x80 : 0;
 			InvalidateRect(hTileMapChild, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_TILEMAP_TILENO:
@@ -1526,12 +1544,13 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			{
 				return 0;
 			}
-			if (!(pGameBoy = GameBoys.GetActive()))
+			if (!(pGameBoy = GameBoys.GetActive(true)))
 			{
 				return 0;
 			}
 			if (pGameBoy->IsEmulating())
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			if (HoverTile & 0x80000000)
@@ -1544,6 +1563,7 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			}
 			if (TileMapNo & 0x80000000)
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			if (hTileNo == (HWND)lParam)
@@ -1554,15 +1574,18 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 					SendMessage(hTileNo, WM_GETTEXT, 6, (LPARAM)&szTileAddress);
 					if (szTileAddress[0] < '0' || szTileAddress[0] > '1' || szTileAddress[1] != ':' || szTileAddress[4] != '\0' || (szTileAddress[0] > '0' && !(pGameBoy->Flags & GB_ROM_COLOR)))
 					{
+						pGameBoy->Release();
 						return 0;
 					}
 					if (HexToNum(&szTileAddress[2]) || HexToNum(&szTileAddress[3]))
 					{
+						pGameBoy->Release();
 						return 0;
 					}
 					if (pGameBoy->MEM_VRAM[TileMapNo] == ((szTileAddress[2] << 4) | szTileAddress[3]) &&
 						(pGameBoy->MEM_VRAM[0x2000 + TileMapNo] & 8) == (szTileAddress[0] == '1' ? 8 : 0))
 					{
+						pGameBoy->Release();
 						return 0;
 					}
 					pGameBoy->MEM_VRAM[TileMapNo] = (szTileAddress[2] << 4) | szTileAddress[3];
@@ -1572,9 +1595,11 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 						pGameBoy->MEM_VRAM[0x2000 + TileMapNo] |= 8;
 					}
 					InvalidateRect(hWin, NULL, true);
+					pGameBoy->Release();
 					return 0;
 				}
 			}
+			pGameBoy->Release();
 			break;
 
 		case ID_TILEMAP_TILEDATA:
@@ -1584,17 +1609,19 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			}
 			if (HIWORD(wParam) == CBN_SELCHANGE)
 			{
-				if (!(pGameBoy = GameBoys.GetActive()))
+				if (!(pGameBoy = GameBoys.GetActive(true)))
 				{
 					return 0;
 				}
 				if (pGameBoy->IsEmulating())
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 				pGameBoy->MEM_CPU[0x8F40] &= ~0x10;
 				pGameBoy->MEM_CPU[0x8F40] |= SendMessage(hTileData, CB_GETCURSEL, 0, 0) == 1 ? 0 : 0x10;
 				InvalidateRect(hTileMapChild, NULL, true);
+				pGameBoy->Release();
 				return 0;
 			}
 			break;
@@ -1606,17 +1633,19 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			}
 			if (HIWORD(wParam) == CBN_SELCHANGE)
 			{
-				if (!(pGameBoy = GameBoys.GetActive()))
+				if (!(pGameBoy = GameBoys.GetActive(true)))
 				{
 					return 0;
 				}
 				if (pGameBoy->IsEmulating())
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 				pGameBoy->MEM_CPU[0x8F40] &= ~0x08;
 				pGameBoy->MEM_CPU[0x8F40] |= SendMessage(hBGAddress, CB_GETCURSEL, 0, 0) == 1 ? 0x08 : 0;
 				InvalidateRect(hTileMapChild, NULL, true);
+				pGameBoy->Release();
 				return 0;
 			}
 			break;
@@ -1626,17 +1655,19 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			{
 				return 0;
 			}
-			if (!(pGameBoy = GameBoys.GetActive()))
+			if (!(pGameBoy = GameBoys.GetActive(true)))
 			{
 				return 0;
 			}
 			if (pGameBoy->IsEmulating())
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			pGameBoy->MEM_CPU[0x8F40] &= ~0x01;
 			pGameBoy->MEM_CPU[0x8F40] |= SendMessage(hBGEnabled, BM_GETCHECK, 0, 0) == BST_CHECKED ? 0x01 : 0;
 			InvalidateRect(hTileMapChild, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_TILEMAP_WNDADDRESS:
@@ -1646,17 +1677,19 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			}
 			if (HIWORD(wParam) == CBN_SELCHANGE)
 			{
-				if (!(pGameBoy = GameBoys.GetActive()))
+				if (!(pGameBoy = GameBoys.GetActive(true)))
 				{
 					return 0;
 				}
 				if (pGameBoy->IsEmulating())
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 				pGameBoy->MEM_CPU[0x8F40] &= ~0x40;
 				pGameBoy->MEM_CPU[0x8F40] |= SendMessage(hWNDAddress, CB_GETCURSEL, 0, 0) == 1 ? 0x40 : 0;
 				InvalidateRect(hTileMapChild, NULL, true);
+				pGameBoy->Release();
 				return 0;
 			}
 			break;
@@ -1666,17 +1699,19 @@ LRESULT CALLBACK TileMapWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			{
 				return 0;
 			}
-			if (!(pGameBoy = GameBoys.GetActive()))
+			if (!(pGameBoy = GameBoys.GetActive(true)))
 			{
 				return 0;
 			}
 			if (pGameBoy->IsEmulating())
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			pGameBoy->MEM_CPU[0x8F40] &= ~0x20;
 			pGameBoy->MEM_CPU[0x8F40] |= SendMessage(hWNDEnabled, BM_GETCHECK, 0, 0) == BST_CHECKED ? 0x20 : 0;
 			InvalidateRect(hTileMapChild, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_VIEW_ZOOM_100:
@@ -1881,7 +1916,7 @@ LRESULT CALLBACK PalettesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 		{
 			BeginPaint(hWin, &Paint);
 
-			pGameBoy = GameBoys.GetActive();
+			pGameBoy = GameBoys.GetActive(true);
 
 			SelectObject(Paint.hdc, GetStockObject(ANSI_FIXED_FONT));
 			SetBkMode(Paint.hdc, TRANSPARENT);
@@ -1956,6 +1991,10 @@ LRESULT CALLBACK PalettesWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPa
 			{
 				SelectObject(Paint.hdc, hOldBrush);
 				DeleteObject(hBrush);
+			}
+			else
+			{
+				pGameBoy->Release();
 			}
 
 			EndPaint(hWin, &Paint);
@@ -2071,7 +2110,7 @@ LRESULT CALLBACK TilesChildWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM l
 
 			BeginPaint(hWin, &Paint);
 
-			pGameBoy = GameBoys.GetActive();
+			pGameBoy = GameBoys.GetActive(true);
 
 			ZeroMemory(&bmi, sizeof(bmi));
 			bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -2261,6 +2300,11 @@ LRESULT CALLBACK TilesChildWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM l
 				DeleteObject(hPen);
 			}
 
+			if (pGameBoy)
+			{
+				pGameBoy->Release();
+			}
+
 			EndPaint(hWin, &Paint);
 		}
 		return 0;
@@ -2409,7 +2453,7 @@ void TilesUpdateInfo()
 	DWORD			TileNo, PaletteNo;
 
 
-	if (pGameBoy = GameBoys.GetActive())
+	if (pGameBoy = GameBoys.GetActive(true))
 	{
 		LockTilesUpdate = true;
 
@@ -2487,6 +2531,8 @@ void TilesUpdateInfo()
 			SetWindowLong(hTiles_TileZoom, GWL_USERDATA, 0x80000000);
 			EnableWindow(hTiles_PaletteNo, true);
 		}
+
+		pGameBoy->Release();
 
 		LockTilesUpdate = false;
 	}
@@ -3110,7 +3156,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_COMMAND:
-		if (!(pGameBoy = GameBoys.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive(true)))
 		{
 			break;
 		}
@@ -3302,7 +3348,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_SETFOCUS:
-		if (GameBoys.GetActive())
+		if (GameBoys.GetActive(false))
 		{
 			CreateCaret(hWin, NULL, 2, 16);
 			SetCaretPos(MemoryCaretX * FixedFontWidth, MemoryCaretY * FixedFontHeight);
@@ -3320,7 +3366,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_KEYDOWN:
-		if (!(pGameBoy = GameBoys.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive(true)))
 		{
 			break;
 		}
@@ -3335,6 +3381,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		case VK_NUMLOCK:
 		case VK_SCROLL:
 		case VK_MENU:
+			pGameBoy->Release();
 			return DefMDIChildProc(hWin, uMsg, wParam, lParam);
 
 		case VK_NUMPAD0:
@@ -3855,6 +3902,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			case VK_PRIOR:
 				if (MemoryTopByte == 0 && MemoryCaretY == 0)
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 
@@ -3863,6 +3911,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					MemoryTopByte = 0;
 					MemoryCaretY = 0;
 					InvalidateRect(hWin, NULL, true);
+					pGameBoy->Release();
 					return 0;
 				}
 
@@ -4003,10 +4052,11 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				TrackPopupMenu(GetSubMenu(hPopupMenu, 0), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
 			}
 		}
+		pGameBoy->Release();
 		return 0;
 
 	case WM_VSCROLL:
-		if (!GameBoys.GetActive())
+		if (!GameBoys.GetActive(false))
 		{
 			return 0;
 		}
@@ -4106,7 +4156,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 	case WM_RBUTTONDOWN:
 	case WM_LBUTTONDOWN:
-		if (!(pGameBoy = GameBoys.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive(true)))
 		{
 			return 0;
 		}
@@ -4128,10 +4178,11 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		{
 			SendMessage(hWin, WM_VSCROLL, SB_LINEDOWN, 0);
 		}
+		pGameBoy->Release();
 		return 0;
 
 	case WM_RBUTTONUP:
-		if (!(pGameBoy = GameBoys.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive(true)))
 		{
 			return 0;
 		}
@@ -4140,6 +4191,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			GetCursorPos(&Point);
 			TrackPopupMenu(GetSubMenu(hPopupMenu, 0), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
 		}
+		pGameBoy->Release();
 		return 0;
 
 	case WM_PAINT:
@@ -4147,7 +4199,7 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		{
 			BeginPaint(hWin, &Paint);
 
-			if (pGameBoy = GameBoys.GetActive())
+			if (pGameBoy = GameBoys.GetActive(true))
 			{
 				if (MemoryCaret)
 				{
@@ -4374,6 +4426,8 @@ LPARAM CALLBACK MemoryWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					SetCaretPos(MemoryCaretX * FixedFontWidth, MemoryCaretY * FixedFontHeight);
 					ShowCaret(hWin);
 				}
+
+				pGameBoy->Release();
 			}
 			else
 			{
@@ -4756,6 +4810,69 @@ DWORD GetNumberOfLabels(CGameBoy *pGameBoy, BYTE Bank, WORD Offset)
 
 
 
+BOOL TransparentBlitter(HDC hdcDest, int Left, int Top, int Width, int Height, HDC hdcSrc, HANDLE hbmpSrc)
+{
+	HBITMAP			hbmp, hbmpOld, hbmpMask, hbmpMaskOld;
+	HDC				hdc, hdcMask;
+	DWORD			*pBitmap;
+	int				x, y;
+	BITMAPINFO		bmi;
+	COLORREF		crTransparent;
+
+
+	hbmpMask = CreateBitmap(Width, Height, 1, 1, NULL);
+	hdcMask = CreateCompatibleDC(hdcDest);
+	hbmpMaskOld = (HBITMAP)SelectObject(hdcMask, hbmpMask);
+
+	ZeroMemory(&bmi, sizeof(bmi));
+	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmi.bmiHeader.biWidth = Width;
+	bmi.bmiHeader.biHeight = -Height;
+	bmi.bmiHeader.biPlanes = 1;
+	bmi.bmiHeader.biBitCount = 32;
+	bmi.bmiHeader.biCompression = BI_RGB;
+	hbmp = CreateDIBSection(hdcDest, &bmi, DIB_RGB_COLORS, (void **)&pBitmap, NULL, 0);
+	hdc = CreateCompatibleDC(hdcDest);
+	hbmpOld = (HBITMAP)SelectObject(hdc, hbmp);
+
+
+	PatBlt(hdcMask, 0, 0, Width, Height, BLACKNESS);
+
+	BitBlt(hdc, 0, 0, Width, Height, hdcSrc, 0, 0, SRCCOPY);
+	crTransparent = pBitmap[0];
+
+	for (y = 0; y < Height; y++)
+	{
+		for (x = 0; x < Width; x++)
+		{
+			if (pBitmap[y * Width + x] == crTransparent)
+			{
+				pBitmap[y * Width + x] = RGB(0x00, 0x00, 0x00);
+				SetPixel(hdcMask, x, y, RGB(0xFF, 0xFF, 0xFF));
+			}
+			else
+			{
+			}
+		}
+	}
+
+	BitBlt(hdcDest, Left, Top, Width, Height, hdcMask, 0, 0, SRCAND);
+	BitBlt(hdcDest, Left, Top, Width, Height, hdc, 0, 0, SRCPAINT);
+
+
+	hbmp = (HBITMAP)SelectObject(hdc, hbmpOld);
+	DeleteObject(hbmp);
+	DeleteDC(hdc);
+
+	hbmpMask = (HBITMAP)SelectObject(hdcMask, hbmpMaskOld);
+	DeleteObject(hbmpMask);
+	DeleteDC(hdcMask);
+
+	return false;
+}
+
+
+
 LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	CGameBoy		*pGameBoy;
@@ -4784,7 +4901,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_COMMAND:
-		if (!(pGameBoy = GameBoys.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive(true)))
 		{
 			break;
 		}
@@ -4795,6 +4912,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			{
 				InvalidateRect(hWin, NULL, true);
 			}
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_ROM:
@@ -4814,156 +4932,182 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					DisAsmROM = Byte;
 				}
 			}
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_VBK_BANK0:
 			DisAsmFlags |= MEMORY_VBK;
 			DisAsmVBK = 0;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_VBK_BANK1:
 			DisAsmFlags |= MEMORY_VBK;
 			DisAsmVBK = 1;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK0:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 0;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK1:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 1;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK2:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 2;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK3:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 3;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK4:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 4;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK5:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 5;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK6:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 6;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK7:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 7;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK8:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 8;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK9:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 9;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK10:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 10;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK11:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 11;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK12:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 12;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK13:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 13;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK14:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 14;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_RAM_BANK15:
 			DisAsmFlags |= MEMORY_RAM;
 			DisAsmRAM = 15;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_SVBK_BANK1:
 			DisAsmFlags |= MEMORY_SVBK;
 			DisAsmSVBK = 1;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_SVBK_BANK2:
 			DisAsmFlags |= MEMORY_SVBK;
 			DisAsmSVBK = 2;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_SVBK_BANK3:
 			DisAsmFlags |= MEMORY_SVBK;
 			DisAsmSVBK = 3;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_SVBK_BANK4:
 			DisAsmFlags |= MEMORY_SVBK;
 			DisAsmSVBK = 4;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_SVBK_BANK5:
 			DisAsmFlags |= MEMORY_SVBK;
 			DisAsmSVBK = 5;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_SVBK_BANK6:
 			DisAsmFlags |= MEMORY_SVBK;
 			DisAsmSVBK = 6;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_MEMORY_SVBK_BANK7:
 			DisAsmFlags |= MEMORY_SVBK;
 			DisAsmSVBK = 7;
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_EMULATION_STEPOVER:
@@ -4971,6 +5115,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			{
 				if (pGameBoy->IsEmulating())
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 				EmulationInfo.Flags = EMU_RUNTO;
@@ -4995,6 +5140,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					}
 				}
 				pGameBoy->Step(&EmulationInfo);
+				pGameBoy->Release();
 				return 0;
 			}
 			//If PC isn't on a call instruction, Step Over and Step Into are the same
@@ -5002,30 +5148,36 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		case ID_EMULATION_STEPINTO:
 			if (pGameBoy->IsEmulating())
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			EmulationInfo.Flags = EMU_STEPINTO;
 			pGameBoy->Step(&EmulationInfo);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_EMULATION_STEPOUT:
 			if (pGameBoy->IsEmulating())
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			EmulationInfo.Flags = EMU_STEPOUT;
 			pGameBoy->Step(&EmulationInfo);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_EMULATION_RUNTOCURSOR:
 			if (pGameBoy->IsEmulating())
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			EmulationInfo.Flags = EMU_RUNTO;
 			EmulationInfo.RunToOffset = DisAsmCaretByte;
 			DisAsmReadMem(pGameBoy, DisAsmCaretByte, &p, &Access, &EmulationInfo.RunToBank);
 			pGameBoy->Step(&EmulationInfo);
+			pGameBoy->Release();
 			return 0;
 
 		case ID_EMULATION_SETNEXTSTATEMENT:
@@ -5102,6 +5254,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					InvalidateRect(hRegisters, NULL, true);
 				}
 			}
+			pGameBoy->Release();
 			return 0;
 
 		case ID_EMULATION_TOGGLEBREAKPOINT:
@@ -5110,6 +5263,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			//Breakpoints cannot be placed on non-executable statements
 			if (!(*Access & MEM_EXECUTE))
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 
@@ -5124,8 +5278,10 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			GetClientRect(hWin, &rct);
 			rct.right = 15;
 			InvalidateRect(hWin, &rct, true);
+			pGameBoy->Release();
 			return 0;
 		}
+		pGameBoy->Release();
 		break;
 
 	case WM_MENUSELECT:
@@ -5136,7 +5292,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_SETFOCUS:
-		if (GameBoys.GetActive())
+		if (GameBoys.GetActive(false))
 		{
 			CreateCaret(hWin, NULL, 2, 16);
 			SetCaretPos(DisAsmCaretX, DisAsmCaretY);
@@ -5154,7 +5310,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return 0;
 
 	case WM_KEYDOWN:
-		if (!(pGameBoy = GameBoys.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive(true)))
 		{
 			break;
 		}
@@ -5207,6 +5363,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		case VK_UP:
 			if (DisAsmCaretByte == 0)
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			GetClientRect(hWin, &rct);
@@ -5290,6 +5447,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					}
 				}
 			}
+			pGameBoy->Release();
 			return 0;
 
 		case VK_DOWN:
@@ -5304,6 +5462,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			}
 			if (DisAsmCaretByte + Byte > 0xFFFF)
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			DisAsmCaretByte += Byte;
@@ -5318,6 +5477,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					SetCaretPos(DisAsmCaretX, DisAsmCaretY);
 					ShowCaret(hWin);
 				}
+				pGameBoy->Release();
 				return 0;
 			}
 			GetClientRect(hWin, &rct);
@@ -5352,6 +5512,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					}
 				}
 			}
+			pGameBoy->Release();
 			return 0;
 
 		case VK_PRIOR:
@@ -5383,6 +5544,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 							ShowCaret(hWin);
 						}
 					}
+					pGameBoy->Release();
 					return 0;
 				}
 				if (DisAsmTopByte < rct.bottom / FixedFontHeight - 1)
@@ -5412,6 +5574,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				}
 			}
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case VK_NEXT:
@@ -5455,6 +5618,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				DisAsmTopByte = DisAsmCaretByte;
 			}
 			InvalidateRect(hWin, NULL, true);
+			pGameBoy->Release();
 			return 0;
 
 		case VK_APPS:
@@ -5474,12 +5638,14 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 				ClientToScreen(hWin, &Point);
 				TrackPopupMenu(GetSubMenu(hPopupMenu, 1), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
 			}
+			pGameBoy->Release();
 			return 0;
 		}
+		pGameBoy->Release();
 		break;
 
 	case WM_VSCROLL:
-		if (!(pGameBoy = GameBoys.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive(true)))
 		{
 			return 0;
 		}
@@ -5488,6 +5654,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		case SB_LINEUP:
 			if (DisAsmTopByte == 0)
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			DisAsmTopByte--;
@@ -5507,6 +5674,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			}
 			if (DisAsmTopByte + Byte > 0xFFFF)
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			DisAsmTopByte += Byte;
@@ -5525,6 +5693,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		case SB_PAGEUP:
 			if (DisAsmTopByte == 0)
 			{
+				pGameBoy->Release();
 				return 0;
 			}
 			GetClientRect(hWin, &rct);
@@ -5569,11 +5738,12 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			InvalidateRect(hWin, NULL, true);
 			break;
 		}
+		pGameBoy->Release();
 		return 0;
 
 	case WM_RBUTTONDOWN:
 	case WM_LBUTTONDOWN:
-		if (!(pGameBoy = GameBoys.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive(true)))
 		{
 			return 0;
 		}
@@ -5622,10 +5792,11 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			SetCaretPos(DisAsmCaretX, DisAsmCaretY);
 			ShowCaret(hWin);
 		}
+		pGameBoy->Release();
 		return 0;
 
 	case WM_RBUTTONUP:
-		if (!(pGameBoy = GameBoys.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive(true)))
 		{
 			return 0;
 		}
@@ -5634,6 +5805,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 			GetCursorPos(&Point);
 			TrackPopupMenu(GetSubMenu(hPopupMenu, 1), TPM_LEFTBUTTON, Point.x, Point.y, 0, hWin, NULL);
 		}
+		pGameBoy->Release();
 		return 0;
 
 	case WM_PAINT:
@@ -5641,7 +5813,7 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		{
 			BeginPaint(hWin, &Paint);
 
-			if (pGameBoy = GameBoys.GetActive())
+			if (pGameBoy = GameBoys.GetActive(true))
 			{
 				if (DisAsmCaret)
 				{
@@ -5818,11 +5990,10 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 						(pByte >= 0xD000 && pByte < 0xE000 && ((Bank == 1 && (pGameBoy->MEM_CPU[0x8F70] & 7) == 0)
 						|| Bank == (pGameBoy->MEM_CPU[0x8F70] & 7)))))
 					{
-						hBitmap = LoadImage(hInstance, MAKEINTRESOURCE(IDB_CURRENTSTATEMENT), IMAGE_BITMAP, 0, 0, 0);
+						hBitmap = LoadImage(hInstance, MAKEINTRESOURCE(IDB_CURRENTSTATEMENT), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
 						hdc = CreateCompatibleDC(Paint.hdc);
 						hBitmap = SelectObject(hdc, hBitmap);
-						//BitBlt(Paint.hdc, 3, y + 1, 14, y + 12, hdc, 0, 0, SRCCOPY);
-						TransparentBlt(Paint.hdc, 3, y + 1, 11, 11, hdc, 0, 0, 11, 11, RGB(0xFF, 0xFF, 0xFF));
+						TransparentBlitter(Paint.hdc, 3, y + 1, 11, 11, hdc, hBitmap);
 						hBitmap = SelectObject(hdc, hBitmap);
 						DeleteObject(hBitmap);
 						DeleteDC(hdc);
@@ -6047,6 +6218,8 @@ LPARAM CALLBACK DisAsmWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 					SetCaretPos(DisAsmCaretX, DisAsmCaretY);
 					ShowCaret(hWin);
 				}
+
+				pGameBoy->Release();
 			}
 			else
 			{
@@ -6141,7 +6314,7 @@ void PaintRegisters(HDC hdc, RECT *pRect)
 	char		szBuffer[0x100];
 
 
-	pGameBoy = GameBoys.GetActive();
+	pGameBoy = GameBoys.GetActive(true);
 
 	SelectObject(hdc, hFixedFont);
 	//SetBkMode(Paint.hdc, TRANSPARENT);
@@ -6318,6 +6491,8 @@ void PaintRegisters(HDC hdc, RECT *pRect)
 		{
 			TextOut(hdc, pRect->left + 8 * FixedFontWidth, pRect->top + 13 * FixedFontHeight, ToHex(pGameBoy->LCD_Ticks, false), 2);
 		}
+
+		pGameBoy->Release();
 	}
 }
 
@@ -6341,7 +6516,7 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		return 0;
 
 	case WM_SETFOCUS:
-		if (GameBoys.GetActive())
+		if (GameBoys.GetActive(false))
 		{
 			CreateCaret(hWin, NULL, 2, 16);
 			SetCaretPos(RegisterCaretX * FixedFontWidth, RegisterCaretY * FixedFontHeight);
@@ -6359,7 +6534,7 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 		return 0;
 
 	case WM_KEYDOWN:
-		if (!(pGameBoy = GameBoys.GetActive()))
+		if (!(pGameBoy = GameBoys.GetActive(true)))
 		{
 			return 0;
 		}
@@ -6395,6 +6570,7 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 				}
 				else
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 				RegisterCaretX++;
@@ -6415,10 +6591,12 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			case VK_LEFT:
 				if (RegisterCaretX <= 3)
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 				if (RegisterCaretY >= 6 && RegisterCaretX <= 5)
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 				RegisterCaretX--;
@@ -6427,10 +6605,12 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			case VK_RIGHT:
 				if (RegisterCaretX >= 7)
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 				if (RegisterCaretY == 9 && RegisterCaretX >= 6)
 				{
+					pGameBoy->Release();
 					return 0;
 				}
 				RegisterCaretX++;
@@ -6440,6 +6620,7 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 				switch (RegisterCaretY)
 				{
 				case 0:
+					pGameBoy->Release();
 					return 0;
 
 				case 8:
@@ -6468,6 +6649,7 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 					break;
 
 				case 10:
+					pGameBoy->Release();
 					return 0;
 
 				case 8:
@@ -6489,12 +6671,13 @@ LPARAM CALLBACK RegisterWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 			lParam--;
 		}
+		pGameBoy->Release();
 		return 0;
 
 	case WM_PAINT:
 		if (GetUpdateRect(hWin, NULL, true))
 		{
-			if (pGameBoy = GameBoys.GetActive())
+			if (GameBoys.GetActive(false))
 			{
 				InvalidateRect(hWin, NULL, true);
 				GetUpdateRect(hWin, NULL, true);
@@ -6571,7 +6754,7 @@ LPARAM CALLBACK HardwareWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 			SetBkMode(Paint.hdc, TRANSPARENT);
 			TextOut(Paint.hdc, FixedFontWidth - x, FixedFontHeight - y, String(IDS_WND_HARDWARE_ROMSIZE), 9);
 			TextOut(Paint.hdc, FixedFontWidth - x, FixedFontHeight + FixedFontHeight - y, String(IDS_WND_HARDWARE_RAMSIZE), 9);
-			if (pGameBoy = GameBoys.GetActive())
+			if (pGameBoy = GameBoys.GetActive(true))
 			{
 				if (pGameBoy->MEM_ROM)
 				{
@@ -6601,6 +6784,8 @@ LPARAM CALLBACK HardwareWndProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lPar
 					TextOut(Paint.hdc, FixedFontWidth + 10 * FixedFontWidth - x, FixedFontHeight + FixedFontHeight - y, NumBuffer, strlen(NumBuffer));
 					TextOut(Paint.hdc, FixedFontWidth + (11 + strlen(NumBuffer)) * FixedFontWidth - x, FixedFontHeight + FixedFontHeight - y, "kB", 2);
 				}
+
+				pGameBoy->Release();
 			}
 			EndPaint(hWin, &Paint);
 		}

@@ -27,6 +27,7 @@ public:
 	CDebugInfo();
 	~CDebugInfo();
 
+	DWORD		nLabels();
 	BOOL		LoadFile(char *pszRomPath);
 	BOOL		AddLabel(BYTE Bank, WORD Offset, char *pszName);
 	void		ResetSearch();

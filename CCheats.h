@@ -48,6 +48,7 @@ private:
 	CList		*m_pGames;
 	HWND		m_hTreeView;
 	HTREEITEM	m_hGameItem;
+	CGameBoy	*m_pGameBoy;
 
 	BOOL		CompareCodes(char *pszCode1, char *pszCode2);
 
@@ -55,12 +56,16 @@ public:
 	CCheats();
 	~CCheats();
 
+	void		SetGameBoy();
+	void		ReleaseGameBoy();
+
 	BOOL		MergeFile(char *pszFilename);
 	BOOL		Save();
 	BOOL		ShowCheatDialog();
 	void		DisableDuplicateCodes(HTREEITEM hti);
 	void		UpdateCheckMarks(HTREEITEM hti);
 	BOOL		FillWindow(HWND hTreeView);
+	void		Release();
 	BOOL		UpdateCheats();
 	BOOL		AddCheat(char *pszCheat);
 	BOOL		AddCode(char *pszCode);

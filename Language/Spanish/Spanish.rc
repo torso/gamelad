@@ -474,13 +474,35 @@ BEGIN
     IDS_WND_REGISTERS_OAMSEARCH "OAM"
     IDS_WND_REGISTERS_LCDTRANSFER "LCD"
     IDS_FILE_MERGECHEATS_MENU "&Unir Trucos..."
-    IDS_FILE_MERGECHEATS    "Cargar trucos desde un archivo y agregalos a la lista de trucos"
+    IDS_FILE_MERGECHEATS    "Cargar trucos desde un archivo y agregarlos a la lista de trucos"
     IDS_OPTIONS_FILE        "Archivo"
     IDS_OPEN_LOADSTATE      "Cargar último estado"
     IDS_OPEN_CHEATXML       "Archivos de trucos (*.xml)"
     IDS_ENTERADDRESS        "Entrar dirección"
     IDS_ENTERROMBANKNO      "Entrar ROM bank"
     IDS_OPTIONS_LANGUAGE_TRANSLATEDBY "Traducido por: $"
+    IDS_OPEN_AVI            "Video para Windows (*.avi)"
+    IDS_OPEN_BITMAP         "Bitmap (*.bmp)"
+    IDS_TOOLS_LINKCABLE_MENU "Cable &Link"
+    IDS_TOOLS_LINKCABLE     "Linkear dos Game Boys"
+    IDS_OPTIONS_KEYS_PLAYER "Jugador $"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS "Guardar proyecto como..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_OPTIONS_KEYS_DELETESCHEME "Borrar proyecto"
+    IDS_OPTIONS_KEYS_JOYSTICK_NONE "(Ninguno)"
+    IDS_OPTIONS_KEYS_JOYSTICK_ANALOG "Analógico"
+    IDS_OPTIONS_KEYS_NORMAL "Normal"
+    IDS_OPTIONS_KEYS_AUTOFIRE "Autofire"
+    IDS_OPTIONS_KEYS_KEYBOARD "Teclado"
+    IDS_OPTIONS_KEYS_JOYSTICK "Joystick"
+    IDS_OPTIONS_KEYS_NOKEY  "(Ninguno)"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS_TITLE "Guardar proyecto como"
+    IDS_OPTIONS_KEYS_SAVESCHEME_NONAME "Entra un nobre oara guardar el proyecto"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS_CANNOTREPLACE "No se puede reemplazar este proyecto."
+    IDS_FILE_STATESLOT_EMPTY "Vacío"
 END
 
 #endif    // Spanish (Modern) resources

@@ -54,7 +54,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib comctl32.lib winmm.lib msimg32.lib vfw32.lib /nologo /subsystem:windows /machine:I386
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib comctl32.lib winmm.lib vfw32.lib dxguid.lib dsound.lib dinput8.lib /nologo /subsystem:windows /machine:I386
 
 !ELSEIF  "$(CFG)" == "Game Lad - Win32 Debug"
 
@@ -81,7 +81,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib comctl32.lib winmm.lib msimg32.lib vfw32.lib /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib comctl32.lib winmm.lib vfw32.lib dxguid.lib dsound.lib dinput8.lib /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
 
 !ENDIF 
 
@@ -129,6 +129,14 @@ SOURCE=".\Game Lad.rc"
 # End Source File
 # Begin Source File
 
+SOURCE=.\Input.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\Sound.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\Z80.cpp
 # End Source File
 # End Group
@@ -169,7 +177,15 @@ SOURCE=".\Game Lad.h"
 # End Source File
 # Begin Source File
 
+SOURCE=.\Input.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\resource.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\Sound.h
 # End Source File
 # Begin Source File
 
@@ -189,7 +205,19 @@ SOURCE=.\Breakpoint.bmp
 # End Source File
 # Begin Source File
 
+SOURCE=.\checked.bmp
+# End Source File
+# Begin Source File
+
 SOURCE=".\Current Statement.bmp"
+# End Source File
+# Begin Source File
+
+SOURCE=.\graycheck.bmp
+# End Source File
+# Begin Source File
+
+SOURCE=.\grayed.bmp
 # End Source File
 # Begin Source File
 
@@ -217,12 +245,47 @@ SOURCE=.\icon6.ico
 # End Source File
 # Begin Source File
 
+SOURCE=.\linkcabl.cur
+# End Source File
+# Begin Source File
+
 SOURCE=.\mainicon.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\unchecke.bmp
 # End Source File
 # End Group
 # Begin Source File
 
 SOURCE=".\Game Lad.txt"
+
+!IF  "$(CFG)" == "Game Lad - Win32 Release"
+
+# Begin Custom Build
+OutDir=.\Release
+InputPath=".\Game Lad.txt"
+InputName=Game Lad
+
+"$(OutDir)\$(InputName).txt" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy "$(InputName).txt" "$(OutDir)\$(InputName).txt"
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "Game Lad - Win32 Debug"
+
+# Begin Custom Build
+OutDir=.\Debug
+InputPath=".\Game Lad.txt"
+InputName=Game Lad
+
+"$(OutDir)\$(InputName).txt" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy "$(InputName).txt" "$(OutDir)\$(InputName).txt"
+
+# End Custom Build
+
+!ENDIF 
+
 # End Source File
 # End Target
 # End Project

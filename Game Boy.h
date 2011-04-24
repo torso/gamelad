@@ -1,4 +1,5 @@
 #include	"CList\\CList.h"
+#include	"Sound.h"
 
 
 
@@ -51,6 +52,9 @@ struct CHEATDATA
 #define		GB_ENABLEIE				0x00020000
 #define		GB_IE					0x00040000
 #define		GB_HDMA					0x00100000
+#define		GB_HASRUMBLEPACK		0x00200000
+#define		GB_RUMBLE				0x00400000
+#define		GB_SERIALBIT			0x00800000
 #define		GB_ERROR				0x10000000
 #define		GB_DEBUGRUNINFO			0x20000000
 #define		GB_DEBUGINFO			0x40000000
@@ -294,14 +298,22 @@ public:
 
 	SOUNDBUFFER		SoundBuffer;
 
-	BYTE			StateSlot;
+	BYTE			SerialInput, SerialBit;
+	DWORD			SerialTicks;
+	CGameBoy		*pLinkGameBoy;
 
-	//BYTE			*SerialOutput, SerialInput, SerialByte, SerialTicks;
+	int				JoyLeft, JoyRight, JoyUp, JoyDown;
+	BYTE			AutoButtonDown;
+
+	BYTE			StateSlot;
 
 
 	HWND			hGBWnd;
 	HDC				hGBDC;
 	HBITMAP			hGBBitmap, hOldBitmap;
+
+	DWORD			WndZ;
+
 
 #ifdef	CDEBUGINFO_H
 	CDebugInfo		*pDebugInfo;
@@ -310,9 +322,13 @@ public:
 #endif	//CDEBUGINFO_H
 
 
-private:
-	HANDLE			hThread;
 	DWORD			ThreadId;
+
+
+private:
+	DWORD			RefCount;
+
+	HANDLE			hThread;
 
 	BOOL			Terminating;
 
@@ -327,10 +343,14 @@ private:
 
 	CList			*m_pCheatList;
 
+	BYTE			LastEmulationType;
+
 
 private:
 	BOOL			StartThread();
+	void			LinkExecuteLoop();
 	void			ExecuteLoop();
+	void			LinkDebugLoop();
 	void			DebugLoop();
 	void			StepLoop(EMULATIONINFO *pEmulationInfo);
 	void			SetStartDelay();
@@ -358,6 +378,10 @@ private:
 public:
 	CGameBoy(BYTE Flags);
 	~CGameBoy();
+
+	void			AddRef();
+	void			Release();
+	BOOL			CanUnload();
 
 	BOOL			Init(char *pszROMFilename, char *pszStateFilename, char *pszBatteryFilename);
 	BOOL			LoadBattery(char *BatteryFilename);

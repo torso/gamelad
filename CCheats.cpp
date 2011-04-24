@@ -27,6 +27,7 @@ void CALLBACK DeleteCheat(void *p, DWORD dw)
 CCheats::CCheats()
 {
 	m_pGames = NULL;
+	m_pGameBoy = NULL;
 }
 
 
@@ -36,6 +37,34 @@ CCheats::~CCheats()
 	if (m_pGames)
 	{
 		delete m_pGames;
+	}
+
+	if (m_pGameBoy)
+	{
+		m_pGameBoy->Release();
+	}
+}
+
+
+
+void CCheats::SetGameBoy()
+{
+	if (m_pGameBoy)
+	{
+		m_pGameBoy->Release();
+	}
+
+	m_pGameBoy = GameBoys.GetActive(true);
+}
+
+
+
+void CCheats::ReleaseGameBoy()
+{
+	if (m_pGameBoy)
+	{
+		m_pGameBoy->Release();
+		m_pGameBoy = NULL;
 	}
 }
 
@@ -629,7 +658,6 @@ BOOL CCheats::FillWindow(HWND hTreeView)
 	CHEAT				*pCheat;
 	TVINSERTSTRUCT		tvis;
 	HTREEITEM			htiGame, htiCheat;
-	CGameBoy			*pGameBoy;
 	DWORD				Pos;
 	BOOL				HasCheckedChildren, HasUncheckedChildren;
 
@@ -637,11 +665,10 @@ BOOL CCheats::FillWindow(HWND hTreeView)
 	m_hTreeView = hTreeView;
 	m_hGameItem = NULL;
 
-	pGameBoy = GameBoys.GetActive();
 
 	if (!m_pGames)
 	{
-		if (!pGameBoy)
+		if (!m_pGameBoy)
 		{
 			return false;
 		}
@@ -671,11 +698,11 @@ BOOL CCheats::FillWindow(HWND hTreeView)
 		}
 		htiGame = TreeView_InsertItem(m_hTreeView, &tvis);
 
-		if (pGameBoy)
+		if (m_pGameBoy)
 		{
-			if (pGameInfo->Checksum == (pGameBoy->MEM_ROM[0x14E] << 8 | pGameBoy->MEM_ROM[0x14F]) && !memcmp(pGameInfo->szTitle, &pGameBoy->MEM_ROM[0x134], strlen(pGameInfo->szTitle))
-				&& (((pGameInfo->Flags & GIF_COLOR) && (pGameBoy->MEM_ROM[0x143] & 0x80)) || (!(pGameInfo->Flags & GIF_COLOR) && !(pGameBoy->MEM_ROM[0x143] & 0x80)))
-				&& (((pGameInfo->Flags & GIF_JAPAN) && !pGameBoy->MEM_ROM[0x14A]) || (!(pGameInfo->Flags & GIF_JAPAN) && pGameBoy->MEM_ROM[0x14A])))
+			if (pGameInfo->Checksum == (m_pGameBoy->MEM_ROM[0x14E] << 8 | m_pGameBoy->MEM_ROM[0x14F]) && !memcmp(pGameInfo->szTitle, &m_pGameBoy->MEM_ROM[0x134], strlen(pGameInfo->szTitle))
+				&& (((pGameInfo->Flags & GIF_COLOR) && (m_pGameBoy->MEM_ROM[0x143] & 0x80)) || (!(pGameInfo->Flags & GIF_COLOR) && !(m_pGameBoy->MEM_ROM[0x143] & 0x80)))
+				&& (((pGameInfo->Flags & GIF_JAPAN) && !m_pGameBoy->MEM_ROM[0x14A]) || (!(pGameInfo->Flags & GIF_JAPAN) && m_pGameBoy->MEM_ROM[0x14A])))
 			{
 				tvis.item.mask = TVIF_HANDLE | TVIF_STATE;
 				tvis.item.hItem = m_hGameItem = htiGame;
@@ -712,7 +739,7 @@ BOOL CCheats::FillWindow(HWND hTreeView)
 						tvis.hParent = htiCheat;
 						if (m_hGameItem == htiGame)
 						{
-							if (pGameBoy->IsApplied(tvis.item.pszText))
+							if (m_pGameBoy->IsApplied(tvis.item.pszText))
 							{
 								HasCheckedChildren = true;
 								tvis.item.state = INDEXTOSTATEIMAGEMASK(3);
@@ -739,10 +766,10 @@ BOOL CCheats::FillWindow(HWND hTreeView)
 		}
 	}
 
-	if (pGameBoy && !m_hGameItem)
+	if (m_pGameBoy && !m_hGameItem)
 	{
-		CopyMemory(GameInfo.szTitle, &pGameBoy->MEM_ROM[0x134], 16);
-		if (pGameBoy->MEM_ROM[0x143] & 0x80)
+		CopyMemory(GameInfo.szTitle, &m_pGameBoy->MEM_ROM[0x134], 16);
+		if (m_pGameBoy->MEM_ROM[0x143] & 0x80)
 		{
 			GameInfo.szTitle[15] = '\0';
 			GameInfo.Flags = GIF_COLOR;
@@ -768,12 +795,12 @@ BOOL CCheats::FillWindow(HWND hTreeView)
 		{
 			strcpy(GameInfo.szName, "Untitled");
 		}
-		if (!pGameBoy->MEM_ROM[0x14A])
+		if (!m_pGameBoy->MEM_ROM[0x14A])
 		{
 			GameInfo.Flags |= GIF_JAPAN;
 			strcat(GameInfo.szName, " (J)");
 		}
-		GameInfo.Checksum = (pGameBoy->MEM_ROM[0x14E] << 8) | pGameBoy->MEM_ROM[0x14F];
+		GameInfo.Checksum = (m_pGameBoy->MEM_ROM[0x14E] << 8) | m_pGameBoy->MEM_ROM[0x14F];
 		GameInfo.pCheats = NULL;
 		if (!(pGameInfo = (GAMEINFO *)m_pGames->NewItem(sizeof(GameInfo), &GameInfo)))
 		{
@@ -814,12 +841,11 @@ BOOL CCheats::UpdateCheats()
 	TVITEM				tvi;
 	char				szBuffer[0x100], *pszCode;
 	HTREEITEM			hGameItem, hCheatItem;
-	CGameBoy			*pGameBoy;
 
 
-	if (pGameBoy = GameBoys.GetActive())
+	if (m_pGameBoy)
 	{
-		pGameBoy->RemoveCheats();
+		m_pGameBoy->RemoveCheats();
 	}
 
 	if (!TreeView_GetCount(m_hTreeView))
@@ -886,7 +912,7 @@ BOOL CCheats::UpdateCheats()
 						{
 							if ((tvi.state >> 12) == 3)
 							{
-								pGameBoy->AddCheat(pszCode);
+								m_pGameBoy->AddCheat(pszCode);
 							}
 						}
 					}
@@ -1204,7 +1230,6 @@ int CCheats::VerifyCode(char *pszCode)
 {
 	char		szCode[10];
 	int			Pos, Pos2;
-	CGameBoy	*pGameBoy;
 	WORD		Offset;
 
 
@@ -1225,11 +1250,8 @@ int CCheats::VerifyCode(char *pszCode)
 	{
 	case 6:
 	case 9:
-		if (pGameBoy = GameBoys.GetActive())
-		{
-			return pGameBoy->VerifyCode(szCode, Pos2 == 9 ? true : false);
-		}
-		return ((CGameBoy *)NULL)->VerifyCode(pszCode, Pos2 == 9 ? true : false);
+		//CGameBoy::VerifyCode(...) will handle m_pGameBoy being NULL
+		return m_pGameBoy->VerifyCode(szCode, Pos2 == 9 ? true : false);
 
 	case 8:
 		Offset = (szCode[6] << 12) | (szCode[7] << 8) | (szCode[4] << 4) | szCode[5];
@@ -1433,8 +1455,9 @@ BOOL CALLBACK CheatDialogProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 	long			width, height;
 	char			szBuffer[0x100];
 	HIMAGELIST		himl;
-	HBITMAP			hbmp, hOldBmp;
-	HDC				hdc;
+	HBITMAP			hbmp, hOldBmp, hbmpFCOld;
+	HANDLE			hbmpFrameControl;
+	HDC				hdc, hdcFrameControl;
 	TVITEM			tvi;
 	HTREEITEM		hti;
 
@@ -1706,23 +1729,59 @@ BOOL CALLBACK CheatDialogProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 		rct.right = 13;
 		rct.top = 0;
 		rct.bottom = 13;
-		DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK);
+		if (!DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK))
+		{
+			hbmpFrameControl = LoadImage(hInstance, MAKEINTRESOURCE(IDB_UNCHECKED), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
+			hdcFrameControl = CreateCompatibleDC(hdc);
+			hbmpFCOld = (HBITMAP)SelectObject(hdcFrameControl, hbmpFrameControl);
+			BitBlt(hdc, 0, 0, 13, 13, hdcFrameControl, 0, 0, SRCCOPY);
+			SelectObject(hdcFrameControl, hbmpFCOld);
+			DeleteObject(hbmpFrameControl);
+			DeleteDC(hdcFrameControl);
+		}
 		SelectObject(hdc, hOldBmp);
 		ImageList_Add(himl, hbmp, NULL);
 		ImageList_Add(himl, hbmp, NULL);
 		ImageList_Add(himl, hbmp, NULL);
 		hOldBmp = (HBITMAP)SelectObject(hdc, hbmp);
-		DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_CHECKED);
+		if (!DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_CHECKED))
+		{
+			hbmpFrameControl = LoadImage(hInstance, MAKEINTRESOURCE(IDB_CHECKED), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
+			hdcFrameControl = CreateCompatibleDC(hdc);
+			hbmpFCOld = (HBITMAP)SelectObject(hdcFrameControl, hbmpFrameControl);
+			BitBlt(hdc, 0, 0, 13, 13, hdcFrameControl, 0, 0, SRCCOPY);
+			SelectObject(hdcFrameControl, hbmpFCOld);
+			DeleteObject(hbmpFrameControl);
+			DeleteDC(hdcFrameControl);
+		}
 		SelectObject(hdc, hOldBmp);
 		ImageList_Add(himl, hbmp, NULL);
 		ImageList_Add(himl, hbmp, NULL);
 		hOldBmp = (HBITMAP)SelectObject(hdc, hbmp);
-		DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_CHECKED | DFCS_INACTIVE);
+		if (!DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_CHECKED | DFCS_INACTIVE))
+		{
+			hbmpFrameControl = LoadImage(hInstance, MAKEINTRESOURCE(IDB_GRAYCHECKED), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
+			hdcFrameControl = CreateCompatibleDC(hdc);
+			hbmpFCOld = (HBITMAP)SelectObject(hdcFrameControl, hbmpFrameControl);
+			BitBlt(hdc, 0, 0, 13, 13, hdcFrameControl, 0, 0, SRCCOPY);
+			SelectObject(hdcFrameControl, hbmpFCOld);
+			DeleteObject(hbmpFrameControl);
+			DeleteDC(hdcFrameControl);
+		}
 		SelectObject(hdc, hOldBmp);
 		ImageList_Add(himl, hbmp, NULL);
 		ImageList_Add(himl, hbmp, NULL);
 		hOldBmp = (HBITMAP)SelectObject(hdc, hbmp);
-		DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_INACTIVE);
+		if (!DrawFrameControl(hdc, &rct, DFC_BUTTON, DFCS_BUTTONCHECK | DFCS_INACTIVE))
+		{
+			hbmpFrameControl = LoadImage(hInstance, MAKEINTRESOURCE(IDB_GRAYED), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
+			hdcFrameControl = CreateCompatibleDC(hdc);
+			hbmpFCOld = (HBITMAP)SelectObject(hdcFrameControl, hbmpFrameControl);
+			BitBlt(hdc, 0, 0, 13, 13, hdcFrameControl, 0, 0, SRCCOPY);
+			SelectObject(hdcFrameControl, hbmpFCOld);
+			DeleteObject(hbmpFrameControl);
+			DeleteDC(hdcFrameControl);
+		}
 		SelectObject(hdc, hOldBmp);
 		ImageList_Add(himl, hbmp, NULL);
 		ImageList_Add(himl, hbmp, NULL);
@@ -1773,14 +1832,19 @@ BOOL CALLBACK CheatDialogProc(HWND hWin, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 BOOL CCheats::ShowCheatDialog()
 {
+	Cheats.SetGameBoy();
+
 	if (DialogBox(hInstance, MAKEINTRESOURCE(IDD_CHEAT), hWnd, CheatDialogProc) == -1)
 	{
 		hMsgParent = hWnd;
+		Cheats.ReleaseGameBoy();
 		DisplayErrorMessage();
 		return true;
 	}
 
 	hMsgParent = hWnd;
+
+	Cheats.ReleaseGameBoy();
 
 	return false;
 }

@@ -347,8 +347,8 @@ BEGIN
     IDS_FILEASSOC_GLS       "Fichiers état Game Lad (.gls)"
     IDS_SAVE_FRAME          "Enregistrer"
     IDS_SAVE_LOADBATTERY    "Charger la RAM non-volatile si possible"
-    IDS_SAVE_LOADSTATE      "Charger le dernier état enregistré"
-    IDS_SAVE_SAVEBATTERY    "Enregistrer la RAM non-volatile en fermant"
+    IDS_SAVE_LOADSTATE      "Charger dernier état sauvé"
+    IDS_SAVE_SAVEBATTERY    "Enregistrer RAM non-volatile en fermant"
 END
 
 STRINGTABLE DISCARDABLE 
@@ -403,23 +403,23 @@ BEGIN
     IDS_NOAUDIO             "Aucun périphérique audio installé."
     IDS_OPENAUDIOERROR      "Impossible d'ouvrir le périphérique audio."
     IDS_HIGHERVERSIONREQUIRED "$ ou supérieur requis."
-    IDS_TOOLS_CHEAT_MENU    "&Cheat..."
-    IDS_TOOLS_CHEAT         "Enter cheat codes"
-    IDS_CHEAT_TITLE         "Cheats"
-    IDS_CHEAT_ADDCHEAT      "Add Cheat"
-    IDS_CHEAT_ADDCODE       "Add Code"
-    IDS_CHEAT_INVALID       "Invalid code"
-    IDS_CHEAT_GAMEGENIE     "Game Genie code"
-    IDS_CHEAT_GAMESHARK     "Game Shark code"
+    IDS_TOOLS_CHEAT_MENU    "&Cheat-Codes..."
+    IDS_TOOLS_CHEAT         "Entrez des cheat-codes"
+    IDS_CHEAT_TITLE         "Cheat-codes"
+    IDS_CHEAT_ADDCHEAT      "Ajout Cheat"
+    IDS_CHEAT_ADDCODE       "Ajout Code"
+    IDS_CHEAT_INVALID       "Code invalide"
+    IDS_CHEAT_GAMEGENIE     "Code Game Genie"
+    IDS_CHEAT_GAMESHARK     "Code Game Shark"
 END
 
 STRINGTABLE DISCARDABLE 
 BEGIN
-    IDS_CHEAT_INEFFECTIVE   "Code ineffective"
-    IDS_FILE_SAVESNAPSHOTAS_MENU "Save Snapshot..."
-    IDS_FILE_SAVESNAPSHOTAS "Saves the current picture to a file"
-    IDS_FILE_SAVEVIDEOAS_MENU "Save V&ideo..."
-    IDS_FILE_SAVEVIDEOAS    "Saves output as a video file"
+    IDS_CHEAT_INEFFECTIVE   "Code inopérant"
+    IDS_FILE_SAVESNAPSHOTAS_MENU "Capturer Image..."
+    IDS_FILE_SAVESNAPSHOTAS "Enregistre l'image courante"
+    IDS_FILE_SAVEVIDEOAS_MENU "Capturer  Vidéo..."
+    IDS_FILE_SAVEVIDEOAS    "Enregistre la sortie dans un fichier vidéo"
     IDS_WND_TILEMAP_XFLIP   "X-Flip"
     IDS_WND_TILEMAP_YFLIP   "Y-Flip"
     IDS_WND_TILEMAP_PRIORITY "Prio"
@@ -427,8 +427,8 @@ BEGIN
     IDS_WND_TILEMAP_WINDOWENABLED "Window"
     IDS_WND_PALETTES_BACKGROUND "Background"
     IDS_WND_PALETTES_SPRITE "Sprite"
-    IDS_WND_HARDWARE_ROMSIZE "ROM Size:"
-    IDS_WND_HARDWARE_RAMSIZE "RAM Size:"
+    IDS_WND_HARDWARE_ROMSIZE "Taille  ROM:"
+    IDS_WND_HARDWARE_RAMSIZE "Taille RAM:"
     IDS_WND_REGISTERS_HBLANK "H-Blank"
     IDS_WND_REGISTERS_VBLANK "V-Blank"
 END
@@ -437,14 +437,36 @@ STRINGTABLE DISCARDABLE
 BEGIN
     IDS_WND_REGISTERS_OAMSEARCH "OAM"
     IDS_WND_REGISTERS_LCDTRANSFER "LCD"
-    IDS_FILE_MERGECHEATS_MENU "&Merge Cheats..."
-    IDS_FILE_MERGECHEATS    "Load cheats from a file and adds them to the cheat list"
-    IDS_OPTIONS_FILE        "File"
-    IDS_OPEN_LOADSTATE      "Load latest state"
-    IDS_OPEN_CHEATXML       "Cheat files (*.xml)"
-    IDS_ENTERADDRESS        "Enter Address"
-    IDS_ENTERROMBANKNO      "Enter ROM bank"
+    IDS_FILE_MERGECHEATS_MENU "&Importer des Cheat-Codes..."
+    IDS_FILE_MERGECHEATS    "Charge des cheat-codes depuis un fichier et les ajoute à la liste"
+    IDS_OPTIONS_FILE        "Fichier"
+    IDS_OPEN_LOADSTATE      "Charger le dernier état"
+    IDS_OPEN_CHEATXML       "Fichier cheat-codes (*.xml)"
+    IDS_ENTERADDRESS        "Entrez une adresse"
+    IDS_ENTERROMBANKNO      "Entrez une banque ROM"
     IDS_OPTIONS_LANGUAGE_TRANSLATEDBY "Traduit par: $"
+    IDS_OPEN_AVI            "Video for Windows (*.avi)"
+    IDS_OPEN_BITMAP         "Bitmap (*.bmp)"
+    IDS_TOOLS_LINKCABLE_MENU "&Link cable"
+    IDS_TOOLS_LINKCABLE     "Links two Game Boys together"
+    IDS_OPTIONS_KEYS_PLAYER "Player $"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS "Save Scheme As..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_OPTIONS_KEYS_DELETESCHEME "Delete Scheme"
+    IDS_OPTIONS_KEYS_JOYSTICK_NONE "(None)"
+    IDS_OPTIONS_KEYS_JOYSTICK_ANALOG "Analog"
+    IDS_OPTIONS_KEYS_NORMAL "Normal"
+    IDS_OPTIONS_KEYS_AUTOFIRE "Autofire"
+    IDS_OPTIONS_KEYS_KEYBOARD "Keyboard"
+    IDS_OPTIONS_KEYS_JOYSTICK "Joystick"
+    IDS_OPTIONS_KEYS_NOKEY  "(None)"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS_TITLE "Save Scheme As"
+    IDS_OPTIONS_KEYS_SAVESCHEME_NONAME "Enter a name to save the scheme as"
+    IDS_OPTIONS_KEYS_SAVESCHEMEAS_CANNOTREPLACE "Cannot replace this scheme."
+    IDS_FILE_STATESLOT_EMPTY "Empty"
 END
 
 #endif    // French (France) resources

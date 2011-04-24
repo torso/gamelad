@@ -1,7 +1,3 @@
-#include	"Sound\\Sound.h"
-
-
-
 #ifndef		GAME_LAD_CPP
 
 #define		GAME_LAD_CPP	extern
@@ -73,6 +69,7 @@ struct SETTINGS
 	BYTE	FrameSkip;
 	BYTE	SoundEnabled;
 	BYTE	GbFile, GlsFile;
+	BYTE	LinkCable;
 } GAME_LAD_CPP Settings;
 
 
@@ -84,7 +81,7 @@ struct KEYS
 	DWORD	A, B;
 	DWORD	Start, Select;
 	DWORD	FastForward;
-} extern Keys;
+} extern Keys[2], AutoFireKeys[2], JoyButtons[2], AutoFireJoyButtons[2];
 
 
 
@@ -98,7 +95,7 @@ GAME_LAD_CPP	DWORD				DdeInst EQUALNULL;
 GAME_LAD_CPP	HSZ					hDdeServiceString, hDdeTopicString;
 GAME_LAD_CPP	HANDLE				hStartStopEvent;
 GAME_LAD_CPP	LARGE_INTEGER		TimerFrequency;
-GAME_LAD_CPP	CRITICAL_SECTION	csSound;
+GAME_LAD_CPP	CRITICAL_SECTION	csSound, csGameBoy;
 
 
 
@@ -135,10 +132,6 @@ GAME_LAD_CPP	char				*LoadString(UINT uID, char *pszBuffer, int nBufferMax, char
 
 GAME_LAD_CPP	BOOL				ChangeExtension(char *pszFilename, char *pszExtension);
 GAME_LAD_CPP	char				*CopyString(char *pszDest, char *pszSrc, DWORD dwLength);
-
-
-GAME_LAD_CPP	HINSTANCE			hSoundDll;
-GAME_LAD_CPP	SOUNDMAIN			SoundMain;
 
 
 #undef		GAME_LAD_CPP
